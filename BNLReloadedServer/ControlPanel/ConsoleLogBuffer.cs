@@ -30,6 +30,9 @@ public static class ConsoleLogBuffer
 
     public static void Append(string line)
     {
+        if (!string.IsNullOrWhiteSpace(line))
+            line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {line}";
+
         lock (LockObj)
         {
             Lines.Add(line);

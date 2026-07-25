@@ -1606,16 +1606,34 @@ public partial class GameZone : Updater
     {
         var tickTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         var token = GameCanceler.Token;
+        var lastGcPause = GC.GetTotalPauseDuration();
+        var lastGen2 = GC.CollectionCount(2);
+        var lastGen1 = GC.CollectionCount(1);
+        var lastGen0 = GC.CollectionCount(0);
         while (await tickTimer.WaitForNextTickAsync(token))
         {
             var ticksLastSecond = _tickNumber - _lastTickNumber;
             _lastTickNumber = _tickNumber;
+
+            var gcPause = GC.GetTotalPauseDuration();
+            var gen2 = GC.CollectionCount(2);
+            var gen1 = GC.CollectionCount(1);
+            var gen0 = GC.CollectionCount(0);
+            var pausedMillis = (gcPause - lastGcPause).TotalMilliseconds;
+            var collections = $"{gen0 - lastGen0}/{gen1 - lastGen1}/{gen2 - lastGen2}";
+            lastGcPause = gcPause;
+            lastGen2 = gen2;
+            lastGen1 = gen1;
+            lastGen0 = gen0;
+
             if (ticksLastSecond < TicksPerSecond - 1)
             {
-                Console.WriteLine($"Low TPS: {ticksLastSecond}");
+                // GC pause vs. a slow action on the updater queue - "Slow action" lines pin down the latter.
+                Console.WriteLine($"Low TPS: {ticksLastSecond} (GC paused {pausedMillis:F0}ms, " +
+                                  $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
             }
         }
-        
+
     }
 
     private Action OnTick(ulong tickNumber) =>
