@@ -152,6 +152,13 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
+            // Public: aggregate player counts only. Everything below this point requires a session.
+            if (method == "GET" && path == "/api/public/status")
+            {
+                await ServePublicStatus(ctx);
+                return;
+            }
+
             if (!IsAuthenticated(ctx))
             {
                 ctx.Response.StatusCode = 401;
@@ -368,6 +375,18 @@ public sealed class ControlPanelServer : IDisposable
         };
 
         await WriteJson(ctx, status);
+    }
+
+    /// Unauthenticated counterpart to ServeStatus - the player count and nothing else,
+    /// since this one is meant to be reachable from outside.
+    private static async Task ServePublicStatus(HttpListenerContext ctx)
+    {
+        var playerCount = Databases.MasterServerDatabase.GetRegionServers()
+            .Sum(r => Databases.MasterServerDatabase.GetRegionPlayerCount(r.Id!));
+
+        ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        ctx.Response.Headers["Cache-Control"] = "no-cache";
+        await WriteJson(ctx, new { player_count = playerCount });
     }
 
     private static async Task ExecuteAction(HttpListenerContext ctx, Action action)
