@@ -425,7 +425,7 @@ public class GameInstance : IGameInstance
 
         if (HasLobby())
         {
-            _startGameTimer = new Timer(TimeSpan.FromMinutes(2));
+            _startGameTimer = new Timer(TimeSpan.FromMinutes(1));
             _startGameTimer.AutoReset = false;
             _startGameTimer.Elapsed += OnLoadTimerElapsed;
             _startGameTimer.Start();
