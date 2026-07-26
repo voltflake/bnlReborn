@@ -80,6 +80,8 @@ public class ConfigDatabase : IConfigDatabase
     public string CouchDbDatabaseName() => _configs.CouchDbDatabaseName ?? string.Empty;
 
     public bool DebugMode() => _configs.DebugMode;
+
+    public bool UseMaxDeviceLevel() => _configs.UseMaxDeviceLevel;
     
     public bool DoReadline() => _configs.DoReadline;
     

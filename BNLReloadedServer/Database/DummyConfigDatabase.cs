@@ -63,6 +63,8 @@ public class DummyConfigDatabase : IConfigDatabase
     public string CouchDbDatabaseName() => "test";
     
     public bool DebugMode() => true;
+
+    public bool UseMaxDeviceLevel() => false;
     
     public bool DoReadline() => false;
     

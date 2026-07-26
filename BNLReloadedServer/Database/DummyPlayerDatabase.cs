@@ -392,10 +392,19 @@ public class DummyPlayerDatabase : IPlayerDatabase
 
     public Dictionary<Key, int> GetDeviceLevels(uint playerId)
     {
+        var useMaxDeviceLevel = Databases.ConfigDatabase.UseMaxDeviceLevel();
         var deviceLevels = new Dictionary<Key, int>();
         foreach (var deviceCard in CatalogueHelper.GetCards<CardDeviceGroup>(CardCategory.DeviceGroup))
         {
-            deviceLevels[deviceCard.Key] = 1;
+            if (useMaxDeviceLevel)
+            {
+                var dCard = Databases.Catalogue.GetCard<CardDevice>(deviceCard.Devices[0]);
+                deviceLevels[deviceCard.Key] = dCard.DeviceLevels.Count;
+            }
+            else
+            {
+                deviceLevels[deviceCard.Key] = 1;
+            }
         }
         return deviceLevels;
     }

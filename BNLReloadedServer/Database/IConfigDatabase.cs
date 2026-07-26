@@ -27,6 +27,7 @@ public interface IConfigDatabase
     public BasicCredentials CouchDbCredentials();
     public string CouchDbDatabaseName();
     public bool DebugMode();
+    public bool UseMaxDeviceLevel();
     public bool DoReadline();
     public bool ControlPanelEnabled();
     public string ControlPanelHost();
