@@ -67,7 +67,7 @@ public partial class Unit
                         return;
                     }
 
-                    timer.Interval = DoCheck();
+                    timer.Interval = TimeSpan.FromSeconds(DoCheck()).TotalMilliseconds;
                 })) return;
             
             timer.Stop();
