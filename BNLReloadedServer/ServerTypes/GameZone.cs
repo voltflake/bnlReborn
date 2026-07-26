@@ -57,6 +57,12 @@ public partial class GameZone : Updater
     
     private readonly Dictionary<ulong, ShotInfo> _shotInfo = new();
     private readonly HashSet<ulong> _keepShotAlive = [];
+
+    // A projectile reports a hit for every penetrable block it passes through - bushes, fire, force
+    // gates - all under the same shot id, plus the odd duplicate of a single contact. Only the last
+    // hit before the client drops the projectile is the actual detonation, so hits from a live
+    // projectile are held here and applied in ReceivedProjDropRequest.
+    private readonly Dictionary<ulong, (ulong Time, HitData Hit)> _pendingProjectileHits = new();
     private readonly HashSet<ulong> _checkForWater = [];
     private readonly List<Unit> _unitsToDrop = [];
 

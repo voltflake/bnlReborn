@@ -313,6 +313,12 @@ public partial class GameZone
 
     public void ReceivedProjDropRequest(ulong shotId)
     {
+        // The projectile is gone, so the hit held for it is the one it died on - apply it now.
+        if (_pendingProjectileHits.Remove(shotId, out var pending))
+        {
+            ReceivedHit(pending.Time, new Dictionary<ulong, HitData> { { shotId, pending.Hit } }, true);
+        }
+
         _keepShotAlive.Remove(shotId);
         _checkForWater.Remove(shotId);
         _shotInfo.Remove(shotId);
@@ -844,9 +850,14 @@ public partial class GameZone
         }
     }
 
-    public void ReceivedHit(ulong time, Dictionary<ulong, HitData> hits)
+    /// <param name="flushingDeferred">
+    /// Set when replaying a hit that was held back while its projectile was in flight. Such a hit is
+    /// applied as-is: it is not buffered again, and it is not rejected for being old, since it was
+    /// received up to the projectile's whole lifetime ago.
+    /// </param>
+    public void ReceivedHit(ulong time, Dictionary<ulong, HitData> hits, bool flushingDeferred = false)
     {
-        if ((ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds() > time + StaleRequestTimeout)
+        if (!flushingDeferred && (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds() > time + StaleRequestTimeout)
         {
             return;
         }
@@ -854,6 +865,15 @@ public partial class GameZone
         foreach (var (shotId, hitData) in hits)
         {
             if (!_shotInfo.TryGetValue(shotId, out var shot)) continue;
+
+            // The shot belongs to a projectile that is still flying, so this hit may well be one of
+            // several penetrated blocks. Hold it - the last one wins, once the client drops it.
+            if (!flushingDeferred && _keepShotAlive.Contains(shotId))
+            {
+                _pendingProjectileHits[shotId] = (time, hitData);
+                continue;
+            }
+
             var impactData = shot.Caster.CreateImpactDataExact(hitData.InsidePoint, shot.ShotPos, hitData.Normal,
                 hitData.Crit ?? false, shot.SourceGear?.Key ?? shot.SourceAbility);
             var casterSource = shot.Caster.GetSelfSource(impactData);
