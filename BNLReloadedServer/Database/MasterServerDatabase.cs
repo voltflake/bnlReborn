@@ -102,23 +102,45 @@ public class MasterServerDatabase : IMasterServerDatabase
         var players = await _playerDb.Table<PlayerRecord>().Where(x => x.SteamId == newRecord.SteamId).ToListAsync();
         if (players is { Count: > 0 })
         {
-            return PlayerData.FromPlayerRecord(players.First());
+            return await LoadSanitized(players.First());
         }
-        
+
         await _playerDb.InsertAsync(newRecord);
         return PlayerData.FromPlayerRecord(newRecord);
     }
-    
+
     public async Task<PlayerData?> GetPlayer(ulong steamId)
     {
         var record = await _playerDb.Table<PlayerRecord>().Where(x => x.SteamId == steamId).FirstOrDefaultAsync();
-        return record != null ? PlayerData.FromPlayerRecord(record) : null;
+        return record != null ? await LoadSanitized(record) : null;
     }
 
     public async Task<PlayerData?> GetPlayer(uint playerId)
     {
         var record = await _playerDb.Table<PlayerRecord>().Where(x => x.PlayerId == playerId).FirstOrDefaultAsync();
-        return record != null ? PlayerData.FromPlayerRecord(record) : null;
+        return record != null ? await LoadSanitized(record) : null;
+    }
+
+    /// <summary>
+    /// Reads a record and drops any card references missing from the current catalogue,
+    /// persisting the cleaned record so clients never receive stale keys.
+    /// </summary>
+    private async Task<PlayerData> LoadSanitized(PlayerRecord record)
+    {
+        var player = PlayerData.FromPlayerRecord(record);
+        if (!player.SanitizeAgainstCatalogue()) return player;
+
+        await _asyncLock.WaitAsync();
+        try
+        {
+            await _playerDb.UpdateAsync(player.ToPlayerRecord());
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
+
+        return player;
     }
 
     public async Task<bool> SetRegionForPlayer(uint playerId, string region)
