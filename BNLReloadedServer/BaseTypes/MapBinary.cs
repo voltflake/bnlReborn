@@ -1017,13 +1017,13 @@ public class MapBinary
         var dict = new Dictionary<Vector3s, BlockUpdate>();
         var hitUnits = new List<Unit>();
         var visitedBlocks = new HashSet<Vector3s>();
-        var maxTravCount = CoordsHelper.MaxBlockTraversal(radius);
+        var maxTravDist = CoordsHelper.MaxBlockTraversal(radius);
         var (unitsForBlock, blocksForUnit) = GetUnitBlockPositions(unitsInRadius);
-        var blockQueue = new PriorityQueue<(SplashDamagePropagation prop, uint travCount), float>();
-        var naturalFalloff = Math.Min(NaturalFalloff, 1f / maxTravCount);
-        
+        var blockQueue = new PriorityQueue<(SplashDamagePropagation prop, float travDist), float>();
+        var naturalFalloff = Math.Min(NaturalFalloff, 1f / maxTravDist);
+
         var radiusSqrd = radius * radius;
-        
+
         foreach (var startBlock in locations.Select(l => (Vector3s)l))
         {
             if (ContainsBlock(startBlock))
@@ -1034,7 +1034,7 @@ public class MapBinary
 
             var startDirCount = new bool[6];
             Array.Fill(startDirCount, true);
-            blockQueue.Enqueue((new SplashDamagePropagation(startBlock, startDirCount), 0), 0);
+            blockQueue.Enqueue((new SplashDamagePropagation(startBlock, startDirCount), 0f), 0);
         }
 
         while (blockQueue.TryDequeue(out var propInfo, out var dmgReduction))
@@ -1043,7 +1043,7 @@ public class MapBinary
                 continue;
 
             var dmg = dmgReduction > 0
-                ? damage.ReduceByPercent(dmgReduction - naturalFalloff * propInfo.travCount, dmgReduction)
+                ? damage.ReduceByPercent(dmgReduction - naturalFalloff * propInfo.travDist, dmgReduction)
                 : damage;
             if (unitsForBlock.TryGetValue(propInfo.prop.Position, out var units))
             {
@@ -1121,36 +1121,45 @@ public class MapBinary
                 }
             }
 
-            var newReduction = dmgReduction + naturalFalloff +
-                               (blkCard is { SplashFalloff: > 0 }
-                                   ? blkCard.SplashFalloff / 100f
-                                   : 0) +
-                               (dmgTaken > 0 ? dmgTaken / damage.BlockDamage : 0);
-            
-            if (newReduction >= 1f || propInfo.travCount == maxTravCount) continue;
-            
-            foreach (var (dir, index) in propInfo.prop.CanGoDir.Select((i, i1) => (i, i1)))
+            // Reduction carried by this block, excluding the natural distance falloff of the step about to be
+            // taken - that is charged per direction below, since diagonal steps travel further.
+            var baseReduction = dmgReduction +
+                                (blkCard is { SplashFalloff: > 0 }
+                                    ? blkCard.SplashFalloff / 100f
+                                    : 0) +
+                                (dmgTaken > 0 ? dmgTaken / damage.BlockDamage : 0);
+
+            // The cheapest possible step is an orthogonal one; if even that is spent, nothing can propagate.
+            if (baseReduction + naturalFalloff >= 1f || propInfo.travDist >= maxTravDist) continue;
+
+            foreach (var splashDir in CoordsHelper.SplashDirections)
             {
-                if (!dir) continue;
-                var direction = CoordsHelper.FaceToVector[index];
-                var newPos = direction + propInfo.prop.Position;
+                // A step is only allowed while every axis it is composed of is still open, which keeps the
+                // wave travelling outwards instead of curling back on itself.
+                if (Array.Exists(splashDir.Faces, f => !propInfo.prop.CanGoDir[f])) continue;
+
+                var newPos = splashDir.Vector + propInfo.prop.Position;
                 if (visitedBlocks.Contains(newPos))
                 {
                     continue;
                 }
 
-                if (onlyOpenFaces && blk.VData is var vData && blkCard switch
-                    {
-                        { Visual.CanBePassedByShot: true } => false,
-                        { IsVisualSlope: true } => SlopeBuilder.SidesCorners[index].All(c =>
-                            SlopeBuilder.IsCorner(c, (byte)vData)),
-                        { IsVisualPrefab: true } => PrefabBuilder.IsSolidFace(blk, (BlockFace)index),
-                        _ => true
-                    })
+                if (!CanStepDiagonally(propInfo.prop.Position, newPos, splashDir))
                 {
                     continue;
                 }
-                
+
+                var stepReduction = baseReduction + naturalFalloff * splashDir.Length;
+                if (stepReduction >= 1f || propInfo.travDist + splashDir.Length > maxTravDist)
+                {
+                    continue;
+                }
+
+                if (onlyOpenFaces && AnyFaceSolid(blk, blkCard, blk.VData, splashDir.Faces))
+                {
+                    continue;
+                }
+
                 var newInBounds = ContainsBlock(newPos);
                 var newBlockCard = newInBounds ? this[newPos].Card : null;
 
@@ -1162,22 +1171,75 @@ public class MapBinary
                     continue;
                 }
 
-                var newDirCount = propInfo.prop.CanGoDir
-                    .Select((c, idx) => c && idx != (int)CoordsHelper.OppositeFace[index]).ToArray();
+                var newDirCount = propInfo.prop.CanGoDir.ToArray();
+                foreach (var face in splashDir.Faces)
+                {
+                    newDirCount[(int)CoordsHelper.OppositeFace[face]] = false;
+                }
 
-                blockQueue.Enqueue((new SplashDamagePropagation(newPos, newDirCount), propInfo.travCount + 1),
-                    onlyOpenFaces || blkCard?.Visual?.CanBePassedByShot is true || (checkOpenFaces &&
-                        oldVdata is var vdata && !(blkCard switch
-                    {
-                        { IsVisualSlope: true } => SlopeBuilder.SidesCorners[index].All(c =>
-                            SlopeBuilder.IsCorner(c, (byte)vdata)),
-                        { IsVisualPrefab: true } => PrefabBuilder.IsSolidFace(blk, (BlockFace)index),
-                        _ => true
-                    })) ? dmgReduction + naturalFalloff : newReduction);
+                // Passing through a see-through block costs only the distance travelled, not the block itself.
+                var passedThrough = onlyOpenFaces || blkCard?.Visual?.CanBePassedByShot is true ||
+                                    (checkOpenFaces && !AnyFaceSolid(blk, blkCard, oldVdata, splashDir.Faces));
+
+                blockQueue.Enqueue((new SplashDamagePropagation(newPos, newDirCount), propInfo.travDist + splashDir.Length),
+                    passedThrough ? dmgReduction + naturalFalloff * splashDir.Length : stepReduction);
             }
         }
-        
+
         return (dict, hitUnits);
+    }
+
+    /// <summary>
+    /// A diagonal step cuts across the corner between the axis-aligned cells it is composed of.
+    ///
+    /// Stepping onto a solid block is always allowed: the blast fills the cell it went off in and presses on
+    /// every block around it, edges and corners included, which is what lets a shot dig a full 3x3x3 pocket
+    /// instead of a cross. Damaging that block does not let the wave continue - a block that survives still
+    /// halts propagation, so cover is unaffected.
+    ///
+    /// Stepping onto a passable cell is what would carry the blast past cover, so that is only allowed when
+    /// at least one of the axis-aligned cells it cuts across is open. Two solid neighbours form a sealed seam
+    /// the wave must not squeeze through to reach whoever is standing behind it.
+    /// </summary>
+    private bool CanStepDiagonally(Vector3s pos, Vector3s target, CoordsHelper.SplashDirection dir)
+    {
+        if (dir.Faces.Length < 2 || BlocksSplashPath(target)) return true;
+        foreach (var face in dir.Faces)
+        {
+            if (!BlocksSplashPath(pos + CoordsHelper.FaceToVector[face])) return true;
+        }
+
+        return false;
+    }
+
+    private bool BlocksSplashPath(Vector3s pos)
+    {
+        if (!ContainsBlock(pos)) return false;
+        var card = this[pos].Card;
+        return card.Solid && card.Visual?.CanBePassedByShot is not true;
+    }
+
+    /// <summary>
+    /// Whether any of the faces a step is composed of is solid on the block being passed through. Diagonals
+    /// need every face they cross to be open, so a single solid one blocks them.
+    /// </summary>
+    private static bool AnyFaceSolid(BlockBinary blk, CardBlock? blkCard, int vData, int[] faces)
+    {
+        foreach (var face in faces)
+        {
+            var solid = blkCard switch
+            {
+                { Visual.CanBePassedByShot: true } => false,
+                { IsVisualSlope: true } => SlopeBuilder.SidesCorners[face].All(c =>
+                    SlopeBuilder.IsCorner(c, (byte)vData)),
+                { IsVisualPrefab: true } => PrefabBuilder.IsSolidFace(blk, (BlockFace)face),
+                _ => true
+            };
+
+            if (solid) return true;
+        }
+
+        return false;
     }
 
     public Dictionary<Vector3s, BlockUpdate> HealBlock(Vector3s location, float amount, out float heals)

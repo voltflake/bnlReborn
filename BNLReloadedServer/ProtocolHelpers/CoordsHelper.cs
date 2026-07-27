@@ -171,4 +171,45 @@ public static class CoordsHelper
   private const double Sqrt3 = 1.7320508075689d;
 
   public static int MaxBlockTraversal(float radius) => (int)double.Ceiling(radius * Sqrt3);
+
+  /// <summary>
+  /// One of the 26 directions a splash wave can step in. <see cref="Faces"/> holds the indices into
+  /// <see cref="FaceToVector"/> that the direction is built from: one for an orthogonal step, two for an
+  /// edge diagonal, three for a corner diagonal.
+  /// </summary>
+  public readonly struct SplashDirection(Vector3s vector, int[] faces)
+  {
+    public Vector3s Vector { get; } = vector;
+    public int[] Faces { get; } = faces;
+    public float Length { get; } = MathF.Sqrt(faces.Length);
+  }
+
+  /// <summary>
+  /// The 26 splash step directions, orthogonals first so the cheapest steps are queued before diagonals.
+  /// </summary>
+  public static readonly SplashDirection[] SplashDirections = BuildSplashDirections();
+
+  private static SplashDirection[] BuildSplashDirections()
+  {
+    var dirs = new List<SplashDirection>(26);
+    for (var x = -1; x <= 1; x++)
+    for (var y = -1; y <= 1; y++)
+    for (var z = -1; z <= 1; z++)
+    {
+      if (x == 0 && y == 0 && z == 0) continue;
+      var faces = new List<int>(3);
+      for (var f = 0; f < FaceToVector.Length; f++)
+      {
+        var fv = FaceToVector[f];
+        if ((fv.x != 0 && fv.x == x) || (fv.y != 0 && fv.y == y) || (fv.z != 0 && fv.z == z))
+        {
+          faces.Add(f);
+        }
+      }
+
+      dirs.Add(new SplashDirection(new Vector3s(x, y, z), faces.ToArray()));
+    }
+
+    return dirs.OrderBy(d => d.Faces.Length).ToArray();
+  }
 }
