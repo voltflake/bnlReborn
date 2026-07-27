@@ -25,6 +25,7 @@ public class Configs
     public string? CouchDbDatabaseName { get; init; }
     public bool DebugMode { get; init; }
     public bool UseMaxDeviceLevel { get; init; }
+    public bool UseRaycastExplosions { get; init; }
     public bool DoReadline { get; init; }
     public bool ControlPanelEnabled { get; init; }
     public string ControlPanelHost { get; init; } = "127.0.0.1";

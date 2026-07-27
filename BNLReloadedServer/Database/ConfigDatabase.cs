@@ -82,6 +82,8 @@ public class ConfigDatabase : IConfigDatabase
     public bool DebugMode() => _configs.DebugMode;
 
     public bool UseMaxDeviceLevel() => _configs.UseMaxDeviceLevel;
+
+    public bool UseRaycastExplosions() => _configs.UseRaycastExplosions;
     
     public bool DoReadline() => _configs.DoReadline;
     

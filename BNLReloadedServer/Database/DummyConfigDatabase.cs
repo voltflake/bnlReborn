@@ -65,6 +65,8 @@ public class DummyConfigDatabase : IConfigDatabase
     public bool DebugMode() => true;
 
     public bool UseMaxDeviceLevel() => false;
+
+    public bool UseRaycastExplosions() => false;
     
     public bool DoReadline() => false;
     
