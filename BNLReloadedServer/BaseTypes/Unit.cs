@@ -254,6 +254,14 @@ public partial class Unit
 
     public void AddEffect(ConstEffectInfo effect, TeamType sourceTeam, EffectSource? source)
     {
+        // Effect keys are hardcoded in places, so a catalogue that predates one of them hands back no card
+        // at all. Dropping the effect keeps that to a missing buff rather than a unit that cannot spawn.
+        if (effect.Card is null)
+        {
+            Console.WriteLine($"[Unit] effect '{effect.Key}' not found in catalogue, skipping");
+            return;
+        }
+
         if(!DoesEffectApply(effect, sourceTeam) || IsImmune(effect)) return;
         
         if (IsDead && source is PersistOnDeathSource persistOnDeathSource)
