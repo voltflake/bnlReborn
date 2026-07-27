@@ -15,11 +15,9 @@ namespace BNLReloadedServer.ServerTypes;
 public class Matchmaker(AsyncTaskTcpServer server)
 {
     private const double MaxSecondWaitTimeWithFullLobby = 60;
-    private const double MaxSecondWaitTimeTillShorthandedGame = 120;
     private const double MaxSecondWaitTimeTillForcedInLobby = 420;
     private const double MinimumMatchQuality = 0.3;
     private const double SquadBoost = 1.07;
-    private const uint MaxThresholdOfShorthandedness = 4;
     private const double QueueCheckSeconds = 30;
     private const uint NumBalChecks = 8;
     private const int AbortDelay = 2000;
@@ -58,15 +56,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         
         public CardGameMode GameModeCard => Databases.Catalogue.GetCard<CardGameMode>(GameModeKey);
 
-        public bool EnoughForPop()
-        {
-            var maxPlayers = GameModeCard.PlayersPerTeam * 2;
-            return (DateTimeOffset.Now - LastJoinTime).TotalSeconds > MaxSecondWaitTimeTillShorthandedGame &&
-                GameModeKey != CatalogueHelper.ModeRanked.Key &&
-                Databases.RegionServerDatabase.GetActiveGamesCount(GameModeKey) <= 0
-                    ? Players.Count >= maxPlayers - MaxThresholdOfShorthandedness
-                    : Players.Count >= maxPlayers;
-        }
+        public bool EnoughForPop() => Players.Count >= GameModeCard.PlayersPerTeam * 2;
     }
     
     private record QueueGrouping(List<PlayerQueueData> Players, double RatingMean, DateTimeOffset MinJoinTime);
