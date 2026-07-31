@@ -118,4 +118,15 @@ public class PlayerLobbyState
       playerLobbyState.Read(reader);
       return playerLobbyState;
     }
+
+    // Uses Write/Read instead of a field-by-field copy so this stays correct if fields are added.
+    public PlayerLobbyState Clone()
+    {
+      using var stream = new MemoryStream();
+      using var writer = new BinaryWriter(stream);
+      Write(writer);
+      stream.Position = 0;
+      using var reader = new BinaryReader(stream);
+      return ReadRecord(reader);
+    }
 }

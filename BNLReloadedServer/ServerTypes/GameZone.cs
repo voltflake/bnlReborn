@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using System.Timers;
 using BNLReloadedServer.BaseTypes;
@@ -36,7 +37,7 @@ public partial class GameZone : Updater
     
     private readonly IGameInitiator _gameInitiator;
     
-    private readonly ICollection<PlayerLobbyState> _playerLobbyInfo;
+    private readonly ConcurrentDictionary<uint, PlayerLobbyState> _playerLobbyInfo;
     private readonly Dictionary<uint, Unit> _units = new();
     private readonly Dictionary<uint, Unit> _playerUnits = new();
     private readonly Dictionary<uint, uint> _playerIdToUnitId = new();
@@ -98,7 +99,7 @@ public partial class GameZone : Updater
     public bool HasEnded => _zoneData.MatchEnded;
 
     public GameZone(IServiceZone serviceZone, IServiceZone unbufferedZone, IBuffer sendBuffer, ISender sessionsSender,
-        MapData mapData, IGameInitiator gameInitiator, ICollection<PlayerLobbyState> players, Key? mapKey = null)
+        MapData mapData, IGameInitiator gameInitiator, ConcurrentDictionary<uint, PlayerLobbyState> players, Key? mapKey = null)
     {
         _serviceZone = serviceZone;
         _unbufferedZone = unbufferedZone;
@@ -154,7 +155,7 @@ public partial class GameZone : Updater
             }
         }
 
-        var playerMap = _playerLobbyInfo.ToDictionary(player => player.PlayerId,
+        var playerMap = _playerLobbyInfo.Values.ToDictionary(player => player.PlayerId,
             player => new ZonePlayerInfo
             {
                 Nickname = player.Nickname, 
@@ -264,8 +265,7 @@ public partial class GameZone : Updater
 
     private Unit? CreatePlayerUnit(uint playerId, IServiceZone creatorService)
     {
-        var playerInfo = _playerLobbyInfo.FirstOrDefault(player => player.PlayerId == playerId);
-        if (playerInfo == null) return null;
+        if (!_playerLobbyInfo.TryGetValue(playerId, out var playerInfo)) return null;
         var spawnId = _defaultSpawnId[(int)playerInfo.Team];
         var spawnPoint = _mapSpawnPoints.GetValueOrDefault(spawnId);
         var pos = Vector3.Zero;
@@ -759,7 +759,7 @@ public partial class GameZone : Updater
         
         var spawnPoints = new Dictionary<uint, uint?>();
 
-        foreach (var player in _playerLobbyInfo)
+        foreach (var player in _playerLobbyInfo.Values)
         {
             initMatchStats.PlayerStats.Add(player.PlayerId, new MatchPlayerStats
             {
@@ -836,7 +836,7 @@ public partial class GameZone : Updater
 
     public void JoinedInProgress(uint playerId, IServiceZone zoneService)
     {
-        var lobbyInfo = _playerLobbyInfo.FirstOrDefault(x => x.PlayerId == playerId);
+        var lobbyInfo = _playerLobbyInfo.GetValueOrDefault(playerId);
         if (lobbyInfo == null)
         {
             zoneService.SendUpdateZone(new ZoneUpdate
@@ -1271,7 +1271,7 @@ public partial class GameZone : Updater
                 v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
             var totalInfo = zoneDataMatchCard.Stats?.Total;
             
-            var playerInfo = _playerLobbyInfo.FirstOrDefault(u => u.PlayerId == player.PlayerId);
+            var playerInfo = _playerLobbyInfo.GetValueOrDefault(player.PlayerId.Value);
             matchStats.Add(new EndMatchPlayerData
             {
                 PlayerId = player.PlayerId.Value,

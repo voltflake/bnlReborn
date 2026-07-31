@@ -194,11 +194,7 @@ public class GameLobby : Updater
 
     private static void UpdateDevices(PlayerLobbyState player, Dictionary<int, Key> devices)
     {
-        if (player.Devices == null) return;
-        foreach (var slot in devices.Keys)
-        {
-            player.Devices[slot] = devices[slot];
-        }
+        player.Devices = devices;
     }
 
     public void UpdateDeviceSlot(uint playerId, int slot, Key? deviceKey)

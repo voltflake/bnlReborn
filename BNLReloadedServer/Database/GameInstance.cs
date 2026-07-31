@@ -42,6 +42,11 @@ public class GameInstance : IGameInstance
     private readonly ConcurrentBag<Action> _preZoneActions = [];
     
     private readonly ConcurrentDictionary<uint, MatchConnectionInfo> _connectedUsers = new();
+
+    // Frozen per-player loadout, captured once (in SendUserToZone) when a player locks in and
+    // heads into the zone. GameZone reads from this instead of the live lobby state, since hero
+    // picking is over by then and the lobby thread may still be mutating the live PlayerLobbyState.
+    private readonly ConcurrentDictionary<uint, PlayerLobbyState> _zonePlayerInfo = new();
     
     private readonly SessionSender _lobbySender;
     private readonly SessionSender _zoneSender;
@@ -403,6 +408,17 @@ public class GameInstance : IGameInstance
     {
         if (MapData == null) return;
         GameInitiator.StartIntoMatch();
+
+        // With no lobby nothing captures a loadout in SendUserToZone, so freeze what the caller
+        // handed us instead - a map editor game has no lobby to race against in the first place.
+        if (Lobby == null)
+        {
+            foreach (var player in playerList)
+            {
+                _zonePlayerInfo[player.PlayerId] = player.Clone();
+            }
+        }
+
         foreach (var playerId in playerList.Select(p => p.PlayerId).Distinct().ToList())
         {
             SendUserToZone(playerId);
@@ -416,7 +432,7 @@ public class GameInstance : IGameInstance
         }
         
         Zone = new GameZone(new ServiceZone(bufferedSender), new ServiceZone(_zoneSender), bufferedSender, _zoneSender,
-            MapData, GameInitiator, playerList, mapKey);
+            MapData, GameInitiator, _zonePlayerInfo, mapKey);
 
         while (_preZoneActions.TryTake(out var action))
         {
@@ -462,6 +478,7 @@ public class GameInstance : IGameInstance
                     Perks = lobbyData.Perks,
                     SkinKey = lobbyData.SkinKey
                 });
+                _zonePlayerInfo[playerId] = lobbyData.Clone();
             }
         }
         
