@@ -443,10 +443,13 @@ public partial class GameZone
             case InstEffectAllUnitsBunch instEffectAllUnitsBunch:
                 if (instEffectAllUnitsBunch.Constant is { Count: > 0 } constant)
                 {
+                   var ownTeamConstant = ConstEffectsForOwnTeam(constant, effect);
                    foreach (var unit in actualUnitList)
                    {
-                       unit.AddEffects(constant.Select(c => new ConstEffectInfo(c)), source.Team, source);
-                   } 
+                       var applicable = unit.Team == source.Team ? ownTeamConstant : constant;
+                       if (applicable.Count == 0) continue;
+                       unit.AddEffects(applicable.Select(c => new ConstEffectInfo(c)), source.Team, source);
+                   }
                 }
 
                 var successAll = true;
@@ -735,10 +738,13 @@ public partial class GameZone
             case InstEffectBunch instEffectBunch:
                 if (instEffectBunch.Constant is { Count: > 0 } con)
                 {
+                    var ownTeamConst = ConstEffectsForOwnTeam(con, effect);
                     foreach (var unit in actualUnitList)
                     {
-                        unit.AddEffects(con.Select(c => new ConstEffectInfo(c)), source.Team, source);
-                    } 
+                        var applicable = unit.Team == source.Team ? ownTeamConst : con;
+                        if (applicable.Count == 0) continue;
+                        unit.AddEffects(applicable.Select(c => new ConstEffectInfo(c)), source.Team, source);
+                    }
                 }
                 
                 var before = impactData.Clone();
@@ -1179,12 +1185,15 @@ public partial class GameZone
                             resourceType));
                 }
 
-                if (instEffectSplashDamage.UnitConstEffects is { Count: > 0 })
+                if (instEffectSplashDamage.UnitConstEffects is { Count: > 0 } splashConst)
                 {
+                    var ownTeamSplashConst = ConstEffectsForOwnTeam(splashConst, effect);
                     affUnits.ForEach(u =>
-                        u.AddEffects(
-                            instEffectSplashDamage.UnitConstEffects.Select(e => new ConstEffectInfo(e)),
-                            source.Team, source));
+                    {
+                        var applicable = u.Team == source.Team ? ownTeamSplashConst : splashConst;
+                        if (applicable.Count == 0) return;
+                        u.AddEffects(applicable.Select(e => new ConstEffectInfo(e)), source.Team, source);
+                    });
                 }
                 return true;
             
@@ -1355,9 +1364,12 @@ public partial class GameZone
             case InstEffectZoneEffect instEffectZoneEffect:
                 if (instEffectZoneEffect.Effects is not { Count: > 0 } eff) return true;
                 var persistantSource = unitSource is not null ? new PersistOnDeathSource(unitSource, impactData) : source;
+                var ownTeamEff = ConstEffectsForOwnTeam(eff, effect);
                 foreach (var unit in actualUnitList)
                 {
-                    unit.AddEffects(eff.Select(c => new ConstEffectInfo(c, instEffectZoneEffect.Duration)),
+                    var applicableEff = unit.Team == source.Team ? ownTeamEff : eff;
+                    if (applicableEff.Count == 0) continue;
+                    unit.AddEffects(applicableEff.Select(c => new ConstEffectInfo(c, instEffectZoneEffect.Duration)),
                         source.Team, persistantSource);
                 }
                 return true;
@@ -1506,6 +1518,41 @@ public partial class GameZone
     }
 
     private float GetResourceCap() => _gameInitiator.GetResourceCap();
+
+    /// <summary>
+    /// Effect labels the catalogue uses for statuses that only ever go on an enemy. Bleed and burn are
+    /// <see cref="EffectLabel.DotOrganic"/>/<see cref="EffectLabel.DotMechanic"/>, slows and dizzies are
+    /// <see cref="EffectLabel.SoftControl"/>, roots and stuns <see cref="EffectLabel.HardControl"/>. The
+    /// remaining labels - Heal, BuffMobility, BuffCombat - are the beneficial half.
+    /// </summary>
+    private static readonly EffectLabel[] HostileEffectLabels =
+    [
+        EffectLabel.DotOrganic, EffectLabel.DotMechanic, EffectLabel.SoftControl, EffectLabel.HardControl,
+        EffectLabel.Confusion
+    ];
+
+    /// <summary>
+    /// The subset of <paramref name="constEffects"/> a hit may hand to a unit on the source's own team.
+    /// Most hostile statuses say so through their own targeting, but some - the katana and shuriken
+    /// bleeds, fire trap and thorn bush burns and poisons - carry none at either layer, and without
+    /// this a teammate caught in the swing or the blast picks them up all the same. Their labels are
+    /// the catalogue's own statement of what the status is, so those stand in where targeting is
+    /// silent. Targeting that names a team is the author being explicit and wins outright; Both and an
+    /// unset value name none, and leave teams unfiltered in <see cref="ApplyInstEffect"/> too.
+    /// </summary>
+    private static List<Key> ConstEffectsForOwnTeam(List<Key> constEffects, InstEffect effect)
+    {
+        if (effect.Targeting?.AffectedTeam is RelativeTeamType.Opponent or RelativeTeamType.Friendly)
+            return constEffects;
+
+        return constEffects.Where(key =>
+        {
+            var card = Databases.Catalogue.GetCard<CardEffect>(key);
+            if (card?.Effect?.Targeting?.AffectedTeam is RelativeTeamType.Opponent or RelativeTeamType.Friendly)
+                return true;
+            return card?.Labels is not { } labels || !labels.Intersect(HostileEffectLabels).Any();
+        }).ToList();
+    }
     
     private void ImpactOccur(Vector3 insidePoint, Vector3 shotPos, bool crit = false, Unit? sourceUnit = null,
         Key? source = null, CardImpact? card = null, IEnumerable<uint>? affectedUnits = null, Vector3s? normal = null)
