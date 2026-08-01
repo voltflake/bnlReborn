@@ -1099,7 +1099,8 @@ public class MapBinary
             if (!(blkCard.Health?.MaxHealth > 0) || dmg.BlockDamage == 0) continue;
             if (!blkCard.Destructible && blkCard.Solid && !damage.IgnoreInvincibility) continue;
 
-            var dmgAmount = MathF.Max(dmg.BlockDamage - blkCard.Health.Toughness, 0) * ((100 - blkCard.SplashResistance) / 100f);
+            // Blasts ignore toughness: splash resistance is what blocks are meant to shrug explosions off with.
+            var dmgAmount = dmg.BlockDamage * ((100 - blkCard.SplashResistance) / 100f);
             var actDamage = dmgAmount * (byte.MaxValue / blkCard.Health.MaxHealth);
 
             var cellAbsorption = blkCard.SplashFalloff > 0 ? blkCard.SplashFalloff / 100f : 0f;
@@ -1455,7 +1456,8 @@ public class MapBinary
                     continue;
                 }
                 
-                var dmgAmount = MathF.Max(dmg.BlockDamage - blkCard.Health.Toughness, 0) * ((100 - blkCard.SplashResistance) / 100f);
+                // Blasts ignore toughness, matching the raycast path above.
+                var dmgAmount = dmg.BlockDamage * ((100 - blkCard.SplashResistance) / 100f);
                 var actDamage = dmgAmount * (byte.MaxValue / blkCard.Health.MaxHealth);
 
                 checkOpenFaces = (blkCard.IsVisualSlope && blk.VData != 0) || blkCard.IsVisualPrefab ||
