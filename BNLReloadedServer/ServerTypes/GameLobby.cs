@@ -152,13 +152,6 @@ public class GameLobby : Updater
         SendLobbyUpdate(players: LobbyData.Players.Values.ToList());
     }
 
-    public void PlayerDisconnected(uint playerId)
-    {
-        if (!LobbyData.Players.TryGetValue(playerId, out var value)) return;
-        value.Status = LobbyStatus.Offline;
-        SendLobbyUpdate(players: LobbyData.Players.Values.ToList());
-    }
-
     public void PlayerLeft(uint playerId, IServiceLobby? lobbyService)
     {
         if (_gameInstance.IsOver() && LobbyData.Players.TryGetValue(playerId, out var value))

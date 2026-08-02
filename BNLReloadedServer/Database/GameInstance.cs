@@ -56,7 +56,11 @@ public class GameInstance : IGameInstance
     private InstanceChatRooms ChatRooms { get; }
     
     private Timer? _startGameTimer;
-    
+
+    // A dropped player keeps their slot and their lobby entry until this fires, so they can come
+    // back to the same match. Cancelled by LinkGuidToPlayer as soon as they log into the instance.
+    private readonly ConcurrentDictionary<uint, Timer> _disconnectTimers = new();
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
 
     public GameInstance(AsyncTaskTcpServer matchServer, AsyncTaskTcpServer regionServer, string gameInstanceId, IGameInitiator gameInitiator)
@@ -104,6 +108,7 @@ public class GameInstance : IGameInstance
 
     public void LinkGuidToPlayer(uint userId, Guid guid, Guid regionGuid)
     {
+        CancelDisconnectTimer(userId);
         var playerTeam = GameInitiator.GetTeamForPlayer(userId);
         var squadId = _serverDatabase.GetSquadId(userId);
         if (_connectedUsers.TryGetValue(userId, out var connectedUser))
@@ -138,14 +143,20 @@ public class GameInstance : IGameInstance
         if (!_connectedUsers.TryGetValue(userId, out var value) || Lobby == null) return;
         if (!GameInitiator.IsPlayerSpectator(userId))
         {
-            Lobby.EnqueueAction(() => Lobby.AddPlayer(userId, value.Team, value.SquadId));
-            if (IsStarted)
+            Lobby.EnqueueAction(() =>
             {
-                ChatRooms.BothTeamsRoom.SendServiceMessage(CatalogueStringHelper.OnEnterChat, true, new Dictionary<string, string>
+                // Clients announce the rejoin themselves once an offline lobby entry flips back
+                // to online, so only brand new players need the message from us.
+                var announcedByClients = Lobby?.GetPlayerLobbyState(userId)?.Status == LobbyStatus.Offline;
+                Lobby?.AddPlayer(userId, value.Team, value.SquadId);
+                if (IsStarted && !announcedByClients)
                 {
-                    { "player_id", userId.ToString() }
-                });
-            }
+                    ChatRooms.BothTeamsRoom.SendServiceMessage(CatalogueStringHelper.OnEnterChat, true, new Dictionary<string, string>
+                    {
+                        { "player_id", userId.ToString() }
+                    });
+                }
+            });
         }
         
         var playerGuid = value.Guid;
@@ -180,11 +191,7 @@ public class GameInstance : IGameInstance
     {
         if (!_connectedUsers.TryGetValue(userId, out var player)) return;
         RemoveFromChat(player);
-        Lobby?.EnqueueAction(() =>
-        {
-            _lobbySender.Unsubscribe(player.Guid);
-            Lobby?.PlayerDisconnected(userId);
-        });
+        Lobby?.EnqueueAction(() => _lobbySender.Unsubscribe(player.Guid));
         Zone?.EnqueueAction(() =>
         {
             _zoneSender.Unsubscribe(player.Guid);
@@ -198,10 +205,42 @@ public class GameInstance : IGameInstance
                 { "player_id", userId.ToString() }
             });
         }
+
+        StartDisconnectTimer(userId);
     }
-    
+
+    private void StartDisconnectTimer(uint userId)
+    {
+        var grace = Databases.ConfigDatabase.ReconnectGraceSeconds();
+        if (grace <= 0) return;
+
+        var timer = new Timer(grace * 1000d) { AutoReset = false };
+        timer.Elapsed += (_, _) =>
+        {
+            CancelDisconnectTimer(userId);
+            // Lost the race with a reconnect that came in as the timer fired - leave them alone.
+            if (_serverDatabase.IsUserOnline(userId)) return;
+
+            PlayerLeftInstance(userId, KickReason.MatchQuit);
+            // GameZone.PlayerLeft only hands the slot back when the player still had a unit, so
+            // release it here too - someone who dropped before spawning has a place to give up as well.
+            _serverDatabase.FreeMatchmakerSlot(userId, GameInstanceId);
+            _serverDatabase.RemoveOfflineUser(userId);
+        };
+        CancelDisconnectTimer(userId);
+        _disconnectTimers[userId] = timer;
+        timer.Start();
+    }
+
+    private void CancelDisconnectTimer(uint userId)
+    {
+        if (_disconnectTimers.TryRemove(userId, out var timer))
+            timer.Dispose();
+    }
+
     public void PlayerLeftInstance(uint userId, KickReason reason)
     {
+        CancelDisconnectTimer(userId);
         _connectedUsers.TryRemove(userId, out var player);
         RemoveFromChat(player);
         
@@ -244,6 +283,10 @@ public class GameInstance : IGameInstance
         _serverDatabase.RemoveFromGameInstance(userId, GameInstanceId);
 
         if (!_connectedUsers.IsEmpty) return;
+        foreach (var pending in _disconnectTimers.Keys)
+        {
+            CancelDisconnectTimer(pending);
+        }
         Zone?.GameCanceler.Cancel();
         IsStarted = false;
         Lobby?.Stop();

@@ -27,6 +27,7 @@ public class Configs
     public bool UseMaxDeviceLevel { get; init; }
     public bool UseRaycastExplosions { get; init; }
     public bool DoReadline { get; init; }
+    public int ReconnectGraceSeconds { get; init; } = 180;
     public bool ControlPanelEnabled { get; init; }
     public string ControlPanelHost { get; init; } = "127.0.0.1";
     public int ControlPanelPort { get; init; } = 8080;

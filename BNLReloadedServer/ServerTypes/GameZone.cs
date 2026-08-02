@@ -938,8 +938,9 @@ public partial class GameZone : Updater
         
         player.IsActive = false;
         player.Killed(impact);
-        
-        _serviceZone.SendKickPlayer(playerId, KickReason.MatchQuit);
+
+        // No kick broadcast here - that drops the player from every client's scoreboard, and they
+        // keep their place until the reconnect grace runs out. PlayerLeft sends it when it does.
         _zoneData.UpdatePlayerSelectedSpawn(playerId, _defaultSpawnId[(int) player.Team]);
     }
 

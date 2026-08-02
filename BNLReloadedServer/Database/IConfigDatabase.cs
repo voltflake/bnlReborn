@@ -29,6 +29,7 @@ public interface IConfigDatabase
     public bool DebugMode();
     public bool UseMaxDeviceLevel();
     public bool UseRaycastExplosions();
+    public int ReconnectGraceSeconds();
     public bool DoReadline();
     public bool ControlPanelEnabled();
     public string ControlPanelHost();

@@ -967,6 +967,23 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             gameInstance.SendAfkWarning(playerId);
     }
 
+    public bool IsUserOnline(uint playerId) => UserConnected(playerId, out var playerInfo) && playerInfo.Online;
+
+    // RemoveUser leaves a player in place while their custom game is mid-match, so a dropped player
+    // keeps holding a slot in the custom game list. Once their grace is up, finish the job.
+    public void RemoveOfflineUser(uint playerId)
+    {
+        if (!UserConnected(playerId, out var playerInfo) || playerInfo.Online) return;
+        RemoveFromCustomGame(playerId);
+        _connectedUsers.TryRemove(playerId, out _);
+    }
+
+    public void FreeMatchmakerSlot(uint playerId, string gameInstanceId)
+    {
+        if (_matchmakerGames.TryGetValue(gameInstanceId, out var initiator))
+            initiator.RemovePlayer(playerId);
+    }
+
     public void KickForAfk(uint playerId, string gameInstanceId)
     {
         if (_gameInstances.TryGetValue(gameInstanceId, out var gameInstance))

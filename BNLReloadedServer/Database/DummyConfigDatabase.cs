@@ -68,6 +68,8 @@ public class DummyConfigDatabase : IConfigDatabase
 
     public bool UseRaycastExplosions() => false;
     
+    public int ReconnectGraceSeconds() => 180;
+
     public bool DoReadline() => false;
     
     public bool ControlPanelEnabled() => true;

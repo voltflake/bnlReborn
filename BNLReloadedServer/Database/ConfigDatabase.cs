@@ -85,6 +85,8 @@ public class ConfigDatabase : IConfigDatabase
 
     public bool UseRaycastExplosions() => _configs.UseRaycastExplosions;
     
+    public int ReconnectGraceSeconds() => _configs.ReconnectGraceSeconds;
+
     public bool DoReadline() => _configs.DoReadline;
     
     public bool ControlPanelEnabled() => _configs.ControlPanelEnabled;

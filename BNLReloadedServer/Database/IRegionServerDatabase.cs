@@ -64,4 +64,7 @@ public interface IRegionServerDatabase
     public ulong? GetSquadId(uint playerId);
     public void SendAfkWarning(uint playerId, string gameInstanceId);
     public void KickForAfk(uint playerId, string gameInstanceId);
+    public void FreeMatchmakerSlot(uint playerId, string gameInstanceId);
+    public bool IsUserOnline(uint playerId);
+    public void RemoveOfflineUser(uint playerId);
 }
