@@ -1039,7 +1039,7 @@ public partial class GameZone : Updater
 
         var blkUpdates = new Dictionary<Vector3s, BlockUpdate>();
         foreach (var block in MapBinary.OwnedBlocks.Where(b =>
-                     MapBinary[b.Key].Card.DeviceType == DeviceType.Device && b.Value.OwnerPlayerId == playerId))
+                     MapBinary[b.Key].Card.DeviceType == DeviceType.Device && b.Value.OwnerPlayerId == playerId).ToList())
         {
             foreach (var update in MapBinary.RemoveBlock(block.Key))
             {

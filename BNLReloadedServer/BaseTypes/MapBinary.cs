@@ -51,7 +51,7 @@ public class MapBinary
     private float _liquidPlane;
     
     public readonly Dictionary<Vector3s, Unit> OwnedBlocks = new();
-    
+
     public readonly Dictionary<Vector3s, Unit?[]> AttachedUnits = new();
 
     public readonly Dictionary<Vector3s, BlockIntervalUpdater> UnitsInsideBlock = new();
@@ -287,6 +287,11 @@ public class MapBinary
         binaryWriter.Flush();
         return output.ToArray().Zip(3).ToArray();
     }
+
+    // Team blocks need an owner for damage attribution, devices need one so GameZone.PlayerLeft
+    // can clean them up. Pads are teamless devices, so gating on HasTeam alone left them behind.
+    private static bool ShouldTrackOwner(CardBlock card) =>
+        card.HasTeam || card.DeviceType == DeviceType.Device;
 
     private void OnBlockRemoved(Vector3s blockPos)
     {
@@ -847,7 +852,7 @@ public class MapBinary
 
             var hasTeam = block.Card.HasTeam;
             block.Team = hasTeam ? owner?.Team ?? TeamType.Neutral : TeamType.Neutral;
-            if (owner is not null && hasTeam)
+            if (owner is not null && ShouldTrackOwner(block.Card))
             {
                 OwnedBlocks[block.Position] = owner;
             }
@@ -904,7 +909,7 @@ public class MapBinary
         var hasTeam = block.Card.HasTeam;
         block.Team = hasTeam ? owner?.Team ?? TeamType.Neutral : TeamType.Neutral;
 
-        if (owner is not null && hasTeam)
+        if (owner is not null && ShouldTrackOwner(block.Card))
         {
             OwnedBlocks[location] = owner;
         }
@@ -934,7 +939,7 @@ public class MapBinary
             var hasTeam = block.Card.HasTeam;
             block.Team = hasTeam ? owner?.Team ?? TeamType.Neutral : TeamType.Neutral;
             
-            if (owner is not null && hasTeam)
+            if (owner is not null && ShouldTrackOwner(block.Card))
             {
                 OwnedBlocks[block.Position] = owner;
             }
