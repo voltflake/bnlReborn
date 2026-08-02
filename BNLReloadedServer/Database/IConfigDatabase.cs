@@ -30,6 +30,8 @@ public interface IConfigDatabase
     public bool UseMaxDeviceLevel();
     public bool UseRaycastExplosions();
     public int ReconnectGraceSeconds();
+    public int PingIntervalSeconds();
+    public int MaxMissedPings();
     public bool DoReadline();
     public bool ControlPanelEnabled();
     public string ControlPanelHost();

@@ -70,6 +70,10 @@ public class DummyConfigDatabase : IConfigDatabase
     
     public int ReconnectGraceSeconds() => 180;
 
+    public int PingIntervalSeconds() => 2;
+
+    public int MaxMissedPings() => 11;
+
     public bool DoReadline() => false;
     
     public bool ControlPanelEnabled() => true;

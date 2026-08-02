@@ -17,6 +17,8 @@ public class RegionServiceDispatcher : IServiceDispatcher
     private readonly ServiceLeaderboard _serviceLeaderboard;
     private readonly ServicePing _servicePing;
 
+    public IServicePing Ping => _servicePing;
+
     public RegionServiceDispatcher(ISender sender, Guid sessionId)
     {
         _serviceLogin = new ServiceLogin(sender, sessionId);

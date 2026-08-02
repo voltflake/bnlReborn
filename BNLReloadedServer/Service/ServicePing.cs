@@ -21,6 +21,8 @@ public class ServicePing(ISender sender) : IServicePing
         return writer;
     }
     
+    private int _missedProbes;
+
     public void SendServerPing()
     {
         using var writer = CreateWriter();
@@ -28,9 +30,20 @@ public class ServicePing(ISender sender) : IServicePing
         sender.Send(writer);
     }
 
+    /// <summary>
+    /// Pings the client and reports how many probes have gone unanswered, this one included. The client
+    /// answers on its network thread, so a pong still comes back while its main thread is stalled loading.
+    /// </summary>
+    public int SendLivenessProbe()
+    {
+        var missed = Interlocked.Increment(ref _missedProbes);
+        SendServerPing();
+        return missed;
+    }
+
     private void ReceiveServerPong(BinaryReader reader)
-    {  
-        
+    {
+        Interlocked.Exchange(ref _missedProbes, 0);
     }
 
     private void ReceiveClientPing(BinaryReader reader)

@@ -87,6 +87,10 @@ public class ConfigDatabase : IConfigDatabase
     
     public int ReconnectGraceSeconds() => _configs.ReconnectGraceSeconds;
 
+    public int PingIntervalSeconds() => _configs.PingIntervalSeconds;
+
+    public int MaxMissedPings() => _configs.MaxMissedPings;
+
     public bool DoReadline() => _configs.DoReadline;
     
     public bool ControlPanelEnabled() => _configs.ControlPanelEnabled;

@@ -10,6 +10,9 @@ public class MatchServiceDispatcher : IServiceDispatcher
     private readonly ServiceLobby _serviceLobby;
     private readonly ServicePing _servicePing;
     private readonly ServiceMediator _serviceMediator;
+
+    public IServicePing Ping => _servicePing;
+
     public MatchServiceDispatcher(ISender sender, Guid sessionId)
     {
         _serviceLogin = new ServiceLogin(sender, sessionId);

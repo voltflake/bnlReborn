@@ -8,6 +8,8 @@ internal class RegionSession : TcpSession
 {
     private readonly SessionSender _sender;
     private readonly SessionReader _reader;
+    private readonly RegionServiceDispatcher _serviceDispatcher;
+    private CancellationTokenSource? _livenessCts;
     private bool _connected;
 
     public RegionSession(AsyncTaskTcpServer server) : base(server)
@@ -15,19 +17,24 @@ internal class RegionSession : TcpSession
         var senderTask = new AsyncSenderTask(this);
         server.AddSenderTask(Id, senderTask);
         _sender = new SessionSender(server, Id, senderTask);
-        var serviceDispatcher = new RegionServiceDispatcher(_sender, Id);
-        _reader = new SessionReader(serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _serviceDispatcher = new RegionServiceDispatcher(_sender, Id);
+        _reader = new SessionReader(_serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
             "Region server received packet with incorrect length");
     }
 
     protected override void OnConnected()
     {
         _connected = true;
+        _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Region");
         Console.WriteLine($"Region TCP session with Id {Id} connected!");
     }
 
     protected override void OnDisconnected()
     {
+        _livenessCts?.Cancel();
+        _livenessCts?.Dispose();
+        _livenessCts = null;
+
         if (_sender.AssociatedPlayerId != null)
         {
             Databases.RegionServerDatabase.RemoveUser(_sender.AssociatedPlayerId.Value);

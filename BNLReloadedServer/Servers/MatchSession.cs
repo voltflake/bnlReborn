@@ -7,6 +7,8 @@ namespace BNLReloadedServer.Servers;
 public class MatchSession : TcpSession
 {
     private readonly SessionReader _reader;
+    private readonly MatchServiceDispatcher _serviceDispatcher;
+    private CancellationTokenSource? _livenessCts;
     private bool _connected;
 
     public MatchSession(AsyncTaskTcpServer server) : base(server)
@@ -14,19 +16,23 @@ public class MatchSession : TcpSession
         var senderTask = new AsyncSenderTask(this);
         server.AddSenderTask(Id, senderTask);
         var sender = new SessionSender(server, Id, senderTask);
-        var serviceDispatcher = new MatchServiceDispatcher(sender, Id);
-        _reader = new SessionReader(serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _serviceDispatcher = new MatchServiceDispatcher(sender, Id);
+        _reader = new SessionReader(_serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
             "Match server received packet with incorrect length");
     }
 
     protected override void OnConnected()
     {
         _connected = true;
+        _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Match");
         Console.WriteLine($"Match TCP session with Id {Id} connected!");
     }
 
     protected override void OnDisconnected()
     {
+        _livenessCts?.Cancel();
+        _livenessCts?.Dispose();
+        _livenessCts = null;
         Databases.RegionServerDatabase.RemoveMatchServices(Id);
         if (_connected)
             Console.WriteLine($"Match TCP session with Id {Id} disconnected!");
