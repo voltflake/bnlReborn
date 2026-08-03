@@ -63,7 +63,13 @@ public partial class GameZone : Updater
     // gates - all under the same shot id, plus the odd duplicate of a single contact. Only the last
     // hit before the client drops the projectile is the actual detonation, so hits from a live
     // projectile are held here and applied in ReceivedProjDropRequest.
-    private readonly Dictionary<ulong, (ulong Time, HitData Hit)> _pendingProjectileHits = new();
+    //
+    // A duplicate is a second report of one contact, so it names a cell that is already in Cells;
+    // a block the projectile genuinely crossed names a new one. Telling them apart that way is what
+    // lets the blocks on the way through keep their damage - collapsing the whole flight to a single
+    // hit deduplicates by throwing the rest away, which is why goo and fire stopped taking any.
+    private readonly Dictionary<ulong, (List<(ulong Time, HitData Hit)> Held, HashSet<Vector3s> Cells)>
+        _pendingProjectileHits = new();
     private readonly HashSet<ulong> _checkForWater = [];
     private readonly List<Unit> _unitsToDrop = [];
 
