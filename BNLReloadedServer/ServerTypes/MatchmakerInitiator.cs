@@ -17,7 +17,7 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
 
     private bool _backfillReady;
 
-    private DateTimeOffset? _lastSlotFreed;
+    private DateTimeOffset? _firstSlotFreed;
 
     public string? GameInstanceId { get; set; }
     
@@ -51,15 +51,23 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
             default:
                 return false;
         }
-        
+
+        if (_team1.Count >= gameMode.PlayersPerTeam && _team2.Count >= gameMode.PlayersPerTeam)
+        {
+            _firstSlotFreed = null;
+        }
+
         return true;
     }
 
     public void RemovePlayer(uint playerId)
     {
+        // Only the first departure starts the clock. Stamping every one would mean a match bleeding
+        // players a few seconds apart never accumulates a quiet window, so it would never be offered
+        // backfill at all - the opposite of the point.
         if (_team1.RemoveAll(p => p.PlayerId == playerId) + _team2.RemoveAll(p => p.PlayerId == playerId) > 0)
         {
-            _lastSlotFreed = DateTimeOffset.Now;
+            _firstSlotFreed ??= DateTimeOffset.Now;
         }
     }
 
@@ -99,8 +107,8 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
     public bool IsSuperSupplies() => false;
 
     public bool NeedsBackfill() => (_team1.Count < gameMode.PlayersPerTeam || _team2.Count < gameMode.PlayersPerTeam) &&
-                                   _backfillReady && (_lastSlotFreed is null ||
-                                                      (DateTimeOffset.Now - _lastSlotFreed.Value).TotalSeconds >=
+                                   _backfillReady && (_firstSlotFreed is null ||
+                                                      (DateTimeOffset.Now - _firstSlotFreed.Value).TotalSeconds >=
                                                       SlotSettleSeconds);
     
     public void SetBackfillReady(bool backfillReady) => _backfillReady = backfillReady;

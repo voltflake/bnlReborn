@@ -711,7 +711,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         PlayersInQueue = queue.Players.Count,
                         State = new MatchmakerState
                         {
-                            State = MatchmakerStateType.InQueue
+                            State = MatchmakerStateType.InQueue,
+                            QueueGameMode = queue.GameModeKey
                         }
                     });
                     queue.MatchSender1.UnsubscribeAll();
@@ -897,7 +898,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         {
                             State = new MatchmakerState
                             {
-                                State = MatchmakerStateType.InQueue
+                                State = MatchmakerStateType.InQueue,
+                                QueueGameMode = queue.GameModeKey
                             },
                             PlayersInQueue = queue.Players.Count
                         });

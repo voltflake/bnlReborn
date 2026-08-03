@@ -723,7 +723,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public IEnumerable<(Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2, string instanceId)> GetBackfillNeeded(Key gameModeKey)
     {
-        var gameInstances = _gameInstances.Where(g => g.Value.GetGameMode() == gameModeKey && g.Value.NeedsBackfill()).ToList();
+        // NeedsBackfill already goes false at match end, but an ended instance lingers until the last
+        // player leaves it, so state the invariant here rather than leaning on that ordering.
+        var gameInstances = _gameInstances
+            .Where(g => g.Value.GetGameMode() == gameModeKey && !g.Value.IsOver() && g.Value.NeedsBackfill()).ToList();
         if (gameInstances.Count == 0) yield break;
         
         foreach (var (instanceId, instance) in gameInstances)

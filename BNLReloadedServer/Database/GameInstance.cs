@@ -507,12 +507,13 @@ public class GameInstance : IGameInstance
 
     public void SendUserToZone(uint playerId)
     {
-        // A backfiller sits in hero select for up to reconnect_selection_time before the requeue timer
+        // A late joiner sits in hero select for up to reconnect_selection_time before the requeue timer
         // sends them here, which is long enough for the match to end under them. There is nothing left
         // to join, so put them back on the menu instead of spawning them into a finished zone.
         // Reconnecting players never come through here - they still have their SceneZone and go
-        // straight to PlayerEnterScene.
-        if (HasEnded is true && GameInitiator.IsPlayerBackfill(playerId))
+        // straight to PlayerEnterScene. Spectators are let through; a finished zone is still something
+        // for them to look at, and SpectateCustomGame calls this directly.
+        if (HasEnded is true && !GameInitiator.IsPlayerSpectator(playerId))
         {
             _serverDatabase.FreeMatchmakerSlot(playerId, GameInstanceId);
             PlayerLeftInstance(playerId, KickReason.MatchQuit);
