@@ -621,8 +621,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool BackfillMatchmakerGame(PlayerQueueData player, TeamType team, string gameInstanceId)
     {
+        // The offer went out up to confirm_time ago and the instance sticks around until the last
+        // player leaves, so the match can easily have ended while they were confirming.
         if (!UserConnected(player.PlayerId, out var playerInfo) || !_matchmakerGames.TryGetValue(gameInstanceId, out var initiator) ||
-            !_gameInstances.TryGetValue(gameInstanceId, out _)) return false;
+            !_gameInstances.TryGetValue(gameInstanceId, out var gameInstance) || gameInstance.IsOver()) return false;
         if(!initiator.AddPlayer(player, team)) return false;
         
         playerInfo.GameInstanceId = gameInstanceId;

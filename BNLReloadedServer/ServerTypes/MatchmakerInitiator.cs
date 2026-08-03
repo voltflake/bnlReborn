@@ -7,10 +7,17 @@ namespace BNLReloadedServer.ServerTypes;
 public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> team1, List<PlayerQueueData> team2)
     : IGameInitiator
 {
+    // A freed slot is not offered up straight away - the match may be ending, or the player may be
+    // on their way back. Nothing is lost by letting it settle, and a wasted backfill costs a real
+    // player a queue pop.
+    private const double SlotSettleSeconds = 10;
+
     private readonly List<PlayerQueueData> _team1 = team1.ToList();
     private readonly List<PlayerQueueData> _team2 = team2.ToList();
-    
+
     private bool _backfillReady;
+
+    private DateTimeOffset? _lastSlotFreed;
 
     public string? GameInstanceId { get; set; }
     
@@ -50,8 +57,10 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
 
     public void RemovePlayer(uint playerId)
     {
-        _team1.RemoveAll(p => p.PlayerId == playerId);
-        _team2.RemoveAll(p => p.PlayerId == playerId);
+        if (_team1.RemoveAll(p => p.PlayerId == playerId) + _team2.RemoveAll(p => p.PlayerId == playerId) > 0)
+        {
+            _lastSlotFreed = DateTimeOffset.Now;
+        }
     }
 
     public TeamType GetTeamForPlayer(uint playerId) =>
@@ -89,7 +98,10 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
 
     public bool IsSuperSupplies() => false;
 
-    public bool NeedsBackfill() => (_team1.Count < gameMode.PlayersPerTeam || _team2.Count < gameMode.PlayersPerTeam) && _backfillReady;
+    public bool NeedsBackfill() => (_team1.Count < gameMode.PlayersPerTeam || _team2.Count < gameMode.PlayersPerTeam) &&
+                                   _backfillReady && (_lastSlotFreed is null ||
+                                                      (DateTimeOffset.Now - _lastSlotFreed.Value).TotalSeconds >=
+                                                      SlotSettleSeconds);
     
     public void SetBackfillReady(bool backfillReady) => _backfillReady = backfillReady;
 
