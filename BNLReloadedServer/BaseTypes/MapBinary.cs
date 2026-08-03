@@ -1049,18 +1049,12 @@ public class MapBinary
         // shadow its own crater and dig a cross. The blast fills its cell, so that is where it radiates from.
         var rayOrigin = SplashCellCenter((Vector3s)origin);
 
-        // Reduction per block of distance from the epicenter, capped so a blast is never more than spent at
-        // the rim of its own radius. This used to be charged per propagation step, and a step was one block
-        // along an axis, so anything the wave reached by turning corners lost more than the distance it
-        // actually covered.
-        var naturalFalloff = MathF.Min(NaturalFalloff, 1f / MathF.Max(radius, 1f));
-
         // Reduction a ray picks up by passing through a cell the blast already broke through. Only cells that
         // are transparent by the time a later ray crosses them can contribute, so surviving cover never
         // appears here - it blocks the ray outright.
         var absorption = new Dictionary<Vector3s, float>();
 
-        foreach (var (position, distance) in SplashTargets(origin, radius, radiusSqrd))
+        foreach (var (position, _) in SplashTargets(origin, radius, radiusSqrd))
         {
             var absorbed = 0f;
             if (!originCells.Contains(position) &&
@@ -1071,8 +1065,9 @@ public class MapBinary
 
             if (absorbed >= 1f) continue;
 
-            // Blocks lose damage with distance, units only to what the blast had to dig through to reach them.
-            var dmg = damage.ReduceByPercent(absorbed, MathF.Min(absorbed + naturalFalloff * distance, 1f));
+            // Neither blocks nor units lose damage with distance - the only thing a blast spends on its way
+            // out is what it had to dig through. A charge that reaches you at all reaches you at full force.
+            var dmg = damage.ReduceByPercent(absorbed);
 
             if (unitsForBlock.TryGetValue(position, out var units))
             {
@@ -1099,13 +1094,21 @@ public class MapBinary
 
             if (!ContainsBlock(position)) continue;
 
+            // A block is inside the blast by the distance between the two cell centers, not by whichever
+            // corner of it happens to be nearest. Measured off the corner, a radius of one and a half - the
+            // one Cogwheel's alt fire carries, and the smallest in the game - swallows a whole 3x3x3 instead
+            // of digging the plus shape it is supposed to. Units are left alone by this: they are hit off the
+            // cells the blast reaches, so their radius is the one the caller worked out.
+            if (Vector3.DistanceSquared(rayOrigin, SplashCellCenter(position)) > radiusSqrd) continue;
+
             var blk = this[position];
             var blkCard = blk.Card;
             if (!(blkCard.Health?.MaxHealth > 0) || dmg.BlockDamage == 0) continue;
             if (!blkCard.Destructible && blkCard.Solid && !damage.IgnoreInvincibility) continue;
 
-            // Blasts ignore toughness: splash resistance is what blocks are meant to shrug explosions off with.
-            var dmgAmount = dmg.BlockDamage * ((100 - blkCard.SplashResistance) / 100f);
+            // Blasts pay toughness the same as any other hit does; splash resistance is charged on top of it.
+            var dmgAmount = MathF.Max(dmg.BlockDamage - blkCard.Health.Toughness, 0) *
+                            ((100 - blkCard.SplashResistance) / 100f);
             var actDamage = dmgAmount * (byte.MaxValue / blkCard.Health.MaxHealth);
 
             var cellAbsorption = blkCard.SplashFalloff > 0 ? blkCard.SplashFalloff / 100f : 0f;
@@ -1402,6 +1405,7 @@ public class MapBinary
         var naturalFalloff = Math.Min(NaturalFalloff, 1f / maxTravCount);
         
         var radiusSqrd = radius * radius;
+        var blastCenter = SplashCellCenter((Vector3s)locations[0]);
         
         foreach (var startBlock in locations.Select(l => (Vector3s)l))
         {
@@ -1421,8 +1425,11 @@ public class MapBinary
             if (!visitedBlocks.Add(propInfo.prop.Position))
                 continue;
 
+            // Blocks are now charged what units always were: the accumulated reduction with the per-step
+            // distance term taken back out, which leaves only what the blast dug through. That term stays in
+            // dmgReduction, where it still orders the queue and still stops the wave, but nothing pays it.
             var dmg = dmgReduction > 0
-                ? damage.ReduceByPercent(dmgReduction - naturalFalloff * propInfo.travCount, dmgReduction)
+                ? damage.ReduceByPercent(dmgReduction - naturalFalloff * propInfo.travCount)
                 : damage;
             if (unitsForBlock.TryGetValue(propInfo.prop.Position, out var units))
             {
@@ -1461,8 +1468,15 @@ public class MapBinary
                     continue;
                 }
                 
-                // Blasts ignore toughness, matching the raycast path above.
-                var dmgAmount = dmg.BlockDamage * ((100 - blkCard.SplashResistance) / 100f);
+                // Blasts pay toughness, matching the raycast path above. Cells whose center the blast does not
+                // reach take nothing, but still go through the motions below: a block the wave cannot hurt is
+                // still a block the wave cannot get past, and skipping it outright would leak the blast out
+                // through the rim.
+                var dmgAmount = Vector3.DistanceSquared(blastCenter,
+                                    SplashCellCenter(propInfo.prop.Position)) > radiusSqrd
+                    ? 0f
+                    : MathF.Max(dmg.BlockDamage - blkCard.Health.Toughness, 0) *
+                      ((100 - blkCard.SplashResistance) / 100f);
                 var actDamage = dmgAmount * (byte.MaxValue / blkCard.Health.MaxHealth);
 
                 checkOpenFaces = (blkCard.IsVisualSlope && blk.VData != 0) || blkCard.IsVisualPrefab ||
