@@ -18,45 +18,30 @@ Console.SetOut(new BroadcastingTextWriter(Console.Out));
 
 var configs = Databases.ConfigDatabase;
 var masterMode = configs.IsMaster();
-var toJson = configs.DoToJson();
-var fromJson = configs.DoFromJson();
 var runServer = configs.DoRunServer();
-var useCouch = configs.UseCouchDb();
 
 const int bufferSize = 2000000;  // 2MB
 
-var toPath = Path.Combine(Databases.CacheFolderPath, configs.ToJsonCdbName());
-var deserializedPath = Path.Combine(Databases.CacheFolderPath, configs.CdbName());
-CatalogueStore catalogueStore = useCouch
-    ? new CouchCatalogueStore(
-        new CouchClient(configs.CouchDbEndpoint(), configs.CouchDbCredentials(),
-            new CouchClientOptions
-            {
-                JsonSerializerOptions = JsonHelper.DefaultSerializerSettings,
-                ThrowOnQueryWarning = false
-            }),
-        configs.CouchDbDatabaseName(),
-        toPath,
-        deserializedPath,
-        JsonHelper.DefaultSerializerSettings)
-    : new JsonCatalogueStore(
-        Path.Combine(Databases.CacheFolderPath, configs.FromJsonCdbName()),
-        toPath,
-        deserializedPath,
-        JsonHelper.DefaultSerializerSettings);
+var catalogueStore = new CouchCatalogueStore(
+    new CouchClient(configs.CouchDbEndpoint(), configs.CouchDbCredentials(),
+        new CouchClientOptions
+        {
+            JsonSerializerOptions = JsonHelper.DefaultSerializerSettings,
+            ThrowOnQueryWarning = false
+        }),
+    configs.CouchDbDatabaseName(),
+    Path.Combine(Databases.CacheFolderPath, configs.ExportCdbName()),
+    JsonHelper.DefaultSerializerSettings);
 
-List<Card>? loadedCards = null;
-if (fromJson || (runServer && useCouch))
-    loadedCards = catalogueStore.Load();
-
-if (loadedCards != null && Databases.Catalogue is ServerCatalogue sc)
+if (runServer)
 {
-    sc.Replicate(loadedCards);
+    // Fetch first: touching Databases.Catalogue is what constructs it, so doing that only
+    // once the cards are in hand means it is never observable empty. A CouchDB failure here
+    // takes the process down before any singleton exists.
+    var loadedCards = catalogueStore.Load();
+    ((ServerCatalogue)Databases.Catalogue).Replicate(loadedCards);
     Console.WriteLine($"Replicated {loadedCards.Count} cards to server catalogue");
 }
-
-if (toJson)
-    catalogueStore.Store(Databases.Catalogue.All);
 
 if (runServer)
 {
@@ -90,24 +75,20 @@ if (runServer)
     regionClient.ConnectAsync();
     matchServer.Start();
 
-    if (useCouch)
-    {
-        var watcherCts = new CancellationTokenSource();
-        ShutdownSignal.WaitForShutdown.ContinueWith(_ => watcherCts.Cancel());
-
-        var couchWatcher = new CouchChangesWatcher(
-            configs.CouchDbEndpoint(),
-            configs.CouchDbDatabaseName(),
-            configs.CouchDbCredentials(),
-            () =>
-            {
-                var newCardList = catalogueStore.Load();
-                if (Databases.Catalogue is not ServerCatalogue serverCatalogue) return;
-                serverCatalogue.Replicate(newCardList);
-                new ServiceCatalogue(new ServerSender(regionServer)).SendReplicate(newCardList);
-            });
-        couchWatcher.Start(watcherCts.Token);
-    }
+    // Follow CouchDB's _changes feed so a card edited anywhere shows up here without a restart.
+    var watcherCts = new CancellationTokenSource();
+    ShutdownSignal.WaitForShutdown.ContinueWith(_ => watcherCts.Cancel());
+    new CouchChangesWatcher(
+        configs.CouchDbEndpoint(),
+        configs.CouchDbDatabaseName(),
+        configs.CouchDbCredentials(),
+        () =>
+        {
+            var newCardList = catalogueStore.Load();
+            if (Databases.Catalogue is not ServerCatalogue serverCatalogue) return;
+            serverCatalogue.Replicate(newCardList);
+            new ServiceCatalogue(new ServerSender(regionServer)).SendReplicate(newCardList);
+        }).Start(watcherCts.Token);
 
     ControlPanelServer? controlPanel = null;
     if (Databases.ConfigDatabase.ControlPanelEnabled())
@@ -149,22 +130,20 @@ if (runServer)
                         Console.WriteLine("Done!");
                         break;
                     }
-                    case "refreshCdb" or "refreshCdbLoad" when Databases.Catalogue is ServerCatalogue serverCatalogue:
+                    case "refreshCdbLoad" when Databases.Catalogue is ServerCatalogue serverCatalogue:
                     {
                         Console.Write("Refreshing cdb...");
                         try
                         {
-                            var newCardList = line == "refreshCdbLoad"
-                                ? catalogueStore.Load()
-                                : CatalogueCache.UpdateCatalogue(CatalogueCache.Load());
+                            var newCardList = catalogueStore.Load();
                             serverCatalogue.Replicate(newCardList);
                             var catalogueReplicator = new ServiceCatalogue(new ServerSender(regionServer));
                             catalogueReplicator.SendReplicate(newCardList);
                             Console.WriteLine("Done!");
                         }
-                        catch (FileNotFoundException)
+                        catch (Exception e)
                         {
-                            Console.WriteLine("Failed - no cache file available");
+                            Console.WriteLine($"Failed - {e.Message}");
                         }
                         break;
                     }

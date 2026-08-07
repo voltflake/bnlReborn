@@ -8,24 +8,13 @@ public class ServerCatalogue : Catalogue
 {
     private FrozenDictionary<Key, Card> _db;
 
+    /// <summary>
+    /// Starts empty. The catalogue is populated by the first <see cref="Replicate"/> off
+    /// CouchDB — serving nothing beats serving a stale snapshot.
+    /// </summary>
     public ServerCatalogue()
     {
-        var tempDict = new Dictionary<Key, Card>(KeyEqualityComparer.Instance);
-        try
-        {
-            var cards = CatalogueCache.UpdateCatalogue(CatalogueCache.Load());
-            foreach (var card in cards)
-            {
-                if (card.Id == null) continue;
-                card.Key = Key(card.Id);
-                tempDict.Add(card.Key, card);
-            }
-        }
-        catch (FileNotFoundException)
-        {
-        }
-        
-        _db = tempDict.ToFrozenDictionary();
+        _db = FrozenDictionary<Key, Card>.Empty;
     }
     
     public override Card? GetCard(Key key)

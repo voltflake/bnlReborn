@@ -271,21 +271,7 @@ public static class Crc32
       return End(Hash(Begin(), bytes, 0, bytes.Length));
     }
 
-    public static uint GetFileHash(string path, byte[] buffer)
-    {
-      using var input = File.OpenRead(path);
-      using var binaryReader = new BinaryReader(input);
-      var crcValue = Begin();
-      while (true)
-      {
-        var length = binaryReader.Read(buffer, 0, buffer.Length);
-        if (length != 0)
-          crcValue = Hash(crcValue, buffer, 0, length);
-        else
-          break;
-      }
-      return End(crcValue);
-    }
+    public static uint GetHash(byte[] buffer) => End(Hash(Begin(), buffer, 0, buffer.Length));
 
     private static uint Begin() => uint.MaxValue;
 

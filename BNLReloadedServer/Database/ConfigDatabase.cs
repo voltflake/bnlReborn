@@ -25,13 +25,7 @@ public class ConfigDatabase : IConfigDatabase
 
     public bool IsMaster() => _configs.IsMaster;
     
-    public bool DoToJson() => _configs is { ToJson: true, ToJsonName: not null };
-
-    public bool DoFromJson() => _configs is { FromJson: true, FromJsonName: not null };
-
     public bool DoRunServer() => _configs.RunServer;
-
-    public bool UseMasterCdb() => _configs.UseMasterCdb || _configs.CdbName is null;
 
     public string MasterHost() => _configs.MasterHost;
     public string MasterPublicHost() => _configs.MasterPublicHost;
@@ -65,12 +59,8 @@ public class ConfigDatabase : IConfigDatabase
         }
     };
 
-    public string ToJsonCdbName() => _configs.ToJsonName ?? string.Empty;
-
-    public string FromJsonCdbName() => _configs.FromJsonName ?? string.Empty;
-
-    public string CdbName() => UseMasterCdb() && !IsMaster() ? "cdb" : _configs.CdbName ?? string.Empty;
-    public bool UseCouchDb() => _configs.UseCouchDb;
+    /// <summary>Target for the (currently unwired) catalogue-to-JSON export.</summary>
+    public string ExportCdbName() => _configs.ExportCdbName ?? "cdb_export.json";
 
     public string CouchDbEndpoint() => _configs.CouchDbEndpoint ?? string.Empty;
 

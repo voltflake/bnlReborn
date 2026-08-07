@@ -418,7 +418,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
         var player = _playerDatabase.GetPlayerData(sender.AssociatedPlayerId.Value).Result;
         SendLoginRegion(rpcId, player.Role);
         SendLoggedIn();
-        SendCatalogue(catalogueHash != CatalogueCache.Hash() ? CatalogueCache.Load() : null);
+        SendCatalogue(catalogueHash != CatalogueBlob.Hash ? CatalogueBlob.Data : null);
     }
     
     public void SendWait(float waitTime)

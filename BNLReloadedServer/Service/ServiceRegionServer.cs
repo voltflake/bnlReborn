@@ -11,7 +11,7 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
 {
     private enum ServiceRegionId : byte
     {
-        MessageCdb = 0,
+        MessageCdb = 0, // reserved: the catalogue comes from CouchDB, not from the master
         MessageMap = 1,
         MessagePlayerData = 2,
         MessagePlayerUpdate = 3,
@@ -49,15 +49,6 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceServer);
         return writer;
-    }
-
-    public void ReceiveMasterCdb(BinaryReader reader)
-    {
-        var cdb = reader.ReadOption(reader.ReadBinary);
-        if (cdb is not null)
-        {
-            CatalogueCache.Save(cdb, CatalogueCache.MasterCdbPath);
-        }
     }
 
     public void ReceiveMap(BinaryReader reader)
@@ -382,9 +373,6 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
 
         switch (regionEnum)
         {
-            case ServiceRegionId.MessageCdb:
-                ReceiveMasterCdb(reader);
-                break;
             case ServiceRegionId.MessageMap:
                 ReceiveMap(reader);
                 break;

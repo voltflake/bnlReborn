@@ -20,7 +20,7 @@ public sealed class ControlPanelServer : IDisposable
     private readonly MasterServer? _masterServer;
     private readonly RegionServer _regionServer;
     private readonly MatchServer _matchServer;
-    private readonly CatalogueStore _catalogueStore;
+    private readonly CouchCatalogueStore _catalogueStore;
     private readonly ServerCatalogue _serverCatalogue;
     private readonly DateTime _startTime = DateTime.UtcNow;
     private readonly ConcurrentDictionary<string, DateTime> _sessions = new();
@@ -38,7 +38,7 @@ public sealed class ControlPanelServer : IDisposable
         MasterServer? masterServer,
         RegionServer regionServer,
         MatchServer matchServer,
-        CatalogueStore catalogueStore,
+        CouchCatalogueStore catalogueStore,
         ServerCatalogue serverCatalogue)
     {
         _listener = new HttpListener();
@@ -425,9 +425,9 @@ public sealed class ControlPanelServer : IDisposable
             catalogueReplicator.SendReplicate(newCardList);
             Console.WriteLine("Done!");
         }
-        catch (FileNotFoundException)
+        catch (Exception e)
         {
-            Console.WriteLine("Failed - no cache file available");
+            Console.WriteLine($"Failed - {e.Message}");
         }
     }
 

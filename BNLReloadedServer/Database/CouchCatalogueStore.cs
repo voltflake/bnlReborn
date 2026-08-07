@@ -4,17 +4,20 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ProtocolHelpers;
-using BNLReloadedServer.ServerTypes;
 using CouchDB.Driver;
 
 namespace BNLReloadedServer.Database;
 
+/// <summary>
+/// The catalogue's only source of truth: every card is pulled from CouchDB over HTTP.
+/// <see cref="Load"/> also refreshes <see cref="CatalogueBlob"/>, the serialized form
+/// handed to clients, so a reload is immediately visible to anyone logging in.
+/// </summary>
 public class CouchCatalogueStore(
-    CouchClient fromDb, 
+    CouchClient fromDb,
     string dbName,
     string toPath,
-    string deserializedPath,
-    JsonSerializerOptions serializerOptions): CatalogueStore
+    JsonSerializerOptions serializerOptions)
 {
     private static readonly HttpClient _httpClient = new();
 
@@ -30,13 +33,18 @@ public class CouchCatalogueStore(
         public JsonElement Doc { get; set; }
     }
 
-    public override void Store(IEnumerable<Card> cards)
-    {
-        using var fs = new StreamWriter(File.Create(toPath));
-        fs.Write(JsonSerializer.Serialize(cards, serializerOptions).Replace("\\u00A0", "\u00A0"));
-    }
+    /// <summary>
+    /// Serializes the in-memory catalogue to the same JSON shape CouchDB stores. Currently
+    /// unwired — kept so an export can be hung off the control panel, which already holds
+    /// both this store and the ServerCatalogue needed to feed it.
+    /// </summary>
+    public string ToJson(IEnumerable<Card> cards) =>
+        JsonSerializer.Serialize(cards, serializerOptions).Replace("\\u00A0", "\u00A0");
 
-    public override List<Card> Load()
+    /// <summary>Writes <see cref="ToJson"/> to <c>Cache/&lt;export_cdb_name&gt;</c>.</summary>
+    public void Store(IEnumerable<Card> cards) => File.WriteAllText(toPath, ToJson(cards));
+
+    public List<Card> Load()
     {
         var url = $"{fromDb.Endpoint.OriginalString.TrimEnd('/')}/{dbName}/_all_docs?include_docs=true";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -57,17 +65,28 @@ public class CouchCatalogueStore(
             if (card != null) cards.Add(card);
         }
 
-        RehashKeys(cards);
+        // Every card's Key is the CRC32 of its id, derived rather than stored, so it has to be
+        // recomputed for the whole catalogue on every load.
+        foreach (var card in cards)
+        {
+            card.Key = Catalogue.Key(card.Id ?? string.Empty);
+        }
 
-        var memStream = new MemoryStream();
-        var writer = new BinaryWriter(memStream);
-        using var fs2 = File.Create(deserializedPath);
-        writer.Write((byte)0);
-        writer.WriteList(cards, Card.WriteVariant);
-        var zipped = (writer.BaseStream as MemoryStream)?.GetBuffer().Zip(0);
-        zipped?.CopyTo(fs2);
-        zipped?.Close();
+        CatalogueBlob.Set(Serialize(cards));
 
         return cards;
+    }
+
+    private static byte[] Serialize(List<Card> cards)
+    {
+        using var memStream = new MemoryStream();
+        using var writer = new BinaryWriter(memStream);
+        writer.Write((byte)0);
+        writer.WriteList(cards, Card.WriteVariant);
+        writer.Flush();
+        // ToArray, not GetBuffer — GetBuffer hands back the whole capacity and would pad the
+        // payload with megabytes of zeroes for every client to inflate and walk past.
+        using var zipped = memStream.ToArray().Zip(0);
+        return zipped.ToArray();
     }
 }

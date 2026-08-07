@@ -8,13 +8,10 @@ public class DummyConfigDatabase : IConfigDatabase
 {
     public bool IsMaster() => true;
 
-    public bool DoToJson() => false;
 
-    public bool DoFromJson() => true;
 
     public bool DoRunServer() => true;
     
-    public bool UseMasterCdb() => false;
     
     public string MasterHost() => "127.0.0.1";
     public string MasterPublicHost() => "127.0.0.1";
@@ -48,13 +45,10 @@ public class DummyConfigDatabase : IConfigDatabase
         }
     };
 
-    public string ToJsonCdbName() => "currCdb3.json";
+    public string ExportCdbName() => "cdb_export.json";
 
-    public string FromJsonCdbName() => "currCdb2.json";
 
-    public string CdbName() => "cdb";
     
-    public bool UseCouchDb() => false;
 
     public string CouchDbEndpoint() => "http://localhost:5984";
 
