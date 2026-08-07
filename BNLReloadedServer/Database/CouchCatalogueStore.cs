@@ -36,7 +36,7 @@ public class CouchCatalogueStore(
         fs.Write(JsonSerializer.Serialize(cards, serializerOptions).Replace("\\u00A0", "\u00A0"));
     }
 
-    public override List<Card> Load(IEnumerable<CardMap> maps, ExtraMaps? extraMaps)
+    public override List<Card> Load()
     {
         var url = $"{fromDb.Endpoint.OriginalString.TrimEnd('/')}/{dbName}/_all_docs?include_docs=true";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -57,8 +57,7 @@ public class CouchCatalogueStore(
             if (card != null) cards.Add(card);
         }
 
-        // Add maps
-        AddMaps(cards, maps, extraMaps);
+        RehashKeys(cards);
 
         var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);

@@ -84,20 +84,9 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         var key = reader.ReadString();
         var map = MapData.ReadRecord(reader);
 
-        var card = Databases.MapDatabase.LoadMapCard(new Key(key));
-        if (card == null)
-        {
-            card = new CardMap
-            {
-                Key = new Key(key),
-                Id = key,
-                Name = new LocalizedString { Text = key }
-            };
-        }
-
         try
         {
-            Databases.MapDatabase.SaveMap(key, card, map);
+            Databases.MapDatabase.SaveMap(key, map);
             SendSaveMap(rpcId);
         }
         catch (Exception e)

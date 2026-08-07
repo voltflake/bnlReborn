@@ -63,10 +63,9 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
     public void ReceiveMap(BinaryReader reader)
     {
         var mapKey = reader.ReadString();
-        var mapCard = CardMap.ReadRecord(reader);
         var mapData = MapData.ReadRecord(reader);
-        
-        Databases.MapDatabase.SaveMap(mapKey, mapCard, mapData);
+
+        Databases.MapDatabase.SaveMap(mapKey, mapData);
     }
 
     public void ReceivePlayerData(BinaryReader reader)

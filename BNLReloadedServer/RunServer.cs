@@ -47,7 +47,7 @@ CatalogueStore catalogueStore = useCouch
 
 List<Card>? loadedCards = null;
 if (fromJson || (runServer && useCouch))
-    loadedCards = catalogueStore.Load(Databases.MapDatabase.GetMapCards(), Databases.MapDatabase.GrabExtraMaps());
+    loadedCards = catalogueStore.Load();
 
 if (loadedCards != null && Databases.Catalogue is ServerCatalogue sc)
 {
@@ -101,7 +101,7 @@ if (runServer)
             configs.CouchDbCredentials(),
             () =>
             {
-                var newCardList = catalogueStore.Load(Databases.MapDatabase.GetMapCards(), Databases.MapDatabase.GrabExtraMaps());
+                var newCardList = catalogueStore.Load();
                 if (Databases.Catalogue is not ServerCatalogue serverCatalogue) return;
                 serverCatalogue.Replicate(newCardList);
                 new ServiceCatalogue(new ServerSender(regionServer)).SendReplicate(newCardList);
@@ -155,7 +155,7 @@ if (runServer)
                         try
                         {
                             var newCardList = line == "refreshCdbLoad"
-                                ? catalogueStore.Load(Databases.MapDatabase.GetMapCards(), Databases.MapDatabase.GrabExtraMaps())
+                                ? catalogueStore.Load()
                                 : CatalogueCache.UpdateCatalogue(CatalogueCache.Load());
                             serverCatalogue.Replicate(newCardList);
                             var catalogueReplicator = new ServiceCatalogue(new ServerSender(regionServer));

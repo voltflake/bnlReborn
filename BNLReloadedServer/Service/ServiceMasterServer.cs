@@ -53,12 +53,11 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         sender.Send(writer);
     }
 
-    public void SendMap(string mapKey, CardMap mapCard, MapData mapData)
+    public void SendMap(string mapKey, MapData mapData)
     {
         using var writer = CreateWriter();
         writer.Write((byte) ServiceMasterId.MessageMap);
         writer.Write(mapKey);
-        CardMap.WriteRecord(writer, mapCard);
         MapData.WriteRecord(writer, mapData);
         sender.Send(writer);
     }
@@ -187,12 +186,12 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         {
             _masterServerDatabase.AddRegionServer(sessionId.ToString(), host, regionInfo, this);
             SendMasterCdb(CatalogueCache.Load());
-            foreach (var map in Databases.MapDatabase.GetMapCards())
+            // Map cards travel with the catalogue; only the payload has to be pushed separately.
+            foreach (var mapId in Databases.MapDatabase.GetMapIds())
             {
-                if (map.Id is null || Databases.MapDatabase.LoadMapData(Catalogue.Key(map.Id)) is not {} mapData)
-                    continue;
+                if (Databases.MapDatabase.LoadMapData(new Key(mapId)) is not { } mapData) continue;
 
-                SendMap(map.Id, map, mapData);
+                SendMap(mapId, mapData);
             }
         }
         SendPublicKey(Databases.PlayerDatabase.GetPublicKey());

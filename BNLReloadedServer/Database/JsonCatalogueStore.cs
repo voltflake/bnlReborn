@@ -17,14 +17,12 @@ public class JsonCatalogueStore(
         fs.Write(JsonSerializer.Serialize(cards, serializerOptions).Replace("\\u00A0", "\u00A0"));
     }
 
-    public override List<Card> Load(IEnumerable<CardMap> maps, ExtraMaps? extraMaps)
+    public override List<Card> Load()
     {
         using var fs = new StreamReader(File.OpenRead(fromPath));
         var deserializedCards = JsonSerializer.Deserialize<List<Card>>(fs.ReadToEnd(), serializerOptions) ?? [];
-        deserializedCards.RemoveAll(c => c is CardMap or CardMapData);
-            
-        // Add maps
-        AddMaps(deserializedCards, maps, extraMaps);
+
+        RehashKeys(deserializedCards);
 
         var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);

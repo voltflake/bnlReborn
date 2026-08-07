@@ -419,7 +419,7 @@ public sealed class ControlPanelServer : IDisposable
         Console.Write("Control panel: refreshing catalogue...");
         try
         {
-            var newCardList = _catalogueStore.Load(Databases.MapDatabase.GetMapCards(), Databases.MapDatabase.GrabExtraMaps());
+            var newCardList = _catalogueStore.Load();
             _serverCatalogue.Replicate(newCardList);
             var catalogueReplicator = new Service.ServiceCatalogue(new ServerSender(_regionServer));
             catalogueReplicator.SendReplicate(newCardList);
