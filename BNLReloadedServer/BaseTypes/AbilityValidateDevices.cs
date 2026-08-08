@@ -14,16 +14,6 @@ public class AbilityValidateDevices : AbilityValidate
 
     public float? Range { get; set; }
 
-    /* public override void FromJsonData(JsonNode json)
-    {
-      DeviceTargeting = json["device_targeting"]?.Deserialize<EffectTargeting>();
-      OwnedOnly = json["owned_only"]!.Deserialize<bool>();
-      MinCount = json["min_count"]!.Deserialize<int>();
-      Range = json["range"]?.Deserialize<float>();
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!; */
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(DeviceTargeting != null, true, true, Range.HasValue).Write(writer);

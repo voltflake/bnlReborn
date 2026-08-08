@@ -11,5 +11,5 @@ public enum PulseType
     Motors = 7,
     Triggers = 8,
     Custom = 9,
-    All = 10 // 0x0000000A
+    All = 10
 }

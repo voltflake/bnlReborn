@@ -59,7 +59,6 @@ public class ConfigDatabase : IConfigDatabase
         }
     };
 
-    /// <summary>Target for the (currently unwired) catalogue-to-JSON export.</summary>
     public string ExportCdbName() => _configs.ExportCdbName ?? "cdb_export.json";
 
     public string CouchDbEndpoint() => _configs.CouchDbEndpoint ?? string.Empty;

@@ -582,10 +582,16 @@ public class GameLobby : Updater
         EnqueueAction(() =>
         {
             var mostVoted = LobbyData.Maps.MaxBy(m => m.PlayerVotes?.Count);
-            if (mostVoted?.Info is MapInfoCard mapInfo && _gameInstance.IsMapNull() &&
-                Databases.MapDatabase.LoadMapData(mapInfo.MapKey) is { } mapData)
+            if (mostVoted?.Info is MapInfoCard mapInfo && _gameInstance.IsMapNull())
             {
-                _gameInstance.SetMap(mapInfo, mapData);
+                if (Databases.MapDatabase.LoadMapData(mapInfo.MapKey) is { } mapData)
+                {
+                    _gameInstance.SetMap(mapInfo, mapData);
+                }
+                else
+                {
+                    Console.WriteLine($"[GameLobby] Map card {mapInfo.MapKey} lost its map data after the ballot was built — the match cannot start.");
+                }
             }
             _gameInstance.StartMatch(LobbyData.Players.Values);
         });

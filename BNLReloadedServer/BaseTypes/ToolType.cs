@@ -11,6 +11,6 @@ public enum ToolType
     Spinup = 7,
     Dash = 8,
     Charge = 9,
-    Burst = 10, // 0x0000000A
-    GroundSlam = 11 // 0x0000000B
+    Burst = 10,
+    GroundSlam = 11
 }

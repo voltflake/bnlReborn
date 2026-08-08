@@ -56,8 +56,6 @@ public class MasterServerDatabase : IMasterServerDatabase
     {
         if (GetRegionServer(id) == null)
         {
-            // No region with such id found,
-            // If special "master" region exists threat it as master change, else fail
             if (GetRegionServer("master") == null)
             {
                 return false;
@@ -121,10 +119,6 @@ public class MasterServerDatabase : IMasterServerDatabase
         return record != null ? await LoadSanitized(record) : null;
     }
 
-    /// <summary>
-    /// Reads a record and drops any card references missing from the current catalogue,
-    /// persisting the cleaned record so clients never receive stale keys.
-    /// </summary>
     private async Task<PlayerData> LoadSanitized(PlayerRecord record)
     {
         var player = PlayerData.FromPlayerRecord(record);

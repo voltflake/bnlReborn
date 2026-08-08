@@ -14,20 +14,6 @@ public class InstEffectSplashDamage : InstEffect
 
     public List<Key>? UnitConstEffects { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      Interrupt = json["interrupt"]?.Deserialize<EffectInterrupt>();
-      Targeting = json["targeting"]?.Deserialize<EffectTargeting>();
-      Impact = json["impact"]?.Deserialize<Key>();
-      Damage = json["damage"]?.Deserialize<Damage>();
-      if (json["radius"] != null)
-        Radius = json["radius"]!.Deserialize<float>();
-      UnitInstEffects = Json.Read.List<InstEffect>(new Func<JsonData, InstEffect>(InstEffect.CreateFromJson))(json.Object["unit_inst_effects"]);
-      UnitConstEffects = Json.Read.List<Key>(new Func<JsonData, Key>(JsonHelper.KeyFromJson))(json.Object["unit_const_effects"]);
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(Interrupt != null, Targeting != null, Impact.HasValue, Damage != null, true, UnitInstEffects != null, UnitConstEffects != null).Write(writer);

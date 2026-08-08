@@ -803,8 +803,6 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 {
                     var doBackfilling = queue.DoBackfilling.GetValueOrDefault(player.PlayerId);
                     RemovePlayer(player.PlayerId, serviceMatchmaker);
-                    // The match can end or fill up between the offer and the accept. Put them back in
-                    // the queue rather than leaving them on the main menu with nothing to show for it.
                     if (!Databases.RegionServerDatabase.BackfillMatchmakerGame(player,
                             inTeam1 ? TeamType.Team1 : TeamType.Team2, queue.ActiveBackfillInfo.GameInstanceId) &&
                         serviceMatchmaker is not null)

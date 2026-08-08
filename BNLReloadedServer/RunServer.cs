@@ -35,12 +35,16 @@ var catalogueStore = new CouchCatalogueStore(
 
 if (runServer)
 {
-    // Fetch first: touching Databases.Catalogue is what constructs it, so doing that only
-    // once the cards are in hand means it is never observable empty. A CouchDB failure here
-    // takes the process down before any singleton exists.
     var loadedCards = catalogueStore.Load();
     ((ServerCatalogue)Databases.Catalogue).Replicate(loadedCards);
     Console.WriteLine($"Replicated {loadedCards.Count} cards to server catalogue");
+
+    if (Databases.MapDatabase.GetMapIds().Count == 0)
+    {
+        Console.WriteLine($"No maps found in '{Path.Combine(Databases.BaseFolderPath, "Maps")}' — " +
+                          "the server has nothing to put on a lobby ballot and would never start a match. Stopping.");
+        return;
+    }
 }
 
 if (runServer)
@@ -75,7 +79,6 @@ if (runServer)
     regionClient.ConnectAsync();
     matchServer.Start();
 
-    // Follow CouchDB's _changes feed so a card edited anywhere shows up here without a restart.
     var watcherCts = new CancellationTokenSource();
     ShutdownSignal.WaitForShutdown.ContinueWith(_ => watcherCts.Cancel());
     new CouchChangesWatcher(

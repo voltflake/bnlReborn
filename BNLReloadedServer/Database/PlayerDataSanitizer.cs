@@ -2,15 +2,10 @@ using BNLReloadedServer.BaseTypes;
 
 namespace BNLReloadedServer.Database;
 
-/// <summary>
-/// Removes card references that no longer resolve against the current catalogue, so stale keys
-/// left over from an older cdb are never sent to clients. Key.None is treated as "unset" and kept.
-/// </summary>
 public static class PlayerDataSanitizer
 {
     public static bool SanitizeAgainstCatalogue(this PlayerData player)
     {
-        // Without a catalogue every key looks dead, and stripping is irreversible (keys are hashes).
         if (!Databases.Catalogue.All.Any()) return false;
 
         var stripped = new List<string>();

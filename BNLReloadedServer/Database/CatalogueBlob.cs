@@ -1,24 +1,30 @@
-﻿using BNLReloadedServer.ProtocolHelpers;
+using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.ProtocolHelpers;
 
 namespace BNLReloadedServer.Database;
 
-/// <summary>
-/// The serialized catalogue as the client consumes it: a zlib'd card list plus its CRC32.
-/// Rebuilt in memory every time the catalogue is loaded from CouchDB — clients compare the
-/// hash at login and only pull the payload when it has moved.
-/// </summary>
 public static class CatalogueBlob
 {
-    private static volatile byte[] _data = [];
-    private static volatile uint _hash;
+    public sealed record Snapshot(byte[] Data, uint Hash);
 
-    public static byte[] Data => _data;
+    private static volatile Snapshot _current = new([], 0);
 
-    public static uint Hash => _hash;
+    public static Snapshot Current => _current;
 
-    public static void Set(byte[] data)
+    public static void Set(List<Card> cards)
     {
-        _data = data;
-        _hash = Crc32.GetHash(data);
+        var data = Serialize(cards);
+        _current = new Snapshot(data, Crc32.GetHash(data));
+    }
+
+    private static byte[] Serialize(List<Card> cards)
+    {
+        using var memStream = new MemoryStream();
+        using var writer = new BinaryWriter(memStream);
+        writer.Write((byte)0);
+        writer.WriteList(cards, Card.WriteVariant);
+        writer.Flush();
+        using var zipped = memStream.ToArray().Zip(0);
+        return zipped.ToArray();
     }
 }

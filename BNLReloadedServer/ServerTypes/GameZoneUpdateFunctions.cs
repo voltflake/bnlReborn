@@ -1519,27 +1519,12 @@ public partial class GameZone
 
     private float GetResourceCap() => _gameInitiator.GetResourceCap();
 
-    /// <summary>
-    /// Effect labels the catalogue uses for statuses that only ever go on an enemy. Bleed and burn are
-    /// <see cref="EffectLabel.DotOrganic"/>/<see cref="EffectLabel.DotMechanic"/>, slows and dizzies are
-    /// <see cref="EffectLabel.SoftControl"/>, roots and stuns <see cref="EffectLabel.HardControl"/>. The
-    /// remaining labels - Heal, BuffMobility, BuffCombat - are the beneficial half.
-    /// </summary>
     private static readonly EffectLabel[] HostileEffectLabels =
     [
         EffectLabel.DotOrganic, EffectLabel.DotMechanic, EffectLabel.SoftControl, EffectLabel.HardControl,
         EffectLabel.Confusion
     ];
 
-    /// <summary>
-    /// The subset of <paramref name="constEffects"/> a hit may hand to a unit on the source's own team.
-    /// Most hostile statuses say so through their own targeting, but some - the katana and shuriken
-    /// bleeds, fire trap and thorn bush burns and poisons - carry none at either layer, and without
-    /// this a teammate caught in the swing or the blast picks them up all the same. Their labels are
-    /// the catalogue's own statement of what the status is, so those stand in where targeting is
-    /// silent. Targeting that names a team is the author being explicit and wins outright; Both and an
-    /// unset value name none, and leave teams unfiltered in <see cref="ApplyInstEffect"/> too.
-    /// </summary>
     private static List<Key> ConstEffectsForOwnTeam(List<Key> constEffects, InstEffect effect)
     {
         if (effect.Targeting?.AffectedTeam is RelativeTeamType.Opponent or RelativeTeamType.Friendly)

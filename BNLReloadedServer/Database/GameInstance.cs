@@ -43,9 +43,6 @@ public class GameInstance : IGameInstance
     
     private readonly ConcurrentDictionary<uint, MatchConnectionInfo> _connectedUsers = new();
 
-    // Frozen per-player loadout, captured once (in SendUserToZone) when a player locks in and
-    // heads into the zone. GameZone reads from this instead of the live lobby state, since hero
-    // picking is over by then and the lobby thread may still be mutating the live PlayerLobbyState.
     private readonly ConcurrentDictionary<uint, PlayerLobbyState> _zonePlayerInfo = new();
     
     private readonly SessionSender _lobbySender;
@@ -57,8 +54,6 @@ public class GameInstance : IGameInstance
     
     private Timer? _startGameTimer;
 
-    // A dropped player keeps their slot and their lobby entry until this fires, so they can come
-    // back to the same match. Cancelled by LinkGuidToPlayer as soon as they log into the instance.
     private readonly ConcurrentDictionary<uint, Timer> _disconnectTimers = new();
 
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
@@ -145,8 +140,6 @@ public class GameInstance : IGameInstance
         {
             Lobby.EnqueueAction(() =>
             {
-                // Clients announce the rejoin themselves once an offline lobby entry flips back
-                // to online, so only brand new players need the message from us.
                 var announcedByClients = Lobby?.GetPlayerLobbyState(userId)?.Status == LobbyStatus.Offline;
                 Lobby?.AddPlayer(userId, value.Team, value.SquadId);
                 if (IsStarted && !announcedByClients)
@@ -218,12 +211,9 @@ public class GameInstance : IGameInstance
         timer.Elapsed += (_, _) =>
         {
             CancelDisconnectTimer(userId);
-            // Lost the race with a reconnect that came in as the timer fired - leave them alone.
             if (_serverDatabase.IsUserOnline(userId)) return;
 
             PlayerLeftInstance(userId, KickReason.MatchQuit);
-            // GameZone.PlayerLeft only hands the slot back when the player still had a unit, so
-            // release it here too - someone who dropped before spawning has a place to give up as well.
             _serverDatabase.FreeMatchmakerSlot(userId, GameInstanceId);
             _serverDatabase.RemoveOfflineUser(userId);
         };
@@ -371,9 +361,11 @@ public class GameInstance : IGameInstance
                 GameRankingType.None or _ => CatalogueHelper.MapList.Custom?.ToArray() ?? defaultMapList,
             };
 
-            rnd.Shuffle(mapPool);
-            var mapKeys = mapPool.Take(mapGrabCount).ToList();
-            maps = mapKeys.Where(k => k.GetCard<CardMap>() is not null)
+            var playable = mapPool
+                .Where(k => k.GetCard<CardMap>() is not null && Databases.MapDatabase.HasMap(k))
+                .ToArray();
+            rnd.Shuffle(playable);
+            maps = playable.Take(mapGrabCount)
                 .Select(MapInfo (key) => new MapInfoCard { MapKey = key }).ToList();
         }
 
@@ -452,8 +444,6 @@ public class GameInstance : IGameInstance
         if (MapData == null) return;
         GameInitiator.StartIntoMatch();
 
-        // With no lobby nothing captures a loadout in SendUserToZone, so freeze what the caller
-        // handed us instead - a map editor game has no lobby to race against in the first place.
         if (Lobby == null)
         {
             foreach (var player in playerList)
@@ -507,12 +497,6 @@ public class GameInstance : IGameInstance
 
     public void SendUserToZone(uint playerId)
     {
-        // A late joiner sits in hero select for up to reconnect_selection_time before the requeue timer
-        // sends them here, which is long enough for the match to end under them. There is nothing left
-        // to join, so put them back on the menu instead of spawning them into a finished zone.
-        // Reconnecting players never come through here - they still have their SceneZone and go
-        // straight to PlayerEnterScene. Spectators are let through; a finished zone is still something
-        // for them to look at, and SpectateCustomGame calls this directly.
         if (HasEnded is true && !GameInitiator.IsPlayerSpectator(playerId))
         {
             _serverDatabase.FreeMatchmakerSlot(playerId, GameInstanceId);

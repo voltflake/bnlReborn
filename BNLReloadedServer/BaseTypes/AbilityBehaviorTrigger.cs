@@ -10,14 +10,6 @@ public class AbilityBehaviorTrigger : AbilityBehavior
 
     public float? MaxDuration { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      TriggerEffects = json["trigger_effects"]?.Deserialize<List<Key>>();
-      MaxDuration = json["max_duration"]?.Deserialize<float>();
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(true, MaxDuration.HasValue).Write(writer);

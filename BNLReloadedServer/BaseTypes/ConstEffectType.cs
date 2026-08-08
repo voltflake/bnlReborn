@@ -11,14 +11,14 @@ public enum ConstEffectType
     OnDeath = 7,
     OnFall = 8,
     OnKill = 9,
-    OnBuilding = 10, // 0x0000000A
-    OnLowHealth = 11, // 0x0000000B
-    OnLeading = 12, // 0x0000000C
-    OnMatchContext = 13, // 0x0000000D
-    OnDamageTaken = 14, // 0x0000000E
-    OnGearSwitch = 15, // 0x0000000F
-    Pull = 16, // 0x00000010
-    OnReload = 17, // 0x00000011
-    Interval = 18, // 0x00000012
-    OnNearbyBlock = 19 // 0x00000013
+    OnBuilding = 10,
+    OnLowHealth = 11,
+    OnLeading = 12,
+    OnMatchContext = 13,
+    OnDamageTaken = 14,
+    OnGearSwitch = 15,
+    Pull = 16,
+    OnReload = 17,
+    Interval = 18,
+    OnNearbyBlock = 19
 }

@@ -11,7 +11,7 @@ public enum BlockVisualType
     Highgrass = 7,
     Flatgrass = 8,
     Slope = 9,
-    Crosscube = 10, // 0x0000000A
-    Leaf = 11, // 0x0000000B
-    Gate = 12 // 0x0000000C
+    Crosscube = 10,
+    Leaf = 11,
+    Gate = 12
 }

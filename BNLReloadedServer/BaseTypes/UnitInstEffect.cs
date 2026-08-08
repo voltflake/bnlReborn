@@ -410,7 +410,6 @@ public partial class Unit
             ((UnitCard?.Health?.Health?.MiningOnly ?? false) && !damage.Mining) ||
             UnitCard?.Data?.Type is UnitType.DamageCapture) && !damage.IgnoreDefences) || HasSpawnProtection)
         {
-            //_updater.OnUnitDamaged(this, 0, impact);
             return;
         }
         

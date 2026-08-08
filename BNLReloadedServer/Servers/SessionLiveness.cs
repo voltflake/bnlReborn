@@ -4,16 +4,6 @@ using NetCoreServer;
 
 namespace BNLReloadedServer.Servers;
 
-/// <summary>
-/// A client that vanishes without closing its socket - a pulled cable, a killed VM - leaves the session
-/// open on our side. TCP keepalive never helps in a match: it only probes idle connections, and the zone
-/// keeps writing to that socket, so the connection stays with the retransmit timer until it gives up
-/// minutes later. Meanwhile the player holds a slot in the match with nothing to end their turn in it.
-///
-/// So we ask ourselves. Every interval the session pings the client, which answers from its network
-/// thread; once enough probes in a row go unanswered we drop the session, and the ordinary disconnect
-/// path - grace timer included - takes it from there.
-/// </summary>
 internal static class SessionLiveness
 {
     public static CancellationTokenSource? Start(IServicePing ping, TcpSession session, string label)

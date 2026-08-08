@@ -84,6 +84,15 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         var key = reader.ReadString();
         var map = MapData.ReadRecord(reader);
 
+        if (!sender.AssociatedPlayerId.HasValue ||
+            Databases.PlayerDatabase.GetPlayerDataNoWait(sender.AssociatedPlayerId.Value)?.Role
+                is not (PlayerRole.Core or PlayerRole.Admin))
+        {
+            Console.WriteLine($"[MapEditor] Rejected save of '{key}' from an unprivileged session.");
+            SendSaveMap(rpcId, "You do not have permission to save maps.");
+            return;
+        }
+
         try
         {
             Databases.MapDatabase.SaveMap(key, map);

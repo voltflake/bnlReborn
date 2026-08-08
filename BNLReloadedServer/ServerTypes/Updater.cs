@@ -5,7 +5,6 @@ namespace BNLReloadedServer.ServerTypes;
 
 public abstract class Updater
 {
-    // Actions share one queue with the game tick, so anything slower than this visibly stalls the simulation.
     private const int SlowActionMillis = 25;
 
     private readonly Channel<Action> _updateActions = Channel.CreateUnbounded<Action>();
@@ -46,8 +45,6 @@ public abstract class Updater
         }
     }
     
-    /// Lambdas compile to "&lt;OriginatingMethod&gt;b__0" inside a "&lt;&gt;c__DisplayClass" nested in the real type,
-    /// so unwrap both to get back something like "GameInstance.UnitMoved".
     private static string DescribeAction(Action action)
     {
         var method = action.Method;

@@ -10,7 +10,7 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
 {
     private enum ServiceMasterId : byte
     {
-        MessageCdb = 0, // reserved: regions load the catalogue from CouchDB themselves
+        MessageCdb = 0,
         MessageMap = 1,
         MessagePlayerData = 2,
         MessagePlayerUpdate = 3,
@@ -45,15 +45,6 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         return writer;
     }
     
-    public void SendMap(string mapKey, MapData mapData)
-    {
-        using var writer = CreateWriter();
-        writer.Write((byte) ServiceMasterId.MessageMap);
-        writer.Write(mapKey);
-        MapData.WriteRecord(writer, mapData);
-        sender.Send(writer);
-    }
-
     public void SendPlayerData(PlayerData playerData)
     {
         using var writer = CreateWriter();
@@ -177,13 +168,6 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         else
         {
             _masterServerDatabase.AddRegionServer(sessionId.ToString(), host, regionInfo, this);
-            // Map cards travel with the catalogue; only the payload has to be pushed separately.
-            foreach (var mapId in Databases.MapDatabase.GetMapIds())
-            {
-                if (Databases.MapDatabase.LoadMapData(new Key(mapId)) is not { } mapData) continue;
-
-                SendMap(mapId, mapData);
-            }
         }
         SendPublicKey(Databases.PlayerDatabase.GetPublicKey());
     }

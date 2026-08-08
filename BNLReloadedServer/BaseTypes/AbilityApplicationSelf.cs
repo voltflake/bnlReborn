@@ -8,13 +8,6 @@ public class AbilityApplicationSelf : AbilityApplication
 
     public bool IncludeSelfUnit { get; set; } = true;
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-        IncludeSelfUnit = json["include_self_unit"]!.Deserialize<bool>();
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
         new BitField(true).Write(writer);

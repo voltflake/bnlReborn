@@ -59,15 +59,6 @@ public partial class GameZone : Updater
     private readonly Dictionary<ulong, ShotInfo> _shotInfo = new();
     private readonly HashSet<ulong> _keepShotAlive = [];
 
-    // A projectile reports a hit for every penetrable block it passes through - bushes, fire, force
-    // gates - all under the same shot id, plus the odd duplicate of a single contact. Only the last
-    // hit before the client drops the projectile is the actual detonation, so hits from a live
-    // projectile are held here and applied in ReceivedProjDropRequest.
-    //
-    // A duplicate is a second report of one contact, so it names a cell that is already in Cells;
-    // a block the projectile genuinely crossed names a new one. Telling them apart that way is what
-    // lets the blocks on the way through keep their damage - collapsing the whole flight to a single
-    // hit deduplicates by throwing the rest away, which is why goo and fire stopped taking any.
     private readonly Dictionary<ulong, (List<(ulong Time, HitData Hit)> Held, HashSet<Vector3s> Cells)>
         _pendingProjectileHits = new();
     private readonly HashSet<ulong> _checkForWater = [];
@@ -945,8 +936,6 @@ public partial class GameZone : Updater
         player.IsActive = false;
         player.Killed(impact);
 
-        // No kick broadcast here - that drops the player from every client's scoreboard, and they
-        // keep their place until the reconnect grace runs out. PlayerLeft sends it when it does.
         _zoneData.UpdatePlayerSelectedSpawn(playerId, _defaultSpawnId[(int) player.Team]);
     }
 
@@ -1254,7 +1243,7 @@ public partial class GameZone : Updater
             ?.Select(m => m.GetCard<CardMatchMedal>()).OfType<CardMatchMedal>().ToList() ?? [];
         var negativeMedals = cardGlobalLogic.Medals?.NegativeMedals
             ?.Select(m => m.GetCard<CardMatchMedal>()).OfType<CardMatchMedal>().ToList() ?? [];
-        
+
         // Grab match stats
         foreach (var player in _playerUnits.Values)
         {
@@ -1641,7 +1630,6 @@ public partial class GameZone : Updater
 
             if (ticksLastSecond < TicksPerSecond - 1)
             {
-                // GC pause vs. a slow action on the updater queue - "Slow action" lines pin down the latter.
                 Console.WriteLine($"Low TPS: {ticksLastSecond} (GC paused {pausedMillis:F0}ms, " +
                                   $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
             }

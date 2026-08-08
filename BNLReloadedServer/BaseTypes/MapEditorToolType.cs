@@ -11,12 +11,12 @@ public enum MapEditorToolType
     Mirror = 7,
     Objective = 8,
     Resize = 9,
-    Tree = 10, // 0x0000000A
-    Vertex = 11, // 0x0000000B
-    Replace = 12, // 0x0000000C
-    MapSettings = 13, // 0x0000000D
-    Screenshot = 14, // 0x0000000E
-    Camera = 15, // 0x0000000F
-    InitialViewTips = 16, // 0x00000010
-    ChooseYourMapTips = 17 // 0x00000011
+    Tree = 10,
+    Vertex = 11,
+    Replace = 12,
+    MapSettings = 13,
+    Screenshot = 14,
+    Camera = 15,
+    InitialViewTips = 16,
+    ChooseYourMapTips = 17
 }

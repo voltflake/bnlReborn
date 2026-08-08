@@ -8,10 +8,6 @@ public class ServerCatalogue : Catalogue
 {
     private FrozenDictionary<Key, Card> _db;
 
-    /// <summary>
-    /// Starts empty. The catalogue is populated by the first <see cref="Replicate"/> off
-    /// CouchDB — serving nothing beats serving a stale snapshot.
-    /// </summary>
     public ServerCatalogue()
     {
         _db = FrozenDictionary<Key, Card>.Empty;
@@ -35,6 +31,7 @@ public class ServerCatalogue : Catalogue
         }
         _db = tempDict.ToFrozenDictionary();
         Replicated = true;
+        CatalogueBlob.Set(cards);
     }
 
     public void UpdateCard(Card card)

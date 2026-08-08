@@ -11,6 +11,6 @@ public enum UnitMinimapType
     SupplyResource = 7,
     SupplyBlockbuster = 8,
     Radar = 9,
-    Portal = 10, // 0x0000000A
-    PiggyBank = 11 // 0x0000000B
+    Portal = 10,
+    PiggyBank = 11
 }

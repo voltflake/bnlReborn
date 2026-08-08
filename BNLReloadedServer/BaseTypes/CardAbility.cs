@@ -21,23 +21,6 @@ public class CardAbility : Card, IPrefab, IIcon, IKillscoreIcon, IUnlockable
 
     public AbilityBehavior? Behavior { get; set; }
 
-    /* public override void FromJsonData(JsonNode json)
-    {
-      Id = json["_id"]?.Deserialize<string>();
-      Scope = json["scope"]!.Deserialize<ScopeType>();
-      Icon = json["icon"]?.Deserialize<string>();
-      KillscoreIcon = json["killscore_icon"]?.Deserialize<string>();
-      Prefab = json["prefab"]?.Deserialize<string>();
-      Charges = json["charges"]?.Deserialize<AbilityCharges>();
-      if (json["validate"] != null)
-        Validate = AbilityValidate.CreateFromJson(json["validate"]!);
-      if (json["behavior"] == null)
-        return;
-      Behavior = AbilityBehavior.CreateFromJson(json["behavior"]);
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!; */
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(true, true, true, true, true, true, Validate != null, true).Write(writer);

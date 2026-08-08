@@ -5,8 +5,6 @@ using CouchDB.Driver;
 
 namespace BNLReloadedServer.Database;
 
-// Listens to CouchDB's `_changes?feed=continuous` stream and invokes a full-catalogue
-// reload callback immediately whenever a document changes.
 public class CouchChangesWatcher(string endpoint, string dbName, BasicCredentials credentials, Action onChanged)
 {
     private static readonly HttpClient HttpClient = new()
@@ -60,8 +58,8 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
         while (!cancellationToken.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(cancellationToken);
-            if (line == null) return; // stream closed
-            if (string.IsNullOrWhiteSpace(line)) continue; // heartbeat newline
+            if (line == null) return;
+            if (string.IsNullOrWhiteSpace(line)) continue;
 
             var docId = TryGetChangedDocId(line);
             Console.WriteLine(docId != null
@@ -74,7 +72,7 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CouchWatcher] reload failed: {ex.Message}");
+                Console.WriteLine($"[CouchWatcher] reload failed, keeping the current catalogue: {ex.Message}");
             }
         }
     }

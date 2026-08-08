@@ -79,7 +79,6 @@ public sealed class ControlPanelServer : IDisposable
         }
         catch
         {
-            // ignore
         }
     }
 
@@ -152,7 +151,6 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
-            // Public: aggregate player counts only. Everything below this point requires a session.
             if (method == "GET" && path == "/api/public/status")
             {
                 await ServePublicStatus(ctx);
@@ -226,9 +224,6 @@ public sealed class ControlPanelServer : IDisposable
         }
     }
 
-    // The listener only binds to loopback, so the only caller that can ever reach it is the local
-    // nginx reverse proxy - trusting its forwarded-for header here does not open it up to spoofing
-    // from the internet the way it normally would on a directly-exposed listener.
     private static string ClientIp(HttpListenerContext ctx)
     {
         var forwarded = ctx.Request.Headers["X-Real-IP"] ?? ctx.Request.Headers["X-Forwarded-For"];
@@ -301,7 +296,6 @@ public sealed class ControlPanelServer : IDisposable
         }
         catch (JsonException)
         {
-            // treated as an empty/invalid password below
         }
 
         var storedHash = Databases.ConfigDatabase.ControlPanelPasswordHash();
@@ -377,8 +371,6 @@ public sealed class ControlPanelServer : IDisposable
         await WriteJson(ctx, status);
     }
 
-    /// Unauthenticated counterpart to ServeStatus - the player count and nothing else,
-    /// since this one is meant to be reachable from outside.
     private static async Task ServePublicStatus(HttpListenerContext ctx)
     {
         var playerCount = Databases.MasterServerDatabase.GetRegionServers()
@@ -626,7 +618,6 @@ public sealed class ControlPanelServer : IDisposable
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
 
-            // Try to get the live in-memory player; fall back to DB for offline players
             var livePlayer = Databases.PlayerDatabase.GetPlayerDataNoWait(playerId);
             var dbPlayer = livePlayer ?? await Databases.MasterServerDatabase.GetPlayer(playerId);
             if (dbPlayer == null)
@@ -636,7 +627,6 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
-            // Apply edits to a working copy (always the full PlayerData so we can persist it)
             var updated = dbPlayer;
 
             if (root.TryGetProperty("nickname", out var nicknameProp))
@@ -684,7 +674,6 @@ public sealed class ControlPanelServer : IDisposable
             if (root.TryGetProperty("graveyard_leave_time", out var gltProp))
                 updated.GraveyardLeaveTime = gltProp.ValueKind == JsonValueKind.Null ? null : gltProp.GetUInt64();
 
-            // Persist to the database (works for both online and offline players)
             var saved = await Databases.MasterServerDatabase.UpdatePlayerAsync(playerId, updated);
             if (!saved)
             {

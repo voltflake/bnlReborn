@@ -119,7 +119,6 @@ public class PlayerLobbyState
       return playerLobbyState;
     }
 
-    // Uses Write/Read instead of a field-by-field copy so this stays correct if fields are added.
     public PlayerLobbyState Clone()
     {
       using var stream = new MemoryStream();

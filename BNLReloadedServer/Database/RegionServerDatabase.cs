@@ -115,22 +115,12 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             playerInfo.Online = true;
         }
         
-        /*if (_services[sessionId][ServiceId.ServiceChat] is IServiceChat chatService)
-        {
-            _globalChatRoom.AddToRoom(sessionId, chatService);
-        }*/
         return result;
     }
 
     public bool RemoveUser(uint userId)
     {
         if (!UserConnected(userId, out var playerInfo)) return false;
-
-        /*var playerGuid = _connectedUsers[userId].Guid;
-        if (_services[playerGuid][ServiceId.ServiceChat] is IServiceChat chatService)
-        {
-            _globalChatRoom.RemoveFromRoom(playerGuid, chatService);
-        }*/
 
         playerInfo.Online = false;
         _matchmaker.RemovePlayer(userId, null);
@@ -621,8 +611,6 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool BackfillMatchmakerGame(PlayerQueueData player, TeamType team, string gameInstanceId)
     {
-        // The offer went out up to confirm_time ago and the instance sticks around until the last
-        // player leaves, so the match can easily have ended while they were confirming.
         if (!UserConnected(player.PlayerId, out var playerInfo) || !_matchmakerGames.TryGetValue(gameInstanceId, out var initiator) ||
             !_gameInstances.TryGetValue(gameInstanceId, out var gameInstance) || gameInstance.IsOver()) return false;
         if(!initiator.AddPlayer(player, team)) return false;
@@ -723,8 +711,6 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public IEnumerable<(Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2, string instanceId)> GetBackfillNeeded(Key gameModeKey)
     {
-        // NeedsBackfill already goes false at match end, but an ended instance lingers until the last
-        // player leaves it, so state the invariant here rather than leaning on that ordering.
         var gameInstances = _gameInstances
             .Where(g => g.Value.GetGameMode() == gameModeKey && !g.Value.IsOver() && g.Value.NeedsBackfill()).ToList();
         if (gameInstances.Count == 0) yield break;
@@ -974,8 +960,6 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool IsUserOnline(uint playerId) => UserConnected(playerId, out var playerInfo) && playerInfo.Online;
 
-    // RemoveUser leaves a player in place while their custom game is mid-match, so a dropped player
-    // keeps holding a slot in the custom game list. Once their grace is up, finish the job.
     public void RemoveOfflineUser(uint playerId)
     {
         if (!UserConnected(playerId, out var playerInfo) || playerInfo.Online) return;

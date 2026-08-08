@@ -30,10 +30,6 @@ public class ServicePing(ISender sender) : IServicePing
         sender.Send(writer);
     }
 
-    /// <summary>
-    /// Pings the client and reports how many probes have gone unanswered, this one included. The client
-    /// answers on its network thread, so a pong still comes back while its main thread is stalled loading.
-    /// </summary>
     public int SendLivenessProbe()
     {
         var missed = Interlocked.Increment(ref _missedProbes);

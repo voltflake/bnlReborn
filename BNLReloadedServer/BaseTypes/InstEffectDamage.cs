@@ -12,19 +12,6 @@ public class InstEffectDamage : InstEffect
 
     public DamageFalloff? Falloff { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      Interrupt = json["interrupt"]?.Deserialize<EffectInterrupt>();
-      Targeting = json["targeting"]?.Deserialize<EffectTargeting>();
-      Impact = json["impact"]?.Deserialize<Key>();
-      Damage = json["damage"]?.Deserialize<Damage>();
-      if (json["crit_modifier"] != null)
-        CritModifier = json["crit_modifier"]!.Deserialize<float>()!;
-      Falloff = json["falloff"]?.Deserialize<DamageFalloff>();
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(Interrupt != null, Targeting != null, Impact.HasValue, true, true, Falloff != null).Write(writer);

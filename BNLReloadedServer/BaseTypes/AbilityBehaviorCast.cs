@@ -10,17 +10,6 @@ public class AbilityBehaviorCast : AbilityBehavior
 
     public InstEffect? HitEffect { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      if (json["application"] != null)
-        Application = AbilityApplication.CreateFromJson(json["application"]!);
-      if (json["hit_effect"] == null)
-        return;
-      HitEffect = InstEffect.CreateFromJson(json["hit_effect"]!);
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(true, HitEffect != null).Write(writer);

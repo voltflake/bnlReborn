@@ -6,7 +6,6 @@ namespace BNLReloadedServer.Service;
 
 public interface IServiceMasterServer : IService
 {
-    public void SendMap(string mapKey, MapData mapData);
     public void SendPlayerData(PlayerData playerData);
     public void SendPlayerUpdate(uint playerId, PlayerUpdate update);
     public void SendMatchHistory(uint playerId, List<MatchHistoryRecord> matches);

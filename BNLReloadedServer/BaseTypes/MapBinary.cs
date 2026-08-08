@@ -288,8 +288,6 @@ public class MapBinary
         return output.ToArray().Zip(3).ToArray();
     }
 
-    // Team blocks need an owner for damage attribution, devices need one so GameZone.PlayerLeft
-    // can clean them up. Pads are teamless devices, so gating on HasTeam alone left them behind.
     private static bool ShouldTrackOwner(CardBlock card) =>
         card.HasTeam || card.DeviceType == DeviceType.Device;
 
@@ -1018,11 +1016,6 @@ public class MapBinary
         return dict;
     }
 
-    /// <summary>
-    /// Which way a blast spreads is chosen by <c>use_raycast_explosions</c> in configs.json. The raycast
-    /// version asks, for every cell in range, whether anything solid stands between it and the epicenter.
-    /// The flood fill it replaced instead spread the blast block by block, and is kept here to fall back on.
-    /// </summary>
     public (Dictionary<Vector3s, BlockUpdate> updates, List<Unit> hitUnits) SplashDamageBlocks(Vector3[] locations,
         DamageData damage, ImpactData impact, float radius, ICollection<Unit> unitsInRadius, Unit? attacker,
         TeamType? attackingTeam) =>
@@ -1038,20 +1031,11 @@ public class MapBinary
         var (unitsForBlock, blocksForUnit) = GetUnitBlockPositions(unitsInRadius);
 
         var origin = locations[0];
-        // The caller nudges the impact point by a fraction of a block to work around imprecision, so these are
-        // several samples of one epicenter rather than separate blasts. They all seed the same explosion.
         var originCells = new HashSet<Vector3s>(locations.Select(l => (Vector3s)l));
         var radiusSqrd = radius * radius;
 
-        // Rays start from the middle of the cell the blast went off in rather than the impact point itself.
-        // An impact point sits on the face of the block that was hit, and from there a ray to a diagonal
-        // neighbour cuts through the inside of the block beside it - so a charge laid on the ground would
-        // shadow its own crater and dig a cross. The blast fills its cell, so that is where it radiates from.
         var rayOrigin = SplashCellCenter((Vector3s)origin);
 
-        // Reduction a ray picks up by passing through a cell the blast already broke through. Only cells that
-        // are transparent by the time a later ray crosses them can contribute, so surviving cover never
-        // appears here - it blocks the ray outright.
         var absorption = new Dictionary<Vector3s, float>();
 
         foreach (var (position, _) in SplashTargets(origin, radius, radiusSqrd))
@@ -1065,8 +1049,6 @@ public class MapBinary
 
             if (absorbed >= 1f) continue;
 
-            // Neither blocks nor units lose damage with distance - the only thing a blast spends on its way
-            // out is what it had to dig through. A charge that reaches you at all reaches you at full force.
             var dmg = damage.ReduceByPercent(absorbed);
 
             if (unitsForBlock.TryGetValue(position, out var units))
@@ -1094,11 +1076,6 @@ public class MapBinary
 
             if (!ContainsBlock(position)) continue;
 
-            // A block is inside the blast by the distance between the two cell centers, not by whichever
-            // corner of it happens to be nearest. Measured off the corner, a radius of one and a half - the
-            // one Cogwheel's alt fire carries, and the smallest in the game - swallows a whole 3x3x3 instead
-            // of digging the plus shape it is supposed to. Units are left alone by this: they are hit off the
-            // cells the blast reaches, so their radius is the one the caller worked out.
             if (Vector3.DistanceSquared(rayOrigin, SplashCellCenter(position)) > radiusSqrd) continue;
 
             var blk = this[position];
@@ -1106,7 +1083,6 @@ public class MapBinary
             if (!(blkCard.Health?.MaxHealth > 0) || dmg.BlockDamage == 0) continue;
             if (!blkCard.Destructible && blkCard.Solid && !damage.IgnoreInvincibility) continue;
 
-            // Blasts pay toughness the same as any other hit does; splash resistance is charged on top of it.
             var dmgAmount = MathF.Max(dmg.BlockDamage - blkCard.Health.Toughness, 0) *
                             ((100 - blkCard.SplashResistance) / 100f);
             var actDamage = dmgAmount * (byte.MaxValue / blkCard.Health.MaxHealth);
@@ -1116,8 +1092,6 @@ public class MapBinary
             if (blk.Damage + actDamage >= byte.MaxValue)
             {
                 var dmgTaken = (byte.MaxValue - blk.Damage) * (blkCard.Health.MaxHealth / byte.MaxValue);
-                // damage.BlockDamage is the undiminished damage of the blast, matching how the cost of
-                // breaking a block used to be charged against the wave that broke it.
                 if (dmgTaken > 0 && damage.BlockDamage > 0) cellAbsorption += dmgTaken / damage.BlockDamage;
 
                 blk.Id = 0;
@@ -1151,10 +1125,6 @@ public class MapBinary
         return (dict, hitUnits);
     }
 
-    /// <summary>
-    /// Every cell the blast can reach, nearest first. Ordering by distance is what lets a ray assume the cells
-    /// it crosses have already been resolved, so blocks the blast broke through are transparent to it.
-    /// </summary>
     private static IEnumerable<(Vector3s position, float distance)> SplashTargets(Vector3 origin, float radius, float radiusSqrd)
     {
         var min = (Vector3s)(origin - new Vector3(radius));
@@ -1176,7 +1146,6 @@ public class MapBinary
         {
             var byDistance = a.distance.CompareTo(b.distance);
             if (byDistance != 0) return byDistance;
-            // Ties are broken by coordinate so an explosion resolves identically on every run.
             var byX = a.position.x.CompareTo(b.position.x);
             if (byX != 0) return byX;
             var byY = a.position.y.CompareTo(b.position.y);
@@ -1188,10 +1157,6 @@ public class MapBinary
 
     private static Vector3 SplashCellCenter(Vector3s position) => position.ToVector3() + new Vector3(0.5f);
 
-    /// <summary>
-    /// The face a cell is entered through when stepping along <paramref name="axis"/> in direction
-    /// <paramref name="step"/>, as an index into <see cref="CoordsHelper.FaceToVector"/>.
-    /// </summary>
     private static int SplashEntryFace(int axis, int step) => axis switch
     {
         0 => step > 0 ? (int)BlockFace.Left : (int)BlockFace.Right,
@@ -1199,18 +1164,6 @@ public class MapBinary
         _ => step > 0 ? (int)BlockFace.Back : (int)BlockFace.Forward
     };
 
-    /// <summary>
-    /// Walks the cells between the epicenter and <paramref name="target"/>, in the manner of a 3D-DDA.
-    ///
-    /// Only cells the ray passes through the inside of occlude; the epicenter's own cells and the target are
-    /// never tested, which is what lets a blast damage the block it went off against and every block around
-    /// it - edges and corners included - without any of them shadowing the others. Beyond that, a surviving
-    /// solid block stops the ray, so cover works and the blast cannot curl around it.
-    ///
-    /// Where the ray crosses an edge or a corner exactly it enters no cell at all, so the seam it slips
-    /// through is checked instead: it is only open if at least one of the cells meeting at that seam is. Two
-    /// solid blocks meeting at an edge are a sealed wall, not a gap.
-    /// </summary>
     private bool TraceSplashRay(Vector3 origin, Vector3s target, HashSet<Vector3s> originCells,
         IReadOnlyDictionary<Vector3s, float> absorption, bool ignoreInvincibility, out float absorbed)
     {
@@ -1254,7 +1207,6 @@ public class MapBinary
         var rayLength = delta.Length();
         var cellEntered = 0f;
 
-        // The ray is parameterised over [0, 1], so it can cross at most one boundary per axis per block.
         var maxSteps = 3 * (Math.Abs(target.x - cell[0]) + Math.Abs(target.y - cell[1]) + Math.Abs(target.z - cell[2])) + 3;
         for (var taken = 0; taken < maxSteps; taken++)
         {
@@ -1264,9 +1216,6 @@ public class MapBinary
             var nearest = MathF.Min(nextCrossing[0], MathF.Min(nextCrossing[1], nextCrossing[2]));
             if (float.IsPositiveInfinity(nearest) || nearest > 1f) return true;
 
-            // A tie means the ray leaves through an edge or a corner rather than a face. The epsilon is
-            // relative to how far along the ray we are: a tie missed here degrades to two ordinary steps,
-            // which tests the cells as entered - the conservative outcome, not a leak.
             var tolerance = MathF.Max(nearest, 1f) * SplashRayEpsilon;
             var faceCount = 0;
             var seamOpen = false;
@@ -1278,11 +1227,8 @@ public class MapBinary
                 entryFaces[faceCount++] = entryFace;
             }
 
-            // Only reachable if every axis has run out of crossings, which the check above already returned on.
             if (faceCount == 0) return true;
 
-            // A slope or a prefab can be open on the side the ray came in through and solid on the side it
-            // would leave by, so the cell being left is checked on its way out as well as on its way in.
             if (!originCells.Contains(position) &&
                 IsSplashOpaque(position, exitFaces[..faceCount], ignoreInvincibility))
             {
@@ -1301,14 +1247,8 @@ public class MapBinary
                 }
             }
 
-            // Nothing stands between the blast and a block it is already touching, so a block diagonally
-            // against the cell the blast went off in is damaged through a sealed seam. That is what fills
-            // the whole 3x3x3 around the epicenter, corners included, even when the material is too tough
-            // to break. Carrying on out of that seam is a different matter and stays blocked, so a wall
-            // meeting at a diagonal is never something a blast can shoot through.
             if (faceCount > 1 && !(entered == target && originCells.Contains(position)))
             {
-                // Cells sharing the seam, reached by stepping along one of the tied axes on its own.
                 for (var axis = 0; axis < 3 && !seamOpen; axis++)
                 {
                     if (step[axis] == 0 || nextCrossing[axis] > nearest + tolerance) continue;
@@ -1335,13 +1275,6 @@ public class MapBinary
                 nextCrossing[axis] += crossingDelta[axis];
             }
 
-            // What the cell just left cost the blast, charged by how far the ray actually ran inside it
-            // rather than per cell. A ray running at 45 degrees clips the corners of half as many cells as
-            // one running shallow, so charging per cell made the price of digging through rock depend on
-            // which way the ray happened to point, and left the crater spiked along the axes and diagonals.
-            //
-            // Cells resolved after this one are missing from the table and cost nothing; a ray can only
-            // reach them by grazing the flank of the wave, where the blast has barely been diminished.
             if (!originCells.Contains(position) && absorption.TryGetValue(position, out var cellAbsorption))
             {
                 absorbed += cellAbsorption * (nearest - cellEntered) * rayLength;
@@ -1359,10 +1292,6 @@ public class MapBinary
         return true;
     }
 
-    /// <summary>
-    /// Whether a cell stops a splash ray. Blocks the blast destroyed are already air in the map by the time
-    /// later rays are traced, so they let it through without any extra bookkeeping.
-    /// </summary>
     private bool IsSplashOpaque(Vector3s position, ReadOnlySpan<int> entryFaces, bool ignoreInvincibility)
     {
         if (!ContainsBlock(position)) return false;
@@ -1374,8 +1303,6 @@ public class MapBinary
 
         var vData = (byte)blk.VData;
 
-        // A slope or a prefab only blocks the ray if the face it would enter through is solid. Crossing an
-        // edge or a corner enters through several faces at once, and a single solid one is enough to stop it.
         foreach (var face in entryFaces)
         {
             var solid = card switch
@@ -1388,8 +1315,6 @@ public class MapBinary
             if (solid) return true;
         }
 
-        // No face to test means the ray never entered the cell, which only happens on a degenerate ray;
-        // treat it as blocking rather than letting the blast through an unexamined block.
         return entryFaces.Length == 0;
     }
 
@@ -1425,9 +1350,6 @@ public class MapBinary
             if (!visitedBlocks.Add(propInfo.prop.Position))
                 continue;
 
-            // Blocks are now charged what units always were: the accumulated reduction with the per-step
-            // distance term taken back out, which leaves only what the blast dug through. That term stays in
-            // dmgReduction, where it still orders the queue and still stops the wave, but nothing pays it.
             var dmg = dmgReduction > 0
                 ? damage.ReduceByPercent(dmgReduction - naturalFalloff * propInfo.travCount)
                 : damage;
@@ -1468,10 +1390,6 @@ public class MapBinary
                     continue;
                 }
                 
-                // Blasts pay toughness, matching the raycast path above. Cells whose center the blast does not
-                // reach take nothing, but still go through the motions below: a block the wave cannot hurt is
-                // still a block the wave cannot get past, and skipping it outright would leak the blast out
-                // through the rim.
                 var dmgAmount = Vector3.DistanceSquared(blastCenter,
                                     SplashCellCenter(propInfo.prop.Position)) > radiusSqrd
                     ? 0f

@@ -14,19 +14,6 @@ public class AbilityApplicationHitscan : AbilityApplication
 
     public MultipleBullets? Bullets { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      if (json["range"] != null)
-        Range = json["range"]!.Deserialize<float>();
-      if (json["hit_on_out_of_range"] != null)
-        HitOnOutOfRange = json["hit_on_out_of_range"]!.Deserialize<bool>();
-      if (json["include_target_unit"] != null)
-        IncludeTargetUnit = json["include_target_unit"]!.Deserialize<bool>();
-      Bullets = json["bullets"]?.Deserialize<MultipleBullets>();
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(true, true, true, Bullets != null).Write(writer);

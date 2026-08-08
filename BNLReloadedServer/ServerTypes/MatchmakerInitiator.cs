@@ -7,9 +7,6 @@ namespace BNLReloadedServer.ServerTypes;
 public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> team1, List<PlayerQueueData> team2)
     : IGameInitiator
 {
-    // A freed slot is not offered up straight away - the match may be ending, or the player may be
-    // on their way back. Nothing is lost by letting it settle, and a wasted backfill costs a real
-    // player a queue pop.
     private const double SlotSettleSeconds = 10;
 
     private readonly List<PlayerQueueData> _team1 = team1.ToList();
@@ -62,9 +59,6 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
 
     public void RemovePlayer(uint playerId)
     {
-        // Only the first departure starts the clock. Stamping every one would mean a match bleeding
-        // players a few seconds apart never accumulates a quiet window, so it would never be offered
-        // backfill at all - the opposite of the point.
         if (_team1.RemoveAll(p => p.PlayerId == playerId) + _team2.RemoveAll(p => p.PlayerId == playerId) > 0)
         {
             _firstSlotFreed ??= DateTimeOffset.Now;

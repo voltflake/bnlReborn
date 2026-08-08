@@ -24,7 +24,6 @@ public static class ConsoleLogBuffer
         }
         catch
         {
-            // ignore - persistence is best-effort
         }
     }
 
@@ -48,7 +47,6 @@ public static class ConsoleLogBuffer
             }
             catch
             {
-                // ignore - persistence is best-effort
             }
         }
     }

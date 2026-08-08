@@ -313,10 +313,6 @@ public partial class GameZone
 
     public void ReceivedProjDropRequest(ulong shotId)
     {
-        // The projectile is gone, so the last hit held for it is the one it died on. Everything
-        // before that is a block it passed through on the way, which takes the shot's contact damage
-        // and nothing else - running the whole effect out there is what detonated rockets inside the
-        // bushes they were flying through.
         if (_pendingProjectileHits.Remove(shotId, out var pending) && pending.Held.Count > 0)
         {
             if (_shotInfo.TryGetValue(shotId, out var shot))
@@ -337,11 +333,6 @@ public partial class GameZone
         _serviceZone.SendDropProjectile(shotId);
     }
 
-    /// <summary>
-    /// Damages a single block a projectile flew through without stopping. Only the contact damage of
-    /// the shot applies: the splash belongs to the detonation, which happens where the projectile
-    /// actually died, not in every cell it crossed on the way there.
-    /// </summary>
     private void ApplyPassThroughDamage(ShotInfo shot, HitData hitData)
     {
         if (ProjectileHitEffect(shot) is not { } effect || ContactDamage(effect) is not { } damage) return;
@@ -355,10 +346,6 @@ public partial class GameZone
         DoBlockUpdate(MapBinary.DamageBlock(cell, dmgData, shot.Caster));
     }
 
-    /// <summary>
-    /// The effect a shot lands on contact, for the sources that can put a projectile in the air.
-    /// Mirrors the dispatch in <see cref="ReceivedHit"/>, minus the tools that never spawn one.
-    /// </summary>
     private InstEffect? ProjectileHitEffect(ShotInfo shot)
     {
         if (shot.SourceGear is not null && shot.ToolIndex is not null)
@@ -387,22 +374,9 @@ public partial class GameZone
         return shot.Caster.TeslaUnitData?.HitEffect;
     }
 
-    /// <summary>
-    /// The damage an effect deals to the one block it touches. A shot's plain damage is what that
-    /// means where the shot has any; a good half of the projectiles in the catalogue carry nothing
-    /// but splash - Roly's burst, bananas, saucers - and for those the blast's own damage is the
-    /// only figure there is, so it is charged to the crossed block alone. The area is not applied
-    /// either way: the explosion belongs where the projectile died.
-    /// </summary>
     private static Damage? ContactDamage(InstEffect effect) =>
         FindDamage(effect, splash: false) ?? FindDamage(effect, splash: true);
 
-    /// <summary>
-    /// Searches an effect tree for the first plain or splash damage it carries. Plain damage is
-    /// looked for across the whole tree before splash is considered at all: a rocket lists its blast
-    /// ahead of its impact, and taking whichever came first would charge a crossed block the
-    /// explosion's damage while the shot has a perfectly good contact figure of its own.
-    /// </summary>
     private static Damage? FindDamage(InstEffect effect, bool splash) => effect switch
     {
         InstEffectDamage { Damage: not null } damageEffect when !splash => damageEffect.Damage,
@@ -938,11 +912,6 @@ public partial class GameZone
         }
     }
 
-    /// <param name="flushingDeferred">
-    /// Set when replaying a hit that was held back while its projectile was in flight. Such a hit is
-    /// applied as-is: it is not buffered again, and it is not rejected for being old, since it was
-    /// received up to the projectile's whole lifetime ago.
-    /// </param>
     public void ReceivedHit(ulong time, Dictionary<ulong, HitData> hits, bool flushingDeferred = false)
     {
         if (!flushingDeferred && (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds() > time + StaleRequestTimeout)
@@ -954,10 +923,6 @@ public partial class GameZone
         {
             if (!_shotInfo.TryGetValue(shotId, out var shot)) continue;
 
-            // The shot belongs to a projectile that is still flying, so this hit may well be one of
-            // several penetrated blocks. Hold them all until the client drops it; the last is the
-            // detonation and the rest are blocks it crossed. Repeat reports of one contact name a
-            // cell already held, so they are dropped here rather than damaging that block twice.
             if (!flushingDeferred && _keepShotAlive.Contains(shotId))
             {
                 if (!_pendingProjectileHits.TryGetValue(shotId, out var pending))
@@ -966,8 +931,6 @@ public partial class GameZone
                 }
 
                 var isNewCell = pending.Cells.Add((Vector3s)hitData.InsidePoint);
-                // A hit on a unit ends the projectile's flight, so it is never a duplicate, even
-                // where the unit stands in a cell the blast already crossed.
                 if (isNewCell || hitData.TargetId is not null)
                 {
                     pending.Held.Add((time, hitData));
@@ -1014,9 +977,7 @@ public partial class GameZone
                         break;
                     
                     case ToolBurst toolBurst:
-                        if (toolBurst.HitEffect is null /* ||
-                             Vector3.DistanceSquared(shot.ShotPos, hitData.InsidePoint) > MathF.Pow(toolBurst.Range + 1, 2) */
-                           )
+                        if (toolBurst.HitEffect is null)
                         {
                             continue;
                         }
@@ -1060,9 +1021,7 @@ public partial class GameZone
                         break;
                     
                     case ToolShot toolShot:
-                        if (toolShot.HitEffect is null /* ||
-                             Vector3.DistanceSquared(shot.ShotPos, hitData.InsidePoint) > MathF.Pow(toolShot.Range + 1, 2) */
-                            )
+                        if (toolShot.HitEffect is null)
                         {
                             continue;
                         }
@@ -1072,9 +1031,7 @@ public partial class GameZone
                         break;
                     
                     case ToolSpinup toolSpinup:
-                        if (toolSpinup.HitEffect is null /* ||
-                             Vector3.DistanceSquared(shot.ShotPos, hitData.InsidePoint) > MathF.Pow(toolSpinup.Range + 1, 2) */
-                            )
+                        if (toolSpinup.HitEffect is null)
                         {
                             continue;
                         }

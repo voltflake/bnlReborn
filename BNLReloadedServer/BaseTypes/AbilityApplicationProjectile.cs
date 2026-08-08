@@ -12,17 +12,6 @@ public class AbilityApplicationProjectile : AbilityApplication
 
     public MultipleBullets? Bullets { get; set; }
 
-    /*public override void FromJsonData(JsonNode json)
-    {
-      if (json["projectile_key"] != null)
-        ProjectileKey = json["projectile_key"]!.Deserialize<Key>();
-      if (json["speed"] != null)
-        Speed = json["speed"]!.Deserialize<float>();
-      Bullets = json["bullets"]?.Deserialize<MultipleBullets>()!;
-    }
-
-    public override JsonNode ToJsonData() => JsonSerializer.SerializeToNode(this, GetType(), JsonHelper.DefaultSerializerSettings)!;*/
-
     public override void Write(BinaryWriter writer)
     {
       new BitField(true, true, Bullets != null).Write(writer);
