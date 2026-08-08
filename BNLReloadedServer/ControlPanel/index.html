@@ -4,197 +4,366 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BNL Reloaded - Control Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+
+<!-- ================= login gate ================= -->
 <div class="login-gate" id="loginGate">
   <div class="login-box">
-    <h2>BNL Reloaded Control Panel</h2>
-    <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
-    <button onclick="doLogin()">Log In</button>
+    <img class="login-logo" src="/assets/logo.png" alt="Block N Load">
+    <h2>Reloaded control panel</h2>
+    <p class="sub">Enter the panel password to continue.</p>
+    <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="save-btn" onclick="doLogin()">Log in</button>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
-<header class="topbar">
-  <h1>BNL Reloaded</h1>
-  <div class="status" id="status">Loading...</div>
-  <button class="logout-btn" onclick="doLogout()">Log Out</button>
-</header>
 
-<main class="container">
+<!-- ================= chrome ================= -->
+<nav class="rail">
+  <div class="brand">
+    <img class="brand-logo" src="/assets/logo.png" alt="Block N Load">
+    <span class="brand-tag">Community server</span>
+  </div>
 
-<section class="cards">
-  <div class="card">
-    <h3>Refresh CDB</h3>
-    <p>Reload catalogue from DB then refresh</p>
-    <button onclick="exec('refreshCdbLoad')">Refresh CDB</button>
+  <div class="rail-nav">
+    <button class="rail-item active" data-pane="status" onclick="showPane('status')">
+      Status <span class="rail-count" id="onlineCount">&mdash;</span>
+    </button>
+    <button class="rail-item" data-pane="players" onclick="showPane('players')">
+      Players <span class="rail-count" id="railPlayers"></span>
+    </button>
+    <button class="rail-item" data-pane="ladder" onclick="showPane('ladder')">Ladder</button>
+    <button class="rail-item" data-pane="bans" onclick="showPane('bans')">
+      Bans <span class="rail-count" id="railBans"></span>
+    </button>
+    <button class="rail-item" data-pane="tools" onclick="showPane('tools')">Tools</button>
+    <button class="rail-item" data-pane="console" onclick="showPane('console')">Console</button>
   </div>
-  <div class="card">
-    <h3>Reset Server</h3>
-    <p class="note">Requires <code>do_readline: false</code> in configs.json &mdash; with stdin/interactive mode on, this has no effect until Enter is pressed in the server's console.</p>
-    <button class="reset-btn" onclick="resetServer()">Reset Server</button>
-  </div>
-</section>
 
-<section class="panel">
-  <div class="panel-header">
-    <h2>Server Console</h2>
-    <label class="autoscroll-toggle"><input id="f-console-autoscroll" type="checkbox" checked> Auto-scroll</label>
-  </div>
-  <pre id="consoleOutput" class="console-output"></pre>
-</section>
+  <div class="rail-spacer"></div>
 
-<section class="panel">
-  <div class="panel-header">
-    <h2>Card Lookup</h2>
+  <div class="rail-foot">
+    <button class="logout-btn" onclick="doLogout()">Log out</button>
   </div>
-  <div class="ban-row">
-    <div class="ban-row-left">
-      <div class="form-group">
-        <label>Card ID or Key hash</label>
-        <input id="f-card-query" type="text" placeholder="e.g. unit_device_generic_bomb_lvl01 or 2777638317" onkeydown="if(event.key==='Enter') lookupCard()">
-      </div>
-    </div>
-    <div class="ban-row-right">
-      <button class="save-btn" onclick="lookupCard()">Lookup</button>
-    </div>
-  </div>
-  <pre id="cardResult" class="card-result"></pre>
-</section>
+</nav>
 
-<section class="panel">
-  <div class="panel-header">
-    <h2>Players</h2>
-    <div class="player-count" id="playerCount">Loading...</div>
-  </div>
-  <input class="search-input" id="searchInput" type="text" placeholder="Filter by name, ID, or Steam ID..." oninput="filterPlayers()">
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>ID</th><th>Steam ID</th><th>Nickname</th><th>Role</th><th>Region</th><th>Status</th></tr></thead>
-      <tbody id="playersBody"></tbody>
-    </table>
-  </div>
-</section>
+<!-- ================= work area ================= -->
+<main class="work">
 
-</main>
-
-<div class="overlay" id="overlay" onclick="closePlayerEdit()"></div>
-<div class="view" id="view-player">
-  <div class="view-header">
-    <h2 id="playerTitle">Edit Player</h2>
-    <button class="close-btn" onclick="closePlayerEdit()" aria-label="Close">&times;</button>
-  </div>
-  <div class="view-body">
-    <div class="form-row">
-      <div class="form-group">
-        <label>Player ID</label>
-        <input id="f-id" type="text" readonly>
-      </div>
-      <div class="form-group">
-        <label>Steam ID</label>
-        <input id="f-steam" type="text" readonly>
-      </div>
-      <div class="form-group">
-        <label>Nickname</label>
-        <input id="f-nickname" type="text" readonly>
+  <!-- ================= status ================= -->
+  <section class="view-pane active" id="pane-status">
+    <div class="pane-head">
+      <div>
+        <h2>Status</h2>
+        <p>What the server is doing right now.</p>
       </div>
     </div>
 
-    <h3>MMR</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Rating Mean</label>
-        <input id="f-mmr" type="number" step="0.1">
-      </div>
-      <div class="form-group">
-        <label>Rating Deviation</label>
-        <input id="f-rating-dev" type="number" step="0.1">
-      </div>
-      <div class="form-group form-group-narrow">
-        <label>&nbsp;</label>
-        <button class="save-btn" onclick="saveMmr()">Save MMR</button>
-      </div>
+    <!-- Players online and uptime are the master's, everything between them is this
+         region's, counted in one pass by /api/activity. They will not add up on a
+         multi-region deployment, and nothing here pretends otherwise. -->
+    <div class="figures">
+      <div class="figure"><span class="figure-label">Players online</span><span class="figure-value" id="figOnline">&mdash;</span></div>
+      <div class="figure"><span class="figure-label">In menu</span><span class="figure-value" id="figIdle">&mdash;</span></div>
+      <div class="figure"><span class="figure-label">Casual</span><span class="figure-value" id="figCasual">&mdash;</span></div>
+      <div class="figure"><span class="figure-label">Ranked</span><span class="figure-value" id="figRanked">&mdash;</span></div>
+      <div class="figure"><span class="figure-label">Custom</span><span class="figure-value" id="figCustom">&mdash;</span></div>
+      <div class="figure figure-wide"><span class="figure-label">Time since restart</span><span class="figure-value" id="status">&mdash;</span></div>
     </div>
 
-    <h3>Loadouts</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Character</label>
-        <select id="f-loadout-select" onchange="renderSelectedLoadout()"></select>
+    <!-- The queue total lives here rather than beside "Players online": this is one
+         region's matchmaker, and player_count is summed across all of them. -->
+    <h3>Queues</h3>
+    <div class="queue-box" id="queuesBody"></div>
+  </section>
+
+  <!-- ================= players ================= -->
+  <section class="view-pane" id="pane-players">
+    <div class="pane-head">
+      <div>
+        <h2>Players</h2>
+        <p>Edit a player to change their role, and to read their profile and loadouts.</p>
+      </div>
+      <div class="player-count" id="playerCount"></div>
+    </div>
+    <input class="search-input" id="searchInput" type="text"
+           placeholder="Filter by name, ID, or Steam ID" oninput="filterPlayers()">
+    <!-- region still matches, it's just not advertised now that the column is gone -->
+    <div class="table-wrap players-wrap">
+      <table class="players-table">
+        <thead>
+          <tr>
+            <th class="sortable" aria-sort="none">
+              <button class="th-sort" data-key="id" data-dir="none" onclick="setSort('id')">ID<span class="sort-ind"></span></button>
+            </th>
+            <th class="sortable" aria-sort="none">
+              <button class="th-sort" data-key="nickname" data-dir="none" onclick="setSort('nickname')">Nickname<span class="sort-ind"></span></button>
+            </th>
+            <th>Steam ID</th>
+            <th class="sortable" aria-sort="none">
+              <button class="th-sort" data-key="role" data-dir="none" onclick="setSort('role')">Role<span class="sort-ind"></span></button>
+            </th>
+            <th class="sortable" aria-sort="none">
+              <button class="th-sort" data-key="status" data-dir="none" onclick="setSort('status')">Status<span class="sort-ind"></span></button>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="playersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= ladder ================= -->
+  <section class="view-pane" id="pane-ladder">
+    <div class="pane-head">
+      <div>
+        <h2>Ladder</h2>
+        <p>The ladder, highest rating first. Position and rating are the same thing &mdash; change either one.</p>
       </div>
     </div>
-    <div id="loadoutDetail" class="loadouts-list"></div>
-
-    <h3>Matchmaking Ban</h3>
-    <div class="ban-status" id="mmBanStatus">Loading...</div>
-    <div class="ban-row">
-      <div class="ban-row-left">
-        <div class="form-group">
-          <label>Ban for</label>
-          <input id="f-mm-ban-amount" type="number" min="1" step="1" placeholder="e.g. 24">
+    <div class="mmr-panel">
+      <div class="mmr-bar">
+        <p class="mmr-hint" id="mmrHint"></p>
+        <div class="mmr-tools">
+          <button id="mmrEditBtn" onclick="toggleMmrEdit()">Edit ladder</button>
+          <button class="save-btn" id="mmrApplyBtn" onclick="applyMmrEdits()" hidden>Apply</button>
         </div>
-        <div class="form-group form-group-narrow">
-          <label>Unit</label>
+      </div>
+      <div class="table-wrap mmr-wrap">
+        <table class="mmr-table">
+          <thead><tr><th>Nickname</th><th>MMR</th><th>Volatility</th><th>ID</th><th>Profile</th><th class="grip-col"></th></tr></thead>
+          <tbody id="mmrBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= bans ================= -->
+  <section class="view-pane" id="pane-bans">
+    <div class="pane-head">
+      <div>
+        <h2>Bans</h2>
+        <p>Bans in force right now, soonest to lift first. The server applies most of
+          these itself &mdash; a dodged confirm, ranked AFK, merits below the graveyard
+          threshold &mdash; so this is mostly where you review and lift them.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap mod-wrap">
+      <table class="mod-table">
+        <thead><tr><th>Player</th><th>Penalty</th><th>Expires</th><th></th></tr></thead>
+        <tbody id="banBody"></tbody>
+      </table>
+    </div>
+
+    <section class="mod-form">
+      <h3>Impose a ban</h3>
+      <div class="form-row">
+        <div class="form-group form-group-wide">
+          <label for="f-ban-player">Player</label>
+          <input id="f-ban-player" type="text" list="banPlayerNames" placeholder="Nickname or ID">
+          <datalist id="banPlayerNames"></datalist>
+        </div>
+        <div class="form-group">
+          <label for="f-ban-kind">Penalty</label>
+          <select id="f-ban-kind" onchange="renderBanForm()">
+            <option value="mm">Matchmaking</option>
+            <option value="gy">Graveyard</option>
+          </select>
+        </div>
+        <div class="form-group" id="mmDuration">
+          <label for="f-mm-ban-amount">Ban for</label>
+          <input id="f-mm-ban-amount" type="number" min="1" step="1" placeholder="24">
+        </div>
+        <div class="form-group" id="mmUnit">
+          <label for="f-mm-ban-unit">Unit</label>
           <select id="f-mm-ban-unit">
             <option value="minutes">Minutes</option>
             <option value="hours" selected>Hours</option>
             <option value="days">Days</option>
           </select>
         </div>
-      </div>
-      <div class="ban-row-right">
-        <button class="ban-btn" onclick="banMatchmaking()">Ban</button>
-        <button class="unban-btn" onclick="unbanMatchmaking()">Unban</button>
-      </div>
-    </div>
-
-    <h3>Graveyard Ban</h3>
-    <div class="ban-status" id="gyBanStatus">Loading...</div>
-    <div class="ban-row">
-      <div class="ban-row-left">
-        <div class="form-group">
-          <label>Ban for</label>
-          <input id="f-gy-ban-amount" type="number" min="1" step="1" placeholder="e.g. 24">
+        <div class="form-group" id="gyDuration" hidden>
+          <label for="f-gy-ban-amount">Ban for</label>
+          <input id="f-gy-ban-amount" type="number" min="1" step="1" placeholder="24">
         </div>
-        <div class="form-group form-group-narrow">
-          <label>Unit</label>
+        <div class="form-group" id="gyUnit" hidden>
+          <label for="f-gy-ban-unit">Unit</label>
           <select id="f-gy-ban-unit">
             <option value="minutes">Minutes</option>
             <option value="hours" selected>Hours</option>
             <option value="days">Days</option>
           </select>
         </div>
-        <div class="form-group form-group-narrow checkbox-group-wrap">
-          <label>Permanent</label>
-          <input id="f-gy-permanent" type="checkbox" class="checkbox-group">
+      </div>
+      <label class="check-row" id="gyPermRow" hidden>
+        <input id="f-gy-permanent" type="checkbox" class="checkbox-group"> Permanent
+      </label>
+      <div class="card-actions"><button class="ban-btn" onclick="imposeBan()">Ban</button></div>
+      <p class="mod-note">Only the expiry is stored today &mdash;
+        <code>MatchmakerBanEnd</code>, <code>GraveyardLeaveTime</code>,
+        <code>GraveyardPermanent</code>. Reason and who applied it would need a ban
+        record of its own, which is also what a history rather than a live list needs.
+        Merits are not stored per player at all, so the list cannot show them.</p>
+    </section>
+  </section>
+
+  <!-- ================= tools ================= -->
+  <section class="view-pane" id="pane-tools">
+    <div class="pane-head">
+      <div>
+        <h2>Tools</h2>
+        <p>Read the catalogue, and the two operations that affect everyone connected.</p>
+      </div>
+    </div>
+
+    <h3>Card lookup</h3>
+    <p class="tool-note">Read a catalogue entry from the loaded CDB. Accepts a card key or its hash.</p>
+    <div class="lookup-row">
+      <div class="form-group">
+        <input id="f-card-query" type="text"
+               placeholder="unit_device_generic_bomb_lvl01 or 2777638317 (CRC32)"
+               onkeydown="if(event.key==='Enter') lookupCard()">
+      </div>
+      <button class="save-btn" onclick="lookupCard()">Look up</button>
+    </div>
+    <pre id="cardResult" class="card-result"></pre>
+
+    <h3>Actions</h3>
+    <p class="tool-note">These affect everyone connected. Results appear in the
+      <button class="inline-link" onclick="showPane('console')">console</button>.</p>
+    <div class="action-list">
+      <div class="action-row">
+        <div class="action-text">
+          <h3>Refresh CDB</h3>
+          <p>Reloads the catalogue from the database and pushes it to connected clients.</p>
+        </div>
+        <button onclick="exec('refreshCdbLoad')">Refresh</button>
+      </div>
+      <div class="action-row">
+        <div class="action-text">
+          <h3>Restart server</h3>
+          <p>Shuts down the server process and disconnects everyone. The service relaunches it.</p>
+          <p class="note">Needs <code>do_readline: false</code> in configs.json. With interactive stdin on,
+            nothing happens until someone presses Enter in the server console.</p>
+        </div>
+        <button class="restart-btn" onclick="resetServer()">Restart</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= console ================= -->
+  <section class="view-pane console-pane" id="pane-console">
+    <div class="pane-head">
+      <div>
+        <h2>Console</h2>
+        <p>The server log as it happens. It follows the newest line unless you scroll up.</p>
+      </div>
+      <div class="player-count" id="consoleCount"></div>
+    </div>
+    <div class="console-tools">
+      <!-- No severity chips: the log carries no severity field, and classifying lines
+           by keyword client-side would be a guess. Filtering is plain text for now. -->
+      <input class="search-input" id="f-console-filter" type="text"
+             placeholder="Filter lines" oninput="renderConsole()">
+    </div>
+    <div id="consoleOutput" class="console-output"></div>
+  </section>
+
+</main>
+
+<!-- ================= player drawer ================= -->
+<div class="overlay" id="overlay" onclick="closePlayerEdit()"></div>
+<aside class="view" id="view-player" role="dialog" aria-modal="true"
+       aria-labelledby="playerTitle" tabindex="-1">
+  <div class="view-header">
+    <div class="view-title">
+      <span id="playerRole"></span>
+      <h2 id="playerTitle">Edit player</h2>
+      <div class="view-sub" id="playerSub"></div>
+    </div>
+    <button class="close-btn" onclick="closePlayerEdit()">Close <kbd>Esc</kbd></button>
+  </div>
+  <div class="view-body">
+   <div class="view-inner">
+
+    <!-- identity: readonly, so it reads as values rather than four dead input boxes -->
+    <div class="ident">
+      <div class="ident-item"><span class="ident-label">Player ID</span><input id="f-id" type="text" readonly></div>
+      <div class="ident-item"><span class="ident-label">Steam ID</span><input id="f-steam" type="text" readonly></div>
+      <div class="ident-item"><span class="ident-label">Nickname</span><input id="f-nickname" type="text" readonly></div>
+      <!-- Role is an attribute of the player like the three above it, so it sits with
+           them rather than in a card of its own. Save appears once you change it. -->
+      <div class="ident-item"><span class="ident-label">Role</span>
+        <div class="ident-control">
+          <select id="f-role" onchange="roleChanged()">
+            <option value="1">User</option>
+            <option value="2">Moderator</option>
+            <option value="3">Admin</option>
+            <option value="4">Core</option>
+          </select>
+        </div>
+        <!-- Same idiom as the ladder: the change is pending until you apply it, and
+             the value it replaces stays visible while it is. -->
+        <div class="role-pending" id="rolePending" hidden>
+          <span class="role-was" id="roleWas"></span>
+          <button class="save-btn role-apply" onclick="saveRole()">Apply</button>
+          <button class="ghost-btn role-discard" onclick="discardRole()">Discard</button>
         </div>
       </div>
-      <div class="ban-row-right">
-        <button class="ban-btn" onclick="banGraveyard()">Ban</button>
-        <button class="unban-btn" onclick="unbanGraveyard()">Unban</button>
-      </div>
+      <div class="ident-item"><span class="ident-label">Matchmaking</span>
+        <div class="ban-status" id="mmBanStatus">Loading&hellip;</div></div>
+      <div class="ident-item"><span class="ident-label">Graveyard</span>
+        <div class="ban-status" id="gyBanStatus">Loading&hellip;</div></div>
     </div>
 
-    <h3>Server Permissions</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Role</label>
-        <select id="f-role">
-          <option value="1">User</option>
-          <option value="2">Moderator</option>
-          <option value="3">Admin</option>
-          <option value="4">Core</option>
-        </select>
+    <!-- The three things a player picks to dress their profile. All of it already comes
+         back from /api/players/{id} as `badges`, keyed by BadgeType. -->
+    <section class="edit-card">
+      <h3>Profile</h3>
+      <div class="profile-grid">
+        <div class="profile-item">
+          <span class="ident-label">Title</span>
+          <div class="profile-title" id="profileTitle"></div>
+        </div>
+        <div class="profile-item">
+          <span class="ident-label">Border</span>
+          <div class="profile-border">
+            <div class="emblem" id="profileBorder"></div>
+            <span class="profile-value" id="profileBorderName"></span>
+          </div>
+        </div>
+        <div class="profile-item">
+          <span class="ident-label">Badges <span class="slot-cap" id="profileBadgeCap"></span></span>
+          <div class="badge-slots" id="profileBadges"></div>
+        </div>
       </div>
-      <div class="form-group form-group-narrow">
-        <label>&nbsp;</label>
-        <button class="save-btn" onclick="saveRole()">Save Role</button>
-      </div>
-    </div>
+    </section>
+
+    <!-- reference, not editing — so it sits last instead of splitting the controls -->
+    <section class="edit-card">
+      <h3>Loadouts</h3>
+      <div class="hero-tabs" id="loadoutTabs" role="tablist" aria-label="Character"></div>
+      <!-- The tabs are the control; this stays as the state they write to, because
+           the selection is read off `f-loadout-select` by id. -->
+      <select id="f-loadout-select" onchange="renderSelectedLoadout()" hidden></select>
+      <div class="loadout-skin" id="loadoutSkin"></div>
+      <div id="loadoutDetail" class="loadouts-list"></div>
+    </section>
+
+   </div>
   </div>
-</div>
+</aside>
 
 <div class="toast" id="toast"><pre id="toastMsg"></pre></div>
+<script src="/sprites.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

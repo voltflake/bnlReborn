@@ -1,242 +1,1200 @@
+/* ============================================================
+   BNL Reloaded Control Panel — stylesheet
+
+   Every color is a token, so the palette is one block of values.
+   The identity color (--signal) is used ONLY for the active rail
+   marker and focus rings. It is never a state, which is what keeps
+   --live / --alarm unambiguous.
+   ============================================================ */
 *, *::before, *::after { box-sizing: border-box; }
+
+/* ---------- palette: cool neutral dark ---------- */
 :root {
-  --bg: #14171a;
-  --surface: #1c2024;
-  --surface-2: #262b30;
-  --border: #333a40;
-  --border-hover: #4d5a63;
-  --text: #dfe3e6;
-  --text-dim: #98a0a6;
-  --text-faint: #6f767c;
-  --accent: #3a8a8a;
-  --accent-strong: #4aa5a5;
-  --green: #4caf50;
-  --red: #f44336;
-  --radius: 8px;
+  color-scheme: dark;
+  --void:    #0D0F12;
+  --panel:   #14171B;
+  --panel-2: #1B1F25;
+  --panel-3: #232831;
+  --line:    #262B33;
+  --line-2:  #39404A;
+
+  --ink:   #E4E7EC;
+  --ink-2: #98A0AC;
+  --ink-3: #666E7A;
+
+  --signal: #6C9BF0;
+  --live:   #57C77F;
+  --alarm:  #E5645A;
+  --ok-ink:    #7BD69B;
+  --alarm-ink: #F0867C;
+
+  --solid-ink:      #101317;
+  --input-bg:       #0D0F12;
+  --input-bg-focus: #090B0E;
+  --placeholder:    #4E5661;
+  --dot-off:        #3B424C;
+  --overlay:        rgba(4,6,8,0.62);
+
+  --console-bg:     #0A0C0F;
+  --console-ink:    #E4E7EC;
+  --console-dim:    #98A0AC;
+  --console-faint:  #565E69;
+  --console-gutter: #454C56;
+
+  --perk-def:  #69B6C9;
+  --perk-off:  #F0867C;
+  --perk-hero: #8FA8E8;
+
+  /* Roles are one ramp, cool to hot: cyan → green → amber → red. Four evenly spaced
+     steps rather than a literal three-light traffic signal, which has no fourth colour
+     that isn't a near-repeat of one it already has.
+     This does put a role hue next to two state hues — --live (online) is a green and
+     --alarm (banned) is a red. They are separated as far as the ramp allows: the role
+     green is grassy where --live is mint, and Core is the only *filled* badge in the
+     panel, a shape no state ever takes. */
+  --role-user:  #45BCD4;
+  --role-mod:   #6FC24A;
+  --role-admin: #E8A93C;
+  --role-core:  #E04B3C;
 }
-html { scroll-behavior: smooth; }
+
+:root {
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --sans: 'Public Sans', ui-sans-serif, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* one heavy condensed face, used only for pane titles and the login heading.
+     It echoes the logo's compressed lettering without cosplaying it. */
+  --display: 'Anton', 'Public Sans', Impact, sans-serif;
+  --r: 3px;
+  --rail-w: 224px;
+  --brand-pad: 18px;  /* the logo's margin — same on all four sides */
+}
+
+html, body { height: 100%; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg); color: var(--text); margin: 0;
-  line-height: 1.4;
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-areas: "rail main";
+  overflow: hidden;
 }
-body.modal-open { overflow: hidden; }
 
-.topbar {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: baseline; gap: 1rem;
-  padding: 1.25rem 2rem; background: rgba(20,23,26,0.9); backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--border);
+/* ---------- brand ---------- */
+.brand {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: var(--brand-pad);
+  border-bottom: 1px solid var(--line);
 }
-h1 { color: #fff; margin: 0; font-size: 1.25rem; letter-spacing: 0.01em; }
-.status { color: var(--text-dim); font-size: 0.85rem; }
-
-.container { max-width: 1280px; margin: 0 auto; padding: 2rem; }
-
-h2 { color: #fff; font-size: 1.05rem; margin: 0; }
-h3 { color: #fff; font-size: 0.9rem; margin: 1.5rem 0 0.6rem; font-weight: 600; }
-
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
-.container > section + section { margin-top: 2rem; }
-.card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem;
-  transition: border-color 0.15s, transform 0.15s;
+.brand-tag {
+  font-size: 20px; font-weight: 700; letter-spacing: 0em;
+  color: var(--ink-2); text-align: center;
 }
-.card:hover { border-color: var(--border-hover); }
-.card h3 { margin: 0 0 0.4rem; color: #fff; font-size: 0.95rem; }
-.card p { margin: 0 0 1rem; color: var(--text-dim); font-size: 0.85rem; }
-.card p.note { color: var(--text-faint); font-size: 0.75rem; }
-.card code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0.05rem 0.35rem; font-size: 0.85em; }
+/* Scales with the rail. The PNG carries no transparent bleed — its alpha bbox is the
+   full 370x113 — so the padding above is the visual margin, equal on all four sides,
+   and the block's height falls out of the logo's own aspect ratio. */
+.brand-logo { display: block; width: 100%; height: auto; }
 
-.panel {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 1.5rem 1.5rem 1rem;
+/* #status — app.js still writes one string into one element. It sits at the foot of
+   the rail now; \n in the string breaks the line, hence pre-line. ::first-line styles
+   the label as a label without needing a second element to hang a class on: quiet sans
+   caption over a large mono figure. */
+/* Sans, not mono: uptime spelled out in words is prose, not an identifier, and the
+   mono advance width pushed "23 hours, 59 minutes" past the rail. */
+/* The uptime cell is a figure like any other — same label, same 32px value. Its value
+   is words rather than a numeral, so its column is given extra width instead of the
+   type being shrunk to fit. */
+.figure-wide { grid-column: span 1; }
+.figure-value { white-space: nowrap; }
+
+/* ---------- rail ---------- */
+.rail {
+  grid-area: rail;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
 }
-.panel-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rail-nav { padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.rail-spacer { flex: 1 1 auto; min-height: 20px; }
+.rail-foot {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 14px 14px 16px;
+  border-top: 1px solid var(--line);
+}
+.rail-item {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  border: 0; background: none; border-radius: var(--r);
+  color: var(--ink-2);
+  font-family: var(--sans); font-size: 15px; font-weight: 500; text-align: left;
+  cursor: pointer;
+  transition: color .12s, background .12s;
+}
+.rail-item:hover { background: var(--panel-2); color: var(--ink); }
+.rail-item.active { background: var(--panel-2); color: var(--ink); font-weight: 600; }
+.rail-item.active::before {
+  content: ''; position: absolute; left: -10px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--signal);
+}
+.rail-count { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.logout-btn { width: 100%; }
 
+/* min-width:0 on every grid child — without it an auto-min-width blows the
+   whole page out horizontally on narrow screens */
+.rail, .work { min-width: 0; }
+
+/* ---------- work area ---------- */
+.work { grid-area: main; overflow-y: auto; padding: 26px 28px 32px; }
+.view-pane { display: none; }
+.view-pane.active { display: block; }
+
+.pane-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.pane-head h2 {
+  margin: 0; font-family: var(--display); font-weight: 400;
+  font-size: 34px; line-height: 1; letter-spacing: 0.01em; color: var(--ink);
+}
+/* 62ch wrapped these one-line captions with half the pane still empty. They're
+   captions, not prose — cap the measure only so it can't run away on an ultrawide. */
+.pane-head p { margin: 8px 0 0; font-size: 14.5px; color: var(--ink-2); max-width: 96ch; }
+.player-count { font-family: var(--mono); font-size: 13.5px; color: var(--ink-3); }
+.player-count:empty { display: none; }
+
+/* ---------- controls ---------- */
 button {
-  background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.2rem;
-  font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.1s;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 9px 16px;
+  border: 1px solid var(--line-2); border-radius: var(--r);
+  background: var(--panel-2); color: var(--ink);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
 }
-button:hover { background: var(--accent-strong); }
-button:active { transform: translateY(1px); }
-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.card button { width: 100%; }
+button:hover { background: var(--panel-3); border-color: color-mix(in srgb, var(--line-2) 70%, var(--ink)); }
+button:active { background: var(--panel-2); }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
-.toast {
-  position: fixed; bottom: 2rem; right: 2rem; background: var(--surface); border: 1px solid var(--accent);
-  border-radius: var(--radius); padding: 1rem 1.5rem; display: none; z-index: 200;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-width: 360px;
+/* highest emphasis: solid ink. one per context. */
+.save-btn { background: var(--ink); border-color: var(--ink); color: var(--solid-ink); font-weight: 600; }
+.save-btn:hover {
+  background: color-mix(in srgb, var(--ink) 88%, var(--signal));
+  border-color: color-mix(in srgb, var(--ink) 88%, var(--signal));
 }
-.toast.success { border-color: var(--green); }
-.toast.error { border-color: var(--red); }
-pre { margin: 0; font-size: 0.8rem; color: #ccc; white-space: pre-wrap; word-break: break-word; }
 
+.ban-btn, .restart-btn {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--alarm) 45%, transparent);
+  color: var(--alarm-ink);
+}
+.ban-btn:hover, .restart-btn:hover {
+  background: color-mix(in srgb, var(--alarm) 12%, transparent);
+  border-color: var(--alarm);
+}
+.unban-btn {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--live) 42%, transparent);
+  color: var(--ok-ink);
+}
+.unban-btn:hover {
+  background: color-mix(in srgb, var(--live) 12%, transparent);
+  border-color: var(--live);
+}
+.ghost-btn { background: transparent; border-color: transparent; color: var(--ink-3); }
+.ghost-btn:hover { background: var(--panel-2); color: var(--ink); border-color: transparent; }
+
+input[type=text], input[type=number], input[type=password], select {
+  width: 100%; padding: 9px 12px;
+  font-family: var(--mono); font-size: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--line); border-radius: var(--r);
+  color: var(--ink);
+}
+select { font-family: var(--sans); }
+/* no `outline: none` here — it would out-specify :focus-visible and kill the
+   only visible keyboard affordance on every field in the drawer */
+input:focus, select:focus { border-color: var(--line-2); background: var(--input-bg-focus); }
+input::placeholder { color: var(--placeholder); }
+input[readonly] { color: var(--ink-3); background: var(--panel-2); border-color: transparent; }
+
+.search-input { max-width: 380px; margin-bottom: 16px; }
+
+/* ---------- table ---------- */
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  padding: 11px 16px; text-align: left; white-space: nowrap;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--ink-2);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 11px 16px; white-space: nowrap; font-size: 15px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+/* every identifier is monospace — IDs line up, that's the whole point */
+/* Scoped per table — nth-child means nothing once the column order differs. */
+.players-table td:nth-child(1) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.players-table td:nth-child(2) { font-weight: 500; }
+/* Same correction as the ladder: a cell whose content is a bordered pill starts its
+   text one border and one padding in, so the heading has to follow it or the column
+   reads as two columns. Measured — Steam ID 11px, Role 10px. The sortable headings
+   carry their padding on the inner button, so the offset goes there. */
+.players-table th:nth-child(3) { padding-left: 27px; }
+.players-table th:nth-child(4) .th-sort { padding-left: 26px; }
+
+/* Without this the last column swallows all the leftover width and the row ends in a
+   stretch of nothing. Pin the numeric columns; let the nickname take the slack. */
+/* Cap the panel rather than letting the nickname column absorb the slack: at full
+   width the gap between a name and its rating was wider than the data on either side
+   of it, and you tracked a row across 600px of nothing. The slack now falls outside
+   the table, where there is nothing to read anyway. */
+/* The cap sits on the wrapper, not on .table-wrap: the toolbar has to line up with the
+   table's right edge, and .table-wrap is the overflow-x scroller — a bar inside it
+   would scroll and clip along with the table. */
+.mmr-panel { max-width: 820px; }
+.players-wrap { max-width: 1200px; }
+.mmr-table th:nth-child(1) { width: 250px; }
+/* The rating is an <input>, so its text starts one border and one padding in from the
+   cell — 9px, measured. Without matching that on the heading, "MMR" sat 9px to the left
+   of every number under it. The other columns are plain text and need no offset. */
+.mmr-table th:nth-child(2) { width: 175px; padding-left: 25px; }
+.mmr-table th:nth-child(3) { width: 120px; }
+.mmr-table th:nth-child(4) { width: 110px; }
+/* Same correction as the rating column: the pill's own border and padding put its
+   label 11px in from the cell edge. Measured, not guessed. */
+.mmr-table th:nth-child(5) { width: 120px; padding-left: 27px; }
+.steam-btn.compact { gap: 6px; font-family: var(--sans); font-size: 13px; }
+.mmr-table td:nth-child(1) { font-weight: 500; }
+.mmr-table td:nth-child(2) { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+.mmr-table td:nth-child(3),
+.mmr-table td:nth-child(4) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+
+
+.stats-table td:nth-child(3),
+.stats-table td:nth-child(4) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+/* ---------- match cards ---------- */
+.match-cards { display: flex; flex-direction: column; gap: 14px; }
+.match-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden;
+}
+.match-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: var(--panel-2); border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.match-head:hover { background: var(--panel-3); }
+.match-card.collapsed .match-head { border-bottom: none; }
+.match-caret { flex: 0 0 auto; width: 12px; color: var(--ink-3); font-size: 12px; }
+.match-sub { font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.match-head .map-thumb { width: 84px; height: 50px; }
+.match-where { flex: 1 1 auto; min-width: 0; }
+.match-map { font-size: 16px; font-weight: 700; color: var(--ink); }
+.match-info {
+  flex: 0 0 auto; min-width: 88px; text-align: right;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.match-mode { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.match-clock { font-family: var(--mono); font-size: 15px; color: var(--ink); }
+
+.match-teams { display: grid; grid-template-columns: 1fr 1fr; }
+.team { padding: 12px 16px 14px; min-width: 0; }
+.team + .team { border-left: 1px solid var(--line); }
+.team-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--line);
+}
+.team-name {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.team-stats {
+  display: flex; align-items: baseline; gap: 12px;
+  font-family: var(--mono); font-size: 13px; color: var(--ink-3);
+}
+.team-cubes { color: var(--ink-2); }
+
+/* ---------- queue dodges ---------- */
+.dodge-log {
+  background: var(--console-bg); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 9px 0; height: 156px; overflow-y: auto;
+}
+.dodge-line { display: flex; gap: 12px; padding: 2px 16px; }
+.dodge-line:hover { background: rgba(255,255,255,0.03); }
+.dodge-time { flex: 0 0 auto; font-family: var(--mono); font-size: 13px; color: var(--console-gutter); }
+.dodge-msg { font-family: var(--mono); font-size: 13px; color: var(--console-dim); min-width: 0; }
+.dodge-msg b { color: var(--console-ink); font-weight: 500; }
+
+.tp { display: flex; gap: 11px; padding: 9px 0; }
+.tp + .tp { border-top: 1px dashed var(--line); }
+.tp-face {
+  width: 36px; height: 36px; flex: 0 0 auto;
+  border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line);
+}
+/* Grid, not a flex row: as a flex row the two-line K/D/A + MMR column set the height of
+   the name line and left a gap above the loadout. Here it spans both rows instead. */
+.tp-body {
+  flex: 1 1 auto; min-width: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px;
+}
+.tp-top { grid-column: 1; }
+.tp-kit { grid-column: 1; }
+.tp-stats { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+.tp-top { display: flex; align-items: baseline; gap: 9px; }
+.tp-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+/* A nickname anywhere live — match card, queue, dodge log — is the way into that
+   player's editor. One component, so the affordance reads the same in all three.
+   It stays --ink: the palette keeps --signal for the rail marker and focus rings, and
+   a link colour here would make it look like a state. */
+button.player-link, button.inline-link {
+  padding: 0; border: 0; background: none; border-radius: 2px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 28%, transparent);
+  text-decoration-thickness: 1px; text-underline-offset: 3px;
+  transition: text-decoration-color .12s;
+}
+button.player-link:hover, button.inline-link:hover { background: none; text-decoration-color: currentColor; }
+.tp-hero { font-size: 13px; color: var(--ink-2); }
+.tp-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.tp-mmr { font-family: var(--mono); font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.tp-kda { font-family: var(--mono); font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.tp-kda b { color: var(--ink); font-weight: 600; }
+/* Blocks then perks, split by a rule — same order every row, so you read down the
+   column rather than parsing each player's kit from scratch. */
+.tp-kit { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.kit-icon {
+  width: 24px; height: 24px; flex: 0 0 auto;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.kit-icon.dev { border-radius: 2px; }
+.kit-icon.perk { border-radius: 50%; }
+.kit-icon.empty { background: none; border-style: dashed; border-color: var(--line); }
+.kit-sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 5px; }
+tbody tr:last-child td { border-bottom: none; }
+/* ---------- status pane ---------- */
+.work h3 { margin: 30px 0 12px; font-size: 16px; font-weight: 700; color: var(--ink); }
+/* Grid, not flex — four equal columns spanning the panel. As a flex row the figures
+   bunched at the left and left two thirds of the card empty. */
+.figures {
+  display: grid; grid-template-columns: repeat(5, 1fr) 1.75fr;
+  padding: 18px 22px 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+/* Ruled columns rather than raw whitespace — four numbers in a row need a boundary,
+   or the labels read as belonging to whichever figure they sit nearest. */
+.figure { display: flex; flex-direction: column; gap: 1px; padding: 0 26px; min-width: 0; }
+.figure:first-child { padding-left: 0; }
+.figure + .figure { border-left: 1px solid var(--line); }
+.figure-label { font-size: 13px; color: var(--ink-3); }
+.figure-value { font-size: 32px; font-weight: 700; line-height: 1.15; color: var(--ink); }
+.figure-value.zero { color: var(--ink-3); }
+/* Six figures at 32px plus "4 days, 2 hours" stop fitting well before the layout's own
+   breakpoint, and the page must never scroll sideways — so the row wraps instead. The
+   dividing rule belongs between figures, not down the left edge of a new row, hence the
+   reset on whichever cell starts one. */
+@media (max-width: 1200px) {
+  .figures { grid-template-columns: repeat(3, 1fr); row-gap: 20px; }
+  .figure:nth-child(3n+1) { border-left: 0; padding-left: 0; }
+  /* Uptime is the one figure that is words rather than a number; once the cells are
+     this narrow it has to be allowed to break rather than run past the card. */
+  .figure-wide .figure-value { white-space: normal; }
+  .figure-value { font-size: 27px; }
+}
+@media (max-width: 700px) {
+  .figures { grid-template-columns: repeat(2, 1fr); }
+  .figure:nth-child(3n+1) { border-left: 1px solid var(--line); padding-left: 26px; }
+  .figure:nth-child(2n+1) { border-left: 0; padding-left: 0; }
+}
+.queue-idle td { color: var(--ink-3); }
+.empty-note { margin: 0; padding: 16px; font-size: 14px; color: var(--ink-3); font-style: italic; }
+
+/* ---------- queue cards ---------- */
+/* Queues and dodges sit side by side — two short lists, neither of which deserves the
+   full width on its own. */
+.status-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  align-items: start; margin-top: 30px;
+}
+.status-col { min-width: 0; }
+.status-col h3 { margin-top: 0; }
+
+/* Same shape as the figures card above it — label, figure, footnote — so the two
+   panels on this page read as one system instead of two unrelated widgets. */
+/* Same height as the dodge log beside it so the pair reads as one row. One column per
+   mode, each scrolling on its own. */
+.queue-box {
+  height: 156px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden;
+}
+.queue-col { padding: 12px 18px 14px; min-width: 0; overflow-y: auto; }
+.queue-col + .queue-col { border-left: 1px solid var(--line); }
+.queue-col-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 8px; padding-bottom: 7px; border-bottom: 1px solid var(--line);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.queue-col-count { font-family: var(--mono); font-size: 14px; color: var(--ink-2); letter-spacing: 0; }
+.qp { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.qp-name { font-size: 14px; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qp-wait { flex: 0 0 auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.queue-empty { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-3); font-style: italic; }
+/* Nothing is drawn while a queue is simply waiting — that is the resting state, and a
+   badge that is always on says nothing. The head keeps mode / state / count in that
+   order, so the count stays where the eye already looks for it. */
+.queue-state {
+  margin-right: auto; padding: 1px 6px; border-radius: 3px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0; text-transform: none;
+  border: 1px solid var(--line-2); color: var(--ink-2);
+}
+.queue-state-confirming { border-color: var(--live); color: var(--ok-ink); }
+.queue-state-pop_failed,
+.queue-state-unavailable { border-color: var(--alarm); color: var(--alarm-ink); }
+/* Losing contact with the matchmaker is a failure, not an empty queue. */
+.queue-empty.error-row { color: var(--alarm-ink); font-style: normal; }
+/* The popped line-up, versus anyone who joined behind them and is still waiting. */
+.qp-confirming .qp-name { color: var(--ok-ink); }
+.qp-confirming .qp-wait { color: var(--ok-ink); opacity: 0.75; }
+
+/* ---------- map previews ---------- */
+.map-cell { display: inline-flex; align-items: center; gap: 11px; }
+.map-thumb {
+  width: 66px; height: 39px; flex: 0 0 auto;
+  object-fit: cover; border-radius: 2px;
+  border: 1px solid var(--line-2);
+}
+.stats-table td { padding-top: 7px; padding-bottom: 7px; }
+.stat-row { cursor: pointer; }
+.stat-row.open td { background: var(--panel-2); }
+.stat-caret { flex: 0 0 auto; width: 12px; color: var(--ink-3); font-size: 11px; }
+.stat-detail td { padding: 0 0 14px; background: var(--panel-2); }
+.stat-detail .match-teams {
+  border: 1px solid var(--line); border-radius: var(--r);
+  margin: 0 14px; background: var(--panel);
+}
+.result-win  { color: var(--ok-ink); font-weight: 600; }
+.result-loss { color: var(--ink-3); }
+.kda { color: var(--ink-2); }
+.kda b { color: var(--ink); font-weight: 600; }
+
+/* ---------- maps pane ---------- */
+/* One card per pool, each scrolling on its own. Custom holds 44 entries and Ranked 21;
+   a column per pool at full length would push the gallery off the bottom of the page
+   and make the shortest list look like the important one. */
+.pool-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(202px, 1fr));
+  gap: 16px; align-items: start;
+}
+.pool-card {
+  min-width: 0; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--r);
+}
+/* The card is dashed, not faded: FriendlyNoob is in the data and in CardMapList, and
+   nothing reads it. Greying it out would read as "empty", which it isn't. */
+.pool-card.unused { border-style: dashed; background: transparent; }
+.pool-head { padding: 11px 14px 10px; border-bottom: 1px solid var(--line); }
+.pool-card.unused .pool-head { border-bottom-style: dashed; }
+.pool-name {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 14.5px; font-weight: 700; color: var(--ink);
+}
+.pool-n { flex: 0 0 auto; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink-2); }
+/* Two lines' worth whether it needs them or not: Friendly names three modes and wraps,
+   and without the reserve its list starts lower than the four beside it, so no row
+   lines up with any other. */
+.pool-modes {
+  margin-top: 4px; min-height: 2.7em; line-height: 1.35;
+  font-size: 12.5px; color: var(--ink-3);
+}
+.pool-list { max-height: 296px; overflow-y: auto; padding: 8px 14px 10px; }
+/* A list that scrolls has to look like one. The header says 44 and a dozen rows fit;
+   a hard cut at the card's edge reads as the end of the list, not the top of it. The
+   class is set by measurement in renderPools and cleared at the bottom of the scroll. */
+.pool-card.more .pool-list {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
+}
+.pool-row { display: flex; align-items: baseline; gap: 7px; padding: 2px 0; }
+/* Only the name is the target — the row is short and the rest of it is text you may
+   want to select, the same reason the player row isn't clickable. */
+.pool-map {
+  padding: 0; font: inherit; font-size: 13.5px; text-align: left;
+  background: none; border: 0; color: var(--ink-2); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pool-map:hover { color: var(--ink); text-decoration: underline; }
+.pool-row.missing .pool-map { color: var(--alarm-ink); }
+.pool-row.missing .pool-map:hover { color: var(--alarm-ink); text-decoration: none; cursor: default; }
+.pool-tag {
+  flex: 0 0 auto; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--alarm-ink);
+}
+.pool-note { margin: 0; padding: 10px 14px 12px; font-size: 13px; color: var(--ink-3); font-style: italic; }
+/* Sits above the pools because it is about all of them at once. */
+.pool-warn {
+  margin-bottom: 14px; padding: 10px 14px; font-size: 13.5px; color: var(--alarm-ink);
+  background: color-mix(in srgb, var(--alarm) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--alarm) 34%, transparent);
+  border-radius: var(--r);
+}
+.pool-warn:empty { display: none; }
+.pool-warn code { font-family: var(--mono); font-size: 12.5px; }
+
+.map-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 14px;
+}
+.map-tile {
+  min-width: 0; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden;
+}
+/* The one thing on this page that is worth looking at rather than reading, so it gets
+   the tile's full width and its own aspect ratio rather than a thumbnail's. */
+.map-shot {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  background: var(--panel-2); border-bottom: 1px solid var(--line);
+}
+/* Four maps have no client sprite behind them — three Shield Capture ports and the
+   testing map. An empty box of the same size keeps the grid on its rows. */
+.map-shot.none {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+}
+.map-body { padding: 10px 12px 11px; display: flex; flex-direction: column; gap: 4px; }
+.map-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.map-key { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.map-meta { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.map-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+/* Same chip as a ban penalty carries, for the same reason: a short fact about the row,
+   not a state you act on. Pools get no colour of their own — three more hues on a page
+   that already has a role ramp would be three more things to learn. */
+.map-tag {
+  padding: 1px 7px; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-2);
+}
+.map-tag.none { border-style: dashed; color: var(--ink-3); }
+
+/* ---------- mmr pane ---------- */
+/* Entering and leaving edit mode must not move any *row*: you are looking at a player
+   when you press the button, and they should still be under your eyes afterwards. The
+   grip column always occupies its column and the rating is always an input, so the
+   table geometry is identical in both modes.
+   The toolbar is the exception, and deliberately so — a Reset and an Apply that can do
+   nothing are noise, not reassurance. They are absent until they mean something. What
+   holds the table still is the bar's own height: the button sets it, and the editing
+   hint is short enough to stay on one line beside the buttons at this width. */
+.mmr-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; margin-bottom: 12px;
+}
+.mmr-tools { display: flex; gap: 8px; flex: 0 0 auto; }
+/* The count changes on every drop; without this, Cancel would shuffle sideways
+   between "Apply 1 change" and "Apply 12 changes". */
+#mmrApplyBtn { min-width: 150px; }
+#mmrApplyBtn[hidden] { display: none; }
+/* Truncates rather than wraps. A second hint line would grow the bar and push the table
+   down on entering edit mode — the one thing this pane promises not to do — and the
+   width available for it shrinks with the window, so no fixed wording is safe at every
+   size. Full text stays on the title attribute. */
+.mmr-hint {
+  margin: 0; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13.5px; color: var(--ink-3);
+}
+
+.grip-col { width: 1%; text-align: right; }
+.grip { visibility: hidden; }
+body.mmr-editing .grip { visibility: visible; }
+/* Only the grip grabs. The rest of the row stays selectable text. */
+.grip {
+  display: inline-block; padding: 0 2px;
+  color: var(--ink-3); cursor: grab; user-select: none; font-size: 15px; line-height: 1;
+}
+.grip:hover { color: var(--ink); }
+.grip:active { cursor: grabbing; }
+/* Dragging is a lift, not a ghost. The row you are moving stays fully legible — you are
+   reading the name and the rating while you place it — and the rows it passes slide out
+   of its way, so the gap under the pointer *is* the drop target. That replaces the
+   insertion line: a marker is only needed when nothing else shows where the row lands.
+   The row moves on one axis and cannot leave the list; see initMmrDrag. */
+#mmrBody tr { transition: transform .14s cubic-bezier(.2, .7, .3, 1); }
+/* the dragged row tracks the pointer 1:1, so it must not be smoothed */
+/* The lift shadow is a filter on the row, not a box-shadow on the cells. A table row
+   is six separate boxes: shadowing each one drew a seam at every column edge, and
+   clearing the row's bottom border to hide them just handed the shared edge to the
+   neighbouring row under border-collapse. drop-shadow works on the rendered result, so
+   it sees one silhouette and the columns disappear from it. */
+#mmrBody tr.dragging {
+  transition: none; position: relative; z-index: 3;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
+}
+#mmrBody tr.dragging td { background: var(--panel-3); }
+#mmrBody tr.dragging .grip { color: var(--ink); cursor: grabbing; }
+/* A changed rating reads typographically — old struck through, new in full ink — so it
+   needs no colour of its own and can't be mistaken for a live/alarm state. */
+/* Always present, even when there is nothing to show: a row that gains an old value
+   would otherwise push its input sideways into the Volatility column. It sits *after*
+   the rating, so the reserved 42px falls on the empty side of the cell instead of
+   pushing every rating out from under its own column heading. */
+.mmr-was {
+  display: inline-block; width: 42px; margin-left: 8px;
+  text-align: left; vertical-align: middle;
+  color: var(--ink-3); text-decoration: line-through;
+}
+input.mmr-input {
+  width: 78px; padding: 4px 8px; font-size: 13.5px;
+  background: var(--input-bg); border-color: var(--line-2);
+}
+/* Same box, no chrome: read-only it reads as the value it is, and the row keeps the
+   height and the column keeps the offset it had. (The identity strip in the editor
+   does the same thing for the same reason.) */
+input.mmr-input[readonly] {
+  background: none; border-color: transparent; color: var(--ink);
+  cursor: default;
+}
+/* spinners would appear on hover in one mode and not the other */
+.mmr-input::-webkit-inner-spin-button, .mmr-input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.mmr-input { -moz-appearance: textfield; appearance: textfield; }
+.mmr-new { color: var(--ink); font-weight: 700; }
+
+/* Sortable headers. The button carries the cell's padding so the whole header cell
+   is the hit area, and an inactive column shows its arrow only on hover. */
+th.sortable { padding: 0; }
+.th-sort {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 11px 16px;
+  border: 0; border-radius: 0; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.th-sort:hover { background: var(--panel-3); color: var(--ink); border-color: transparent; }
+.th-sort[data-dir="asc"], .th-sort[data-dir="desc"] { color: var(--ink); }
+.sort-ind { font-size: 12px; line-height: 1; color: var(--ink-3); }
+.th-sort[data-dir="none"] .sort-ind::after { content: '\2195'; opacity: 0; transition: opacity .12s; }
+.th-sort:hover .sort-ind::after { opacity: 0.5; }
+.th-sort[data-dir="desc"] .sort-ind::after { content: '\2193'; opacity: 1; color: var(--ink-2); }
+.th-sort[data-dir="asc"]  .sort-ind::after { content: '\2191'; opacity: 1; color: var(--ink-2); }
+
+/* Rows are not clickable. The hover tint is for tracking one player across six
+   columns — it is not an affordance, so there's no pointer cursor with it. */
+tbody tr:hover td { background: var(--panel-2); }
+
+/* The row's action lives in its own trailing cell rather than being hidden on the
+   nickname — explicit, and it leaves every other cell as selectable text. */
+.row-action { text-align: right; }
+.edit-btn { padding: 5px 14px; font-size: 13px; }
+.empty-row td { color: var(--ink-3); font-style: italic; }
+/* A failed fetch is not an empty list, and must not read like one. */
+.empty-row.error-row td { color: var(--alarm-ink); font-style: normal; }
+
+/* Steam ID doubles as the link out. The ID stays the label — it's still the thing
+   you read off and paste into the filter — and the chrome around it is the affordance. */
+.steam-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 3px 9px 3px 10px;
+  font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+  text-decoration: none;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+  transition: background .12s, border-color .12s, color .12s;
+}
+.steam-btn::after {
+  content: '\2197'; font-family: var(--sans); font-size: 13px; color: var(--ink-3);
+  transition: color .12s;
+}
+.steam-btn:hover { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
+.steam-btn:hover::after { color: var(--signal); }
+
+.role-badge {
+  /* Fallback, so a role the panel doesn't have a colour for still renders as a badge
+     rather than as an invalid color-mix. */
+  --role: var(--ink-2);
+  display: inline-block; padding: 3px 9px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: 2px; color: var(--ink-2);
+}
+/* One graded ramp, the way a game grades rarity: the colour alone tells you where in
+   the order a role sits, without having to know the scale first. Four greys couldn't —
+   you had to already know that fainter meant lower.
+   Every shade is mixed from the single token per role, so retuning one is one value. */
+.role-User      { --role: var(--role-user); }
+.role-Moderator { --role: var(--role-mod); }
+.role-Admin     { --role: var(--role-admin); }
+.role-Core      { --role: var(--role-core); }
+
+/* Every step wears the same chip; only the hue changes. Core was filled solid, on the
+   argument that the top of a ramp should read before you have identified any colour —
+   but a saturated block of red in a column of tinted outlines doesn't read as "highest",
+   it reads as an alert, and there are only ever a couple of them on screen. The ramp
+   carries the order on its own. */
+.role-badge {
+  color: color-mix(in srgb, var(--role) 72%, var(--ink));
+  border-color: color-mix(in srgb, var(--role) 46%, transparent);
+  background: color-mix(in srgb, var(--role) 14%, transparent);
+}
+
+.status-dot { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--ink-3); }
+.status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--dot-off); }
+.status-dot.online { color: var(--ink-2); }
+.status-dot.online::before {
+  background: var(--live);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 16%, transparent);
+}
+
+/* ---------- form blocks ---------- */
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; margin-bottom: 6px;
+  font-size: 13.5px; font-weight: 500; color: var(--ink-2);
+}
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+/* basis 150px, not auto — with `auto` the mono field content sets the basis and
+   three fields that would fit comfortably wrap to two rows instead */
+.form-row .form-group { flex: 1 1 132px; min-width: 132px; }
+/* a 17-digit Steam ID needs more room than an even quarter split gives it */
+.form-row .form-group-wide { flex: 1.5 1 190px; }
+.checkbox-group { width: 18px; height: 18px; margin: 0; accent-color: var(--signal); cursor: pointer; }
+
+/* Toggles, not a dropdown: with four values you want to see which ones are in play
+   without opening anything, and turning one off is one click. */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip-row.inline { margin-bottom: 0; }
+.chip {
+  padding: 5px 13px; font-size: 13px; font-weight: 600;
+  background: transparent; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-3);
+}
+.chip:hover { background: var(--panel-2); border-color: var(--line-2); color: var(--ink-2); }
+.chip.on { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
+.chip.on:hover { background: var(--panel-3); color: var(--ink); }
+.chip .chip-n { margin-left: 7px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.chip .chip-n:empty { display: none; }
+
+/* a merged pane needs its sections introduced; the pane subtitle can't do both */
+.tool-note { margin: 0 0 14px; font-size: 14.5px; color: var(--ink-2); max-width: 80ch; }
+
+/* ---------- bans ---------- */
+/* A ban is not an attribute of a player, it is a time-bounded record with an expiry,
+   and it is mostly applied by the server rather than by you (merits below threshold,
+   ranked AFK, a dodged confirm). So it lives where the question "who is serving what,
+   and until when" can actually be answered — not one player at a time in the editor. */
+.mod-wrap { max-width: 1100px; }
+.mod-table th:nth-child(2) { width: 170px; }
+.mod-table th:nth-child(3) { width: 230px; }
+.mod-table th:nth-child(4) { width: 120px; }
+.mod-table th:nth-child(5) { width: 110px; }
+.mod-table td:nth-child(1) { font-weight: 500; }
+.pen-badge {
+  display: inline-block; padding: 2px 8px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-2);
+}
+.pen-badge.graveyard { color: var(--alarm-ink); border-color: color-mix(in srgb, var(--alarm) 40%, transparent); }
+.mod-until { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+.mod-when { margin-left: 9px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+.mod-perm { font-family: var(--mono); font-size: 13.5px; color: var(--alarm-ink); }
+/* Merits are why a graveyard ban happened; lifting one without looking at them just
+   means it lands again tomorrow. */
+.mod-merits { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.mod-merits.low { color: var(--alarm-ink); }
+.mod-form {
+  max-width: 1100px; margin-top: 22px; padding: 18px 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.mod-form h3 { margin: 0 0 14px; font-size: 16px; font-weight: 700; }
+.mod-form .form-row { max-width: 860px; }
+.mod-form .card-actions { margin-top: 14px; }
+.mod-note { margin: 14px 0 0; font-size: 13.5px; color: var(--ink-3); max-width: 80ch; }
+.lift-btn { padding: 5px 12px; font-size: 13px; }
+.ident-note { margin: -6px 0 16px; font-size: 13.5px; color: var(--ink-3); }
+.ident .ban-status { margin-top: 3px; white-space: nowrap; }
+/* below the three-column layout the cells are too narrow to hold a date on one line */
+@media (max-width: 819px) { .ident .ban-status { white-space: normal; } }
+/* ---------- action cards ---------- */
+/* One row per action: the name is stated once, and the button is the verb. Having the
+   card title and the button say the same words was just noise. */
+.action-list {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.action-row {
+  display: flex; align-items: flex-start; gap: 24px;
+  padding: 18px 20px;
+}
+.action-row + .action-row { border-top: 1px solid var(--line); }
+.action-text { flex: 1 1 auto; min-width: 0; }
+.action-row button { flex: 0 0 auto; min-width: 116px; }
+.action-text h3 { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--ink); }
+.action-text p { margin: 0; font-size: 14.5px; color: var(--ink-2); max-width: 70ch; }
+.action-text p.note { margin-top: 8px; color: var(--ink-3); font-size: 13.5px; line-height: 1.6; }
+.action-text code {
+  padding: 1px 5px; font-family: var(--mono); font-size: 13px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 2px;
+}
+
+.card-result {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  font-family: var(--mono); font-size: 13.5px; color: var(--ink-2);
+  max-height: 420px; overflow: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.card-result:empty { display: none; }
+.lookup-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.lookup-row .form-group { flex: 0 1 480px; margin-bottom: 0; }
+
+/* ---------- console pane ---------- */
+/* The console is a pane like everything else now: one navigation model, and the log
+   gets the whole window instead of a strip of it. What a pane costs is co-visibility —
+   an action's result lands somewhere you aren't standing — so the rail carries an
+   error count and the Actions pane links straight here. */
+.view-pane.console-pane.active { display: flex; flex-direction: column; min-height: 0; }
+body.pane-console .work { display: flex; flex-direction: column; overflow: hidden; }
+.console-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.console-tools .search-input { flex: 0 1 380px; margin-bottom: 0; }
+/* Only shown when the buffer holds a fault: an always-present button that usually
+   does nothing would be one more thing to ignore. */
+.console-jump {
+  flex: 0 0 auto; padding: 7px 12px; font-size: 13px;
+  background: color-mix(in srgb, var(--alarm) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--alarm) 45%, transparent);
+  color: var(--alarm-ink);
+}
+.console-jump:hover {
+  background: color-mix(in srgb, var(--alarm) 22%, transparent);
+  border-color: var(--alarm); color: var(--alarm-ink);
+}
+.console-jump[hidden] { display: none; }
+/* Same shape as the "36 online" count on Status, so the rail reads one way. */
+.rail-faults { color: var(--alarm-ink); }
+.rail-faults:empty { display: none; }
+.log-line.jumped { background: color-mix(in srgb, var(--alarm) 16%, transparent); }
+
+.console-output {
+  flex: 1 1 auto; min-height: 0; margin: 0; padding: 8px 0;
+  background: var(--console-bg); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: auto;
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
+}
+/* the timestamp gutter is the only structure the log actually has — use it */
+.log-line { display: flex; gap: 12px; padding: 0 18px; white-space: pre-wrap; }
+.log-line.hidden { display: none; }
+.log-line:hover { background: rgba(255,255,255,0.03); }
+.log-time { flex: 0 0 auto; color: var(--console-gutter); user-select: none; }
+.log-msg { flex: 1 1 auto; min-width: 0; color: var(--console-dim); overflow-wrap: anywhere; }
+/* lifecycle lines are what you're scanning for; packet chatter recedes */
+.log-line.chatter .log-msg { color: var(--console-faint); }
+.log-line.event .log-msg { color: var(--console-ink); }
+.log-line.fault .log-msg { color: var(--alarm-ink); }
+
+/* ---------- drawer ---------- */
 .overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 90;
-  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  position: fixed; inset: 0; z-index: 90; background: var(--overlay);
+  opacity: 0; pointer-events: none; transition: opacity .18s;
 }
 .overlay.active { opacity: 1; pointer-events: auto; }
 
-.login-gate {
-  position: fixed; inset: 0; background: var(--bg); z-index: 500;
-  display: none; align-items: center; justify-content: center;
-}
-.login-gate.active { display: flex; }
-.login-box {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 2rem; width: min(320px, 90vw); display: flex; flex-direction: column; gap: 0.85rem;
-}
-.login-box h2 { text-align: center; margin-bottom: 0.25rem; }
-.login-box input {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
-  padding: 0.6rem 0.75rem; color: var(--text); font-size: 0.9rem;
-}
-.login-box input:focus { outline: none; border-color: var(--accent-strong); }
-.login-error { color: var(--red); font-size: 0.8rem; min-height: 1em; text-align: center; }
-.logout-btn { margin-left: auto; background: var(--surface-2); }
-.logout-btn:hover { background: var(--surface-2); border-color: var(--border-hover); }
-
+/* A modal, not a full-screen sheet: editing one player shouldn't wipe out the pane
+   you were reading. The dimmed page behind it is the context you came from, and
+   clicking it — like Esc, like Close — puts you back there. */
 .view {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(860px, 100vw);
-  background: var(--bg); border-left: 1px solid var(--border); z-index: 100;
-  transform: translateX(100%); transition: transform 0.25s ease;
+  position: fixed; z-index: 100; top: 50%; left: 50%;
+  width: min(1000px, calc(100vw - 48px));
+  max-height: min(86vh, 880px);
   display: flex; flex-direction: column; overflow: hidden;
+  background: var(--void);
+  border: 1px solid var(--line-2); border-radius: 6px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  opacity: 0; visibility: hidden; transform: translate(-50%, -50%) scale(0.985);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
 }
-.view.active { transform: translateX(0); }
+.view.active { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+/* it takes focus on open so Esc and Tab start inside it — but a ring around the whole
+   dialog says nothing; the controls inside keep theirs */
+.view:focus, .view:focus-visible { outline: none; }
 .view-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  flex: 0 0 auto; min-height: 62px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 24px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
 }
-.view-header h2 { font-size: 1.1rem; }
+/* Role, then who, then whether they are on right now — one line, read left to right. */
+.view-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.view-header h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.view-sub { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-3); }
+.view-sub:empty { display: none; }
 .close-btn {
-  background: transparent; color: var(--text-dim); font-size: 1.4rem; line-height: 1;
-  padding: 0.25rem 0.6rem; border-radius: 6px;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; font-size: 14px;
+  background: none; border-color: transparent; color: var(--ink-3);
 }
-.close-btn:hover { background: var(--surface-2); color: #fff; }
-.view-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
-
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-tbody tr:last-child td { border-bottom: none; }
-tr.clickable { cursor: pointer; transition: background 0.12s; }
-tr.clickable:hover { background: var(--surface-2); }
-
-.role-badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
-.role-User { background: #2a2a4a; color: #aaa; }
-.role-Moderator { background: #1e3a1e; color: #8f8; }
-.role-Admin { background: #4a3a1a; color: #ff8; }
-.role-Core { background: #4a1a1a; color: #f88; }
-
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; color: var(--text-dim); font-size: 0.78rem; margin-bottom: 0.35rem; }
-.form-group input, .form-group select {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
-  padding: 0.55rem 0.7rem; font-size: 0.9rem; width: 100%;
+.close-btn:hover { background: var(--panel-2); border-color: transparent; color: var(--ink); }
+.close-btn kbd {
+  padding: 1px 6px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  background: var(--panel-3); border: 1px solid var(--line-2); border-radius: var(--r);
+  color: var(--ink-3);
 }
-.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent-strong); }
-.form-group input[readonly] { color: var(--text-faint); background: var(--surface); border-color: transparent; cursor: default; pointer-events: none; }
-.form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
-.form-row .form-group { flex: 1; min-width: 150px; }
-.form-row .form-group-narrow { flex: 0 0 auto; min-width: 0; width: 140px; }
-.form-group-narrow button { width: 100%; }
-.checkbox-group-wrap { display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 0.55rem; }
-.checkbox-group { width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: var(--accent-strong); }
-.save-btn { background: var(--green); }
-.save-btn:hover { background: #5dbf61; }
-
-.search-input {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
-  padding: 0.55rem 0.7rem; font-size: 0.9rem; width: 100%; max-width: 400px; margin-bottom: 1rem;
+.close-btn:hover { background: var(--panel-2); color: var(--ink); border-color: transparent; }
+.view-body { flex: 1 1 auto; overflow-y: auto; padding: 22px 24px 40px; }
+.view-inner { max-width: 1240px; margin: 0 auto; }
+/* Identity is readonly, so it should read as values. The fields stay <input readonly>
+   because app.js writes them with .value — they're just stripped of their chrome. */
+.ident {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 22px;
+  padding: 14px 16px 15px; margin-bottom: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
 }
-.search-input:focus { outline: none; border-color: var(--accent-strong); }
-.player-count { color: var(--text-faint); font-size: 0.8rem; }
-
-.ban-status { font-size: 0.85rem; margin-bottom: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 6px; display: inline-block; }
-.ban-status.clear { background: #142e14; color: #8f8; }
-.ban-status.banned { background: #2e1414; color: #f88; }
-
-.ban-row { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
-.ban-row-left { display: flex; gap: 1rem; flex-wrap: wrap; flex: 1; min-width: 220px; }
-.ban-row-right { display: flex; gap: 0.6rem; flex: 0 0 auto; padding-top: 1.55rem; }
-
-.ban-btn { background: #7a2a2a; }
-.ban-btn:hover { background: #9a3a3a; }
-.reset-btn { background: #7a2a2a; }
-.reset-btn:hover { background: #9a3a3a; }
-.unban-btn { background: var(--green); }
-.unban-btn:hover { background: #5dbf61; }
-
-.card-result {
-  margin-top: 1rem; padding: 1rem; background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: var(--radius); color: var(--text); font-size: 0.8rem; max-height: 480px;
-  overflow: auto; white-space: pre-wrap; word-break: break-word;
+/* Three across: ID / Steam / nickname on the first row, role and the two ban states on
+   the second. Six even columns don't fit the modal, and five leave an orphan. */
+@media (min-width: 820px) {
+  .ident { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.card-result:empty { display: none; }
-
-.console-output {
-  background: #0c0e10; border: 1px solid var(--border); border-radius: var(--radius);
-  color: #9fdc9f; font-size: 0.78rem; padding: 1rem; height: 320px; overflow: auto;
-  white-space: pre-wrap; word-break: break-word;
+.ident-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ident-label { font-size: 12.5px; color: var(--ink-3); }
+.ident input[readonly] {
+  padding: 0; border: 0; background: none; color: var(--ink);
+  font-family: var(--mono); font-size: 14px;
+  text-overflow: ellipsis;
 }
-.autoscroll-toggle {
-  display: flex; align-items: center; gap: 0.4rem; color: var(--text-dim); font-size: 0.8rem;
+
+/* Only the loadout card is left in here — role moved into the values strip and the
+   bans moved out of the editor entirely. */
+.ident-control { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.ident-control select { flex: 1 1 auto; min-width: 0; max-width: 260px; padding: 6px 10px; font-size: 13.5px; }
+.role-pending { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.role-pending[hidden] { display: none; }
+.role-was { font-size: 12.5px; color: var(--ink-3); text-decoration: line-through; }
+.role-apply, .role-discard { padding: 5px 11px; font-size: 13px; }
+.edit-card {
+  display: flex; flex-direction: column;
+  padding: 14px 16px 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.edit-card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--ink); }
+/* The 132px basis is sized for the wide panes; inside a ~280px card it forces the two
+   fields onto separate lines and the cards go ragged. */
+.edit-card .form-row .form-group { flex: 1 1 108px; min-width: 108px; }
+.edit-card select, .edit-card input { max-width: 340px; }
+.card-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
+.check-row[hidden] { display: none; }
+.check-row {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 14px; font-size: 14px; color: var(--ink-2);
   cursor: pointer; user-select: none;
 }
 
-.loadouts-list { display: grid; gap: 0.75rem; }
-.loadout-card {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 0.75rem 1rem;
+.ban-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  align-self: flex-start; max-width: 100%;
+  margin-bottom: 12px; padding: 5px 12px;
+  font-family: var(--mono); font-size: 13.5px;
+  border: 1px solid var(--line); border-radius: var(--r);
 }
-.loadout-card h4 { margin: 0 0 0.5rem; color: #fff; font-size: 0.9rem; }
+.ban-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.ban-status.clear { color: var(--ok-ink); border-color: color-mix(in srgb, var(--live) 38%, transparent); }
+.ban-status.clear::before { background: var(--live); }
+.ban-status.banned { color: var(--alarm-ink); border-color: color-mix(in srgb, var(--alarm) 42%, transparent); }
+.ban-status.banned::before { background: var(--alarm); }
 
-.loadout-section {
-  background: var(--surface); border: 1px solid var(--border); border-left-width: 3px;
-  border-radius: 6px; padding: 0.6rem 0.85rem; margin-top: 0.6rem;
+/* ---------- profile badges ---------- */
+/* Three slots the player fills themselves. Title is a string, border and badges are
+   art, and the caps (1 / 1 / 3) come from the catalogue. */
+.profile-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px 24px; align-items: start;
 }
-.loadout-section:first-child { margin-top: 0; }
+.profile-item { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.profile-title { font-size: 17px; font-weight: 600; color: var(--ink); }
+.profile-value { font-size: 13.5px; color: var(--ink-2); }
+.profile-none { color: var(--ink-3); font-style: italic; font-size: 14px; font-weight: 400; }
+.profile-border { display: flex; align-items: center; gap: 12px; }
+.slot-cap { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+/* The border sprite is one corner, not a frame — the game builds the frame from four
+   of them. So four copies are rotated into place at exactly half the box, which is
+   what makes them meet. An unselected border keeps the box and draws the dashed
+   outline the empty loadout slots use. */
+.emblem {
+  position: relative; flex: 0 0 auto; width: 72px; height: 72px;
+  background: var(--panel-2); border-radius: var(--r);
+}
+.emblem.empty { border: 1px dashed var(--line-2); background: none; }
+.emblem img {
+  position: absolute; width: 36px; height: 36px;
+}
+.emblem img:nth-child(1) { top: 0; left: 0; }
+.emblem img:nth-child(2) { top: 0; right: 0; transform: rotate(90deg); }
+.emblem img:nth-child(3) { bottom: 0; right: 0; transform: rotate(180deg); }
+.emblem img:nth-child(4) { bottom: 0; left: 0; transform: rotate(270deg); }
+
+.badge-slots { display: flex; gap: 8px; }
+.badge-slot {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+}
+.badge-slot.empty { background: none; border-style: dashed; border-color: var(--line-2); }
+.badge-slot img { width: 38px; height: 38px; }
+
+/* ---------- loadouts ---------- */
+.loadouts-list { display: grid; gap: 10px; }
+/* The picker is a row of portraits, not a dropdown in the heading: a player has a
+   handful of characters at most, the portraits are already in the page, and which
+   characters they even have is worth seeing without opening a menu. */
+.hero-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.hero-tab {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 14px 6px 7px;
+  font-size: 14px; font-weight: 500; color: var(--ink-2);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+  cursor: pointer;
+}
+.hero-tab img { width: 30px; height: 30px; border-radius: 2px; }
+.hero-tab:hover { border-color: var(--line-2); color: var(--ink); }
+.hero-tab[aria-selected="true"] {
+  color: var(--ink); background: var(--panel-3);
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line-2));
+}
+/* Belongs to the character you just picked, so it sits under the picker rather than
+   beside the heading, where it read as part of the heading. */
+.loadout-skin { margin-bottom: 4px; font-size: 13.5px; color: var(--ink-2); }
+.loadout-skin:empty { display: none; }
+.loadout-cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: 4px 28px; align-items: start; }
+.loadout-cols .loadout-section + .loadout-section { margin-top: 0; border-top: none; }
+@media (max-width: 1000px) {
+  .loadout-cols { grid-template-columns: 1fr; }
+  .loadout-cols .loadout-section + .loadout-section { margin-top: 12px; border-top: 1px solid var(--line); }
+}
+
+/* The match cards' slot component, given room to name what it is showing: same fixed
+   count, same dashed box for an unused slot, same art. A loadout should not read as
+   two different things depending on which pane you are in. */
+/* One column of six: a loadout is an ordered list of slots, and reading it down is
+   how you compare it with the six slots of the next player. */
+.slot-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.slot-tile {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 7px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+}
+.slot-tile.empty { background: none; border-style: dashed; }
+.slot-tile .kit-icon { width: 30px; height: 30px; }
+.slot-name { min-width: 0; font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.slot-tile.empty .slot-name { color: var(--ink-3); font-style: italic; }
+.perk-tile { display: flex; gap: 12px; padding: 10px 0; }
+.perk-tile + .perk-tile { border-top: 1px dashed var(--line); }
+.perk-tile .kit-icon { width: 30px; height: 30px; margin-top: 1px; }
+.perk-body { flex: 1 1 auto; min-width: 0; }
+.loadout-card { padding: 2px 0 0; }
+.loadout-section { padding: 12px 0 0; }
+.loadout-section + .loadout-section { margin-top: 12px; border-top: 1px solid var(--line); }
 .loadout-section-title {
-  color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase;
-  letter-spacing: 0.05em; font-weight: 700; margin-bottom: 0.4rem;
+  margin-bottom: 9px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ink-3);
 }
-.loadout-section-skin { border-left-color: #a668c7; }
-.loadout-section-blocks { border-left-color: #4a9ab0; }
-.loadout-section-perks { border-left-color: #d6903f; }
-.skin-value { margin: 0; font-size: 0.9rem; color: #fff; }
+.skin-value { margin: 0; font-size: 15px; color: var(--ink); }
 
-.slot-row { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.85rem; color: var(--text); margin-top: 0.35rem; }
-.slot-row:first-child { margin-top: 0; }
-.slot-num {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 1.3rem; height: 1.3rem; border-radius: 50%;
-  background: var(--surface-2); color: var(--text-dim); font-size: 0.7rem; font-weight: 600; flex-shrink: 0;
-}
-.device-variant { color: var(--text-faint); font-size: 0.8rem; }
+.slot-row { display: flex; align-items: baseline; gap: 11px; padding: 4px 0; font-size: 15px; }
+.slot-num { flex: 0 0 auto; width: 19px; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.device-variant { color: var(--ink-3); font-size: 13.5px; }
 
-.perk-row { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
-.perk-row:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.perk-row { padding: 10px 0; }
+.perk-row + .perk-row { border-top: 1px dashed var(--line); }
 .perk-badge {
-  display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
-  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
-  margin-bottom: 0.3rem; color: #fff;
+  display: inline-block; margin-bottom: 7px; padding: 2px 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: 2px; color: var(--ink-3);
 }
-.perk-badge-Defensive { background: #35A4AD; }
-.perk-badge-Offensive { background: #B21C0C; }
-.perk-badge-Hero { background: #3B7BB8; }
-.perk-name { font-size: 0.85rem; color: var(--text); font-weight: 600; }
-.perk-name.perk-empty { color: var(--text-faint); font-weight: 400; font-style: italic; }
-.perk-upside, .perk-downside {
-  font-size: 0.85rem; line-height: 1.45; margin-top: 0.35rem;
-  padding: 0.3rem 0.6rem 0.3rem 0.65rem; border-radius: 5px; border-left: 3px solid;
-}
-.perk-upside { background: rgba(76, 175, 80, 0.12); border-left-color: #6fcf73; color: #8fe092; }
-.perk-downside { background: rgba(244, 67, 54, 0.12); border-left-color: #f4746a; color: #ff9c94; }
+.perk-badge-Defensive { color: var(--perk-def);  border-color: color-mix(in srgb, var(--perk-def) 40%, transparent); }
+.perk-badge-Offensive { color: var(--perk-off);  border-color: color-mix(in srgb, var(--perk-off) 40%, transparent); }
+.perk-badge-Hero      { color: var(--perk-hero); border-color: color-mix(in srgb, var(--perk-hero) 40%, transparent); }
+.perk-name { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.perk-name.perk-empty { color: var(--ink-3); font-weight: 400; font-style: italic; }
+.perk-upside, .perk-downside { margin-top: 7px; padding-left: 12px; font-size: 14.5px; line-height: 1.55; border-left: 2px solid; }
+.perk-upside   { border-left-color: color-mix(in srgb, var(--live) 60%, transparent);  color: var(--ok-ink); }
+.perk-downside { border-left-color: color-mix(in srgb, var(--alarm) 60%, transparent); color: var(--alarm-ink); }
 
-@media (max-width: 640px) {
-  .topbar { padding: 1rem; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
-  .container { padding: 1rem; }
-  .view { width: 100vw; }
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 200;
+  display: none; max-width: 380px; padding: 11px 15px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-2); border-left: 2px solid var(--ink-3);
+  border-radius: var(--r);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.32);
+}
+.toast.success { border-left-color: var(--live); }
+.toast.error { border-left-color: var(--alarm); }
+.toast pre { margin: 0; font-family: var(--mono); font-size: 14px; color: var(--ink); white-space: pre-wrap; }
+
+/* ---------- login gate ---------- */
+.login-gate {
+  position: fixed; inset: 0; z-index: 500; background: var(--void);
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.login-gate.active { display: flex; }
+.login-box { width: min(380px, 100%); }
+.login-logo { display: block; width: 260px; max-width: 100%; height: auto; margin-bottom: 22px; }
+.login-box h2 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 27px; line-height: 1.05; color: var(--ink); }
+.login-box .sub { margin: 0 0 22px; font-size: 14.5px; color: var(--ink-2); }
+.login-box input { margin-bottom: 10px; }
+.login-box button { width: 100%; }
+.login-error { min-height: 1.2em; margin-top: 10px; font-family: var(--mono); font-size: 13px; color: var(--alarm-ink); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 840px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-areas: "rail" "main";
+    grid-template-rows: auto 1fr;
+  }
+  .rail { border-right: none; border-bottom: 1px solid var(--line); overflow: visible; }
+  /* full-width rail on mobile — don't let the logo balloon across the screen */
+  .brand { padding: 12px var(--brand-pad); }
+  .brand-logo { width: 168px; margin: 0 auto; }
+  .rail-nav { flex-direction: row; gap: 4px; padding: 8px 10px; overflow-x: auto; }
+  .rail-spacer { display: none; }
+  .rail-foot {
+    flex-direction: row; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 8px 12px;
+  }
+  .stat { font-size: 15px; }
+  .logout-btn { width: auto; flex: 0 0 auto; }
+  .rail-item { width: auto; white-space: nowrap; }
+  .rail-item.active::before { left: 0; right: 0; top: auto; bottom: -8px; width: auto; height: 2px; }
+  .rail-count { display: none; }
+  .work { padding: 18px 16px 24px; }
+  .view {
+    top: 0; left: 0; transform: none;
+    width: 100vw; max-height: 100vh; height: 100%;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  .view.active { transform: none; }
+  .console-tools { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
 }

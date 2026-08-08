@@ -724,6 +724,49 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public int GetActiveGamesCount(Key gameModeKey) => _gameInstances.Count(g => g.Value.GetGameMode() == gameModeKey);
 
+    public List<QueueSnapshot> GetQueueSnapshot() => _matchmaker.GetQueueSnapshot();
+
+    /// <summary>
+    /// Splits every connected user into the game mode they are in, or the menu. Both
+    /// dictionaries it walks are concurrent, so unlike the queues this needs no guard.
+    /// </summary>
+    /// <remarks>
+    /// A game instance is the only thing that takes a player out of the menu. Queueing
+    /// does not: you queue from the menu and stay there until the match starts, so a
+    /// queued player is still counted in the menu — /api/queues is what says how many of
+    /// them are waiting for what.
+    /// </remarks>
+    public PlayerActivity GetPlayerActivity()
+    {
+        var byMode = new Dictionary<string, (string? Name, int Players)>();
+        var online = 0;
+        var inMenu = 0;
+
+        foreach (var (_, info) in _connectedUsers)
+        {
+            if (!info.Online) continue;
+            online++;
+
+            // A custom game lobby sets GameInstanceId too, so "in a custom" covers both
+            // sitting in the lobby and playing the match it starts.
+            if (info.GameInstanceId != null && _gameInstances.TryGetValue(info.GameInstanceId, out var instance))
+            {
+                var modeKey = instance.GetGameMode();
+                var card = modeKey.GetCard<CardGameMode>();
+                var id = card?.Id ?? modeKey.ToString();
+                var entry = byMode.GetValueOrDefault(id, (Name: card?.Name, Players: 0));
+                byMode[id] = (entry.Name, entry.Players + 1);
+                continue;
+            }
+
+            inMenu++;
+        }
+
+        return new PlayerActivity(online, inMenu,
+            byMode.Select(kv => new ModePlayerCount(kv.Key, kv.Value.Name, kv.Value.Players))
+                  .OrderByDescending(m => m.Players).ToList());
+    }
+
     public void JoinQueue(uint playerId, Key gameModeKey, IServiceMatchmaker serviceMatchmaker)
     {
         if (!UserConnected(playerId, out var playerInfo) || _playerDatabase.GetPlayerDataNoWait(playerId) is not { } playerData ||

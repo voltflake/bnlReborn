@@ -204,6 +204,68 @@ public class Matchmaker(AsyncTaskTcpServer server)
         }
     }
 
+    /// <summary>
+    /// A copy of every queue, for observers such as the control panel. Read-only: it
+    /// takes no locks and mutates nothing, so it can never hold up or disturb a pop.
+    /// </summary>
+    /// <remarks>
+    /// <c>QueueData.Players</c> is a plain <see cref="List{T}"/> written without locking
+    /// from the queue loop, the pop timers and the service threads, so enumerating it
+    /// from an HTTP thread can land mid-mutation and throw. A queue that does is reported
+    /// as <c>unavailable</c> for that tick rather than failing the whole request —
+    /// nothing here is worth locking the matchmaker's hot path for.
+    /// </remarks>
+    public List<QueueSnapshot> GetQueueSnapshot()
+    {
+        // Every queueable mode, not just the ones that happen to have a queue running:
+        // a card that reads "0 waiting" is the answer, an absent card is not.
+        var modes = CatalogueHelper.GlobalLogic.Matchmaker?.GameModesForQueues ?? [];
+        var snapshots = new List<QueueSnapshot>();
+
+        foreach (var modeKey in modes)
+        {
+            var card = Databases.Catalogue.GetCard<CardGameMode>(modeKey);
+            var modeId = card?.Id ?? modeKey.ToString();
+
+            if (!_queues.TryGetValue(modeKey, out var queue))
+            {
+                snapshots.Add(new QueueSnapshot(modeId, card?.Name, 0, "waiting", null, []));
+                continue;
+            }
+
+            try
+            {
+                var players = queue.Players.ToList();
+                var popped = (queue.Team1 ?? []).Concat(queue.Team2 ?? [])
+                    .Select(p => p.PlayerId).ToHashSet();
+
+                snapshots.Add(new QueueSnapshot(
+                    modeId,
+                    card?.Name,
+                    players.Count,
+                    queue.IsPop switch
+                    {
+                        PopStatus.Match => "confirming",
+                        PopStatus.Backfill => "backfilling",
+                        PopStatus.PopFailed => "pop_failed",
+                        _ => "waiting"
+                    },
+                    queue.ConfTime,
+                    players.Select(p => new QueuedPlayerSnapshot(
+                        p.PlayerId,
+                        Databases.PlayerDatabase.GetPlayerDataNoWait(p.PlayerId)?.Nickname,
+                        p.JoinTime.ToUnixTimeMilliseconds(),
+                        popped.Contains(p.PlayerId))).ToList()));
+            }
+            catch (Exception)
+            {
+                snapshots.Add(new QueueSnapshot(modeId, card?.Name, 0, "unavailable", null, []));
+            }
+        }
+
+        return snapshots;
+    }
+
     public void SetDoBackfilling(uint playerId, bool value)
     {
         foreach (var queue in _queues.Values.Where(x => x.Players.Any(p => p.PlayerId == playerId)).ToList())

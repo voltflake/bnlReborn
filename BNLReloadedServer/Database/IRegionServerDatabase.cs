@@ -47,6 +47,8 @@ public interface IRegionServerDatabase
     public bool RemoveFromGameInstance(uint playerId, string gameInstanceId);
     public IEnumerable<(Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2, string instanceId)> GetBackfillNeeded(Key gameModeKey);
     public int GetActiveGamesCount(Key gameModeKey);
+    public List<QueueSnapshot> GetQueueSnapshot();
+    public PlayerActivity GetPlayerActivity();
     public void JoinQueue(uint playerId, Key gameModeKey, IServiceMatchmaker serviceMatchmaker);
     public void LeaveQueue(uint playerId, IServiceMatchmaker serviceMatchmaker);
     public void EnableBackfilling(uint playerId, bool enable);
