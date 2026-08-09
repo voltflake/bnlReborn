@@ -56,6 +56,7 @@ if (runServer)
     {
         // Create a new TCP server
         server = new MasterServer(configs.MasterIp(), 28100);
+        server.OptionNoDelay = true;
         server.OptionSendBufferSize = bufferSize;
         server.OptionReceiveBufferSize = bufferSize;
         

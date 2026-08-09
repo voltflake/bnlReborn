@@ -7,9 +7,17 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
     private bool _packetInBuffer;
     private const int BodyMaxSize = 100000000;
     private MemoryStream _buffer = new();
+    private long _lastPacketTicks = Environment.TickCount64;
+
+    public TimeSpan SinceLastPacket =>
+        TimeSpan.FromMilliseconds(Environment.TickCount64 - Interlocked.Read(ref _lastPacketTicks));
 
     public void ProcessPacket(byte[] buffer, long offset, long size)
     {
+        // Anything arriving counts, including a fragment that does not complete a packet yet:
+        // the question this answers is whether the other end is still there.
+        Interlocked.Exchange(ref _lastPacketTicks, Environment.TickCount64);
+
         MemoryStream memStream;
         if (_packetInBuffer)
         {

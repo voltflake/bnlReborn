@@ -26,7 +26,7 @@ internal class RegionSession : TcpSession
     protected override void OnConnected()
     {
         _connected = true;
-        _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Region");
+        _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Region", _sender, _reader);
         Log.Info(LogCat.Conn, $"Region session {Id} connected");
     }
 
