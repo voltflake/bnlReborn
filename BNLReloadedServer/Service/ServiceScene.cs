@@ -66,7 +66,7 @@ public class ServiceScene(ISender sender) : IServiceScene
             sceneEnum = (ServiceSceneId)serviceSceneId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceSceneId: {sceneEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceSceneId: {Log.EnumName(sceneEnum, serviceSceneId)}");
 
         switch (sceneEnum)
         {
@@ -74,7 +74,7 @@ public class ServiceScene(ISender sender) : IServiceScene
                 ReceiveEnterScene(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Scene service received unsupported serviceId: {serviceSceneId}");
+                Log.Warn(LogCat.Net, $"Scene service received unsupported serviceId: {Log.EnumName(sceneEnum, serviceSceneId)}");
                 return false;
         }
         

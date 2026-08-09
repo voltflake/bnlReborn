@@ -8,9 +8,9 @@ public class RegionClientServiceDispatcher(ISender sender) : IServiceDispatcher
 {
     public ServiceRegionServer ServiceRegionServer { get; } = new(sender);
 
-    private static bool OnUnsupported(ServiceId? serviceId)
+    private static bool OnUnsupported(ServiceId? serviceEnum, byte raw)
     {
-        Log.Warn(LogCat.Net, $"Region client session received unsupported serviceId: {serviceId}");
+        Log.Warn(LogCat.Net, $"Region client session received unsupported serviceId: {Log.EnumName(serviceEnum, raw)}");
         return false;
     }
     
@@ -23,12 +23,12 @@ public class RegionClientServiceDispatcher(ISender sender) : IServiceDispatcher
             serviceEnum = (ServiceId)serviceId;
         }
 
-        Log.Debug(LogCat.Net, $"Service ID: {serviceEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service ID: {Log.EnumName(serviceEnum, serviceId)}");
 
         return serviceEnum switch
         {
             ServiceId.ServiceServer => ServiceRegionServer.Receive(reader),
-            _ => OnUnsupported(serviceEnum)
+            _ => OnUnsupported(serviceEnum, serviceId)
         };
     }
 }

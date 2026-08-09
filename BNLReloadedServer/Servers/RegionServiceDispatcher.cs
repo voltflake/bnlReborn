@@ -54,9 +54,9 @@ public class RegionServiceDispatcher : IServiceDispatcher
         }
     }
 
-    private static bool OnUnsupported(ServiceId? serviceId)
+    private static bool OnUnsupported(ServiceId? serviceEnum, byte raw)
     {
-        Log.Warn(LogCat.Net, $"Region session received unsupported serviceId: {serviceId}");
+        Log.Warn(LogCat.Net, $"Region session received unsupported serviceId: {Log.EnumName(serviceEnum, raw)}");
         return false;
     }
 
@@ -69,7 +69,7 @@ public class RegionServiceDispatcher : IServiceDispatcher
             serviceEnum = (ServiceId)serviceId;
         }
 
-        Log.Debug(LogCat.Net, $"Service ID: {serviceEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service ID: {Log.EnumName(serviceEnum, serviceId)}");
 
         return serviceEnum switch
         {
@@ -84,7 +84,7 @@ public class RegionServiceDispatcher : IServiceDispatcher
             ServiceId.ServiceMatchmaker => _serviceMatchmaker.Receive(reader),
             ServiceId.ServiceLeaderboard => _serviceLeaderboard.Receive(reader),
             ServiceId.ServicePing => _servicePing.Receive(reader),
-            _ => OnUnsupported(serviceEnum)
+            _ => OnUnsupported(serviceEnum, serviceId)
         };
     }
 }

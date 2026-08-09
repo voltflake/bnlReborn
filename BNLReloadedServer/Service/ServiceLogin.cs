@@ -493,7 +493,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
             loginEnum = (ServiceLoginId)serviceLoginId;
         }
 
-        Log.Debug(LogCat.Net, $"Service Login ID: {loginEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service Login ID: {Log.EnumName(loginEnum, serviceLoginId)}");
 
         switch (loginEnum)
         {
@@ -531,7 +531,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
                 ReceiveLoginInstance(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Login service received unsupported serviceId: {serviceLoginId}");
+                Log.Warn(LogCat.Net, $"Login service received unsupported serviceId: {Log.EnumName(loginEnum, serviceLoginId)}");
                 return false;
         }
         

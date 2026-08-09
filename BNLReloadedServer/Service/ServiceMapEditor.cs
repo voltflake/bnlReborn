@@ -310,7 +310,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
                 ReceivePlayMapKey(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service MapEditor id {serviceMapEditorId}");
+                Log.Warn(LogCat.Net, $"Unknown service MapEditor id {Log.EnumName(mapEditorEnum, serviceMapEditorId)}");
                 return false;
         }
         

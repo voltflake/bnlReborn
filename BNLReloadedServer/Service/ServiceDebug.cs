@@ -387,7 +387,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
             debugEnum = (ServiceDebugId)serviceDebugId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceDebugId: {serviceDebugId}");
+        Log.Debug(LogCat.Net, $"ServiceDebugId: {Log.EnumName(debugEnum, serviceDebugId)}");
 
         switch (debugEnum)
         {
@@ -425,7 +425,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
                 ReceiveSubscribeZone(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service debug id {serviceDebugId}");
+                Log.Warn(LogCat.Net, $"Unknown service debug id {Log.EnumName(debugEnum, serviceDebugId)}");
                 return false;
         }
         

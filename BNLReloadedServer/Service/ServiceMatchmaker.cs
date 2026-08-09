@@ -316,7 +316,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
             matchEnum = (ServiceMatchmakerId)serviceMatchmakerId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceMatchmakerId: {matchEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceMatchmakerId: {Log.EnumName(matchEnum, serviceMatchmakerId)}");
 
         switch (matchEnum)
         {
@@ -378,7 +378,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
                 ReceiveJoinCustomGameBySteam(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service matchmaker id {serviceMatchmakerId}");
+                Log.Warn(LogCat.Net, $"Unknown service matchmaker id {Log.EnumName(matchEnum, serviceMatchmakerId)}");
                 return false;
         }
         

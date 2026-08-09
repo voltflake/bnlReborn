@@ -751,7 +751,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
             playerEnum = (ServicePlayerId)servicePlayerId;
         }
 
-        Log.Debug(LogCat.Net, $"ServicePlayerId: {playerEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServicePlayerId: {Log.EnumName(playerEnum, servicePlayerId)}");
 
         switch (playerEnum)
         {
@@ -885,7 +885,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
                 ReceiveMarkItemAsShown(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Player service received unsupported serviceId: {servicePlayerId}");
+                Log.Warn(LogCat.Net, $"Player service received unsupported serviceId: {Log.EnumName(playerEnum, servicePlayerId)}");
                 return false;
         }
         

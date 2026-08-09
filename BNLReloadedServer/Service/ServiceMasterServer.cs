@@ -303,7 +303,7 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
             masterEnum = (ServiceMasterId)serviceMasterId;
         }
 
-        Log.Debug(LogCat.Net, $"Service Master ID: {masterEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service Master ID: {Log.EnumName(masterEnum, serviceMasterId)}");
 
         switch (masterEnum)
         {
@@ -359,7 +359,7 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
                 ReceivePlayerCount(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Master service received unsupported serviceId: {serviceMasterId}");
+                Log.Warn(LogCat.Net, $"Master service received unsupported serviceId: {Log.EnumName(masterEnum, serviceMasterId)}");
                 return false;
         }
         

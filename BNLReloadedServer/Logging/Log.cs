@@ -40,6 +40,11 @@ public static class Log
 
     public static bool Enabled(LogLevel level) => level >= MinLevel;
 
+    // A null Enum? interpolates to an empty string, which is exactly the case worth logging:
+    // an id byte outside the enum. Keep the raw byte so an unknown id is still identifiable.
+    public static string EnumName<T>(T? value, byte raw) where T : struct, Enum =>
+        value?.ToString() ?? $"unknown({raw})";
+
     public static void Debug(LogCat cat, string message) => Write(LogLevel.Debug, cat, message, null);
 
     /// <summary>

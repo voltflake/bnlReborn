@@ -359,7 +359,7 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
             regionEnum = (ServiceRegionId)serviceRegionId;
         }
 
-        Log.Debug(LogCat.Net, $"Service Region ID: {regionEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service Region ID: {Log.EnumName(regionEnum, serviceRegionId)}");
 
         switch (regionEnum)
         {
@@ -400,7 +400,7 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
                 ReceiveLeaderboard(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Region service received unsupported serviceId: {serviceRegionId}");
+                Log.Warn(LogCat.Net, $"Region service received unsupported serviceId: {Log.EnumName(regionEnum, serviceRegionId)}");
                 return false;
         }
         

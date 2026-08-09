@@ -61,7 +61,7 @@ public class ServiceTime(ISender sender) : IServiceTime
             timeEnum = (ServiceTimeId)serviceTimeId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceTimeId: {timeEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceTimeId: {Log.EnumName(timeEnum, serviceTimeId)}");
 
         switch (timeEnum)
         {
@@ -69,7 +69,7 @@ public class ServiceTime(ISender sender) : IServiceTime
                 ReceiveSync(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Time service received unsupported serviceId: {serviceTimeId}");
+                Log.Warn(LogCat.Net, $"Time service received unsupported serviceId: {Log.EnumName(timeEnum, serviceTimeId)}");
                 return false;
         }
         

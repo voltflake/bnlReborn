@@ -99,7 +99,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
             leaderboardEnum = (ServiceLeaderboardId)serviceLeaderboardId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceLeaderboardId: {leaderboardEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceLeaderboardId: {Log.EnumName(leaderboardEnum, serviceLeaderboardId)}");
 
         switch (leaderboardEnum)
         {
@@ -110,7 +110,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
                 ReceiveGetLeagueLeaderboard(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service leaderboard id {serviceLeaderboardId}");
+                Log.Warn(LogCat.Net, $"Unknown service leaderboard id {Log.EnumName(leaderboardEnum, serviceLeaderboardId)}");
                 return false;
         }
         

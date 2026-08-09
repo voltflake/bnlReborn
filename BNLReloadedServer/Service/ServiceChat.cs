@@ -131,7 +131,7 @@ public class ServiceChat(ISender sender) : IServiceChat
             chatEnum = (ServiceChatId)serviceChatId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceChatId: {chatEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceChatId: {Log.EnumName(chatEnum, serviceChatId)}");
 
         switch (chatEnum)
         {
@@ -145,7 +145,7 @@ public class ServiceChat(ISender sender) : IServiceChat
                 ReceiveRoomMessage(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service chat id {serviceChatId}");
+                Log.Warn(LogCat.Net, $"Unknown service chat id {Log.EnumName(chatEnum, serviceChatId)}");
                 return false;
         }
         

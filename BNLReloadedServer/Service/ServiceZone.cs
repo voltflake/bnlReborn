@@ -1169,7 +1169,7 @@ public class ServiceZone(ISender sender) : IServiceZone
             zoneEnum = (ServiceZoneId)serviceZoneId;
         }
 
-        Log.Debug(LogCat.Net, $"ServiceZoneId: {zoneEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServiceZoneId: {Log.EnumName(zoneEnum, serviceZoneId)}");
 
         switch (zoneEnum)
         {
@@ -1312,7 +1312,7 @@ public class ServiceZone(ISender sender) : IServiceZone
                 ReceiveExecuteMapEditorCommand(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Zone service received unsupported serviceId: {serviceZoneId}");
+                Log.Warn(LogCat.Net, $"Zone service received unsupported serviceId: {Log.EnumName(zoneEnum, serviceZoneId)}");
                 return false;
         }
         

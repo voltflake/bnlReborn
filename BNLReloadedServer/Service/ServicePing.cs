@@ -64,7 +64,7 @@ public class ServicePing(ISender sender) : IServicePing
             pingEnum = (ServicePingId)servicePingId;
         }
 
-        Log.Debug(LogCat.Net, $"ServicePingId: {pingEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"ServicePingId: {Log.EnumName(pingEnum, servicePingId)}");
 
         switch (pingEnum)
         {
@@ -75,7 +75,7 @@ public class ServicePing(ISender sender) : IServicePing
                 ReceiveClientPing(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service ping id {servicePingId}");
+                Log.Warn(LogCat.Net, $"Unknown service ping id {Log.EnumName(pingEnum, servicePingId)}");
                 return false;
         }
         

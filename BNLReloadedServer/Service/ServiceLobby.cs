@@ -201,7 +201,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
             lobbyEnum = (ServiceLobbyId)serviceLobbyId;
         }
 
-        Log.Debug(LogCat.Net, $"Service Lobby ID: {lobbyEnum.ToString()}");
+        Log.Debug(LogCat.Net, $"Service Lobby ID: {Log.EnumName(lobbyEnum, serviceLobbyId)}");
 
         switch (lobbyEnum)
         {
@@ -257,7 +257,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
                 ReceiveExitToMenuAsSquad(reader);
                 break;
             default:
-                Log.Warn(LogCat.Net, $"Unknown service lobby id {serviceLobbyId}");
+                Log.Warn(LogCat.Net, $"Unknown service lobby id {Log.EnumName(lobbyEnum, serviceLobbyId)}");
                 return false;
         }
         
