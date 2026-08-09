@@ -8,20 +8,27 @@ namespace BNLReloadedServer.Servers;
 internal static class SessionLiveness
 {
     public static CancellationTokenSource? Start(IServicePing ping, TcpSession session, string label,
-        SessionSender sender, SessionReader reader)
+        SessionSender sender, SessionReader reader, Func<string?> peer)
     {
         var interval = Databases.ConfigDatabase.PingIntervalSeconds();
         var maxMissed = Databases.ConfigDatabase.MaxMissedPings();
         if (interval <= 0 || maxMissed <= 0) return null;
 
         var cts = new CancellationTokenSource();
-        _ = Run(ping, session, label, sender, reader, TimeSpan.FromSeconds(interval), maxMissed, cts.Token);
+        _ = Run(ping, session, label, sender, reader, peer, TimeSpan.FromSeconds(interval), maxMissed, cts.Token);
         return cts;
     }
 
     private static async Task Run(IServicePing ping, TcpSession session, string label, SessionSender sender,
-        SessionReader reader, TimeSpan interval, int maxMissed, CancellationToken token)
+        SessionReader reader, Func<string?> peer, TimeSpan interval, int maxMissed, CancellationToken token)
     {
+        // These lines say a session is being hung up on, so they name it the same way the connect
+        // line did. Resolved per line rather than captured: a session torn down early has no
+        // address left, and the next line may still find one.
+        string Describe() => peer() is { } address
+            ? $"{address} ({Log.ShortId(session.Id)})"
+            : Log.ShortId(session.Id);
+
         // The same budget either way: a session gets this long to prove it is still there, whether
         // it does so by answering probes or by saying anything at all.
         var silenceBudget = interval * maxMissed;
@@ -35,7 +42,7 @@ internal static class SessionLiveness
                 {
                     if (reader.SinceLastPacket <= silenceBudget) continue;
 
-                    Log.Warn(LogCat.Conn, $"{label} session {session.Id} sent nothing for " +
+                    Log.Warn(LogCat.Conn, $"{label} session {Describe()} sent nothing for " +
                                           $"{silenceBudget.TotalSeconds:0}s without logging in, disconnecting it");
                     session.Disconnect();
                     return;
@@ -43,7 +50,7 @@ internal static class SessionLiveness
 
                 if (ping.SendLivenessProbe() <= maxMissed) continue;
 
-                Log.Warn(LogCat.Conn, $"{label} session {session.Id} missed {maxMissed} pings, disconnecting it");
+                Log.Warn(LogCat.Conn, $"{label} session {Describe()} missed {maxMissed} pings, disconnecting it");
                 session.Disconnect();
                 return;
             }
@@ -53,7 +60,7 @@ internal static class SessionLiveness
         }
         catch (Exception e)
         {
-            Log.Error(LogCat.Conn, $"{label} session {session.Id} liveness probe failed", e);
+            Log.Error(LogCat.Conn, $"{label} session {Describe()} liveness probe failed", e);
         }
     }
 }

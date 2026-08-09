@@ -33,7 +33,8 @@ public class RegionClient : TcpClient
 
     protected override void OnConnecting()
     {
-        Log.Info(LogCat.Conn, "Region client connecting to master...");
+        // No socket yet, so the address comes from where we are dialling rather than from the peer.
+        Log.Info(LogCat.Conn, $"Region client connecting to master {Address}:{Port}...");
     }
 
     protected override void OnConnected()
@@ -42,7 +43,7 @@ public class RegionClient : TcpClient
         // connections and has to tear down again after each one.
         Volatile.Write(ref _teardownStarted, 0);
         _connected = true;
-        Log.Info(LogCat.Conn, $"Region client connected to master{From} as session {Id}");
+        Log.Info(LogCat.Conn, $"Region client connected to master {Describe}");
 
         var host = Databases.ConfigDatabase.RegionPublicHost();
         var guiInfo = Databases.ConfigDatabase.GetRegionInfo();
@@ -59,7 +60,7 @@ public class RegionClient : TcpClient
         if (Interlocked.Exchange(ref _teardownStarted, 1) != 0) return;
 
         if (_connected)
-            Log.Info(LogCat.Conn, $"Region client disconnected from master (session {Id})");
+            Log.Info(LogCat.Conn, $"Region client disconnected from master {Describe}");
 
         _connected = false;
         
@@ -79,7 +80,7 @@ public class RegionClient : TcpClient
         _reader.ProcessPacket(buffer, offset, size);
     }
 
-    private string From => Peer is { } peer ? $" {peer}" : string.Empty;
+    private string Describe => Peer is { } peer ? $"{peer} ({Log.ShortId(Id)})" : Log.ShortId(Id);
 
     private string? ReadPeer()
     {
@@ -95,7 +96,7 @@ public class RegionClient : TcpClient
 
     protected override void OnError(SocketError error)
     {
-        Log.Error(LogCat.Conn, $"Region client socket error: {error}");
+        Log.Error(LogCat.Conn, $"Region client {Describe} socket error: {error}");
     }
 
     private bool _stop;

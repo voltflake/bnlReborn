@@ -46,17 +46,19 @@ public abstract class ServerSession : TcpSession
 
         if (LivenessPing is { } ping)
         {
-            _livenessCts = SessionLiveness.Start(ping, this, Label, Sender, Reader);
+            _livenessCts = SessionLiveness.Start(ping, this, Label, Sender, Reader, () => Peer);
             // A socket failure can tear this session down while we are still in here. Teardown
             // would have seen a null field, so the probe we just started is ours to stop.
             if (Volatile.Read(ref _teardownStarted) != 0)
                 StopLiveness();
         }
 
-        Log.Info(LogCat.Conn, $"{Label} session {Id} connected{From}");
+        Log.Info(LogCat.Conn, $"{Label} session {Describe} connected");
     }
 
-    private string From => Peer is { } peer ? $" from {peer}" : string.Empty;
+    // Who the session is, for a log line: the address it came from, with the tail of its id in
+    // brackets to tell two connections from the same host apart.
+    private string Describe => Peer is { } peer ? $"{peer} ({Log.ShortId(Id)})" : Log.ShortId(Id);
 
     private string? ReadPeer()
     {
@@ -82,7 +84,7 @@ public abstract class ServerSession : TcpSession
         OnTeardown();
 
         if (_connected)
-            Log.Info(LogCat.Conn, $"{Label} session {Id} disconnected{From}");
+            Log.Info(LogCat.Conn, $"{Label} session {Describe} disconnected");
 
         _connected = false;
     }
@@ -106,6 +108,6 @@ public abstract class ServerSession : TcpSession
 
     protected override void OnError(SocketError error)
     {
-        Log.Error(LogCat.Conn, $"{Label} session {Id} socket error: {error}{From}");
+        Log.Error(LogCat.Conn, $"{Label} session {Describe} socket error: {error}");
     }
 }

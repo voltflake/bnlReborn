@@ -61,6 +61,14 @@ public static class Log
         public void Dispose() => _peer = previous;
     }
 
+    // The last group of a session guid. Long enough to tell sessions apart in a log, and still a
+    // substring of the full id, so grepping it finds the lines that print the whole thing.
+    public static string ShortId(Guid id)
+    {
+        var text = id.ToString();
+        return text[(text.LastIndexOf('-') + 1)..];
+    }
+
     // A null Enum? interpolates to an empty string, which is exactly the case worth logging:
     // an id byte outside the enum. Keep the raw byte so an unknown id is still identifiable.
     public static string EnumName<T>(T? value, byte raw) where T : struct, Enum =>
