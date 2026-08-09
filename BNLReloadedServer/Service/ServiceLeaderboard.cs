@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -98,10 +99,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
             leaderboardEnum = (ServiceLeaderboardId)serviceLeaderboardId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceLeaderboardId: {leaderboardEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceLeaderboardId: {leaderboardEnum.ToString()}");
 
         switch (leaderboardEnum)
         {
@@ -112,7 +110,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
                 ReceiveGetLeagueLeaderboard(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service leaderboard id {serviceLeaderboardId}");
+                Log.Warn(LogCat.Net, $"Unknown service leaderboard id {serviceLeaderboardId}");
                 return false;
         }
         

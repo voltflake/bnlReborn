@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Logging;
 using CouchDB.Driver;
 
 namespace BNLReloadedServer.Database;
@@ -20,7 +21,7 @@ public interface IConfigDatabase
     public string CouchDbEndpoint();
     public BasicCredentials CouchDbCredentials();
     public string CouchDbDatabaseName();
-    public bool DebugMode();
+    public LogLevel MinLogLevel();
     public bool UseMaxDeviceLevel();
     public bool UseRaycastExplosions();
     public int ReconnectGraceSeconds();

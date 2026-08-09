@@ -1,6 +1,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
 using NetCoreServer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -27,7 +28,7 @@ internal static class SessionLiveness
             {
                 if (ping.SendLivenessProbe() <= maxMissed) continue;
 
-                Console.WriteLine($"{label} TCP session with Id {session.Id} missed {maxMissed} pings, disconnecting it!");
+                Log.Warn(LogCat.Conn, $"{label} session {session.Id} missed {maxMissed} pings, disconnecting it");
                 session.Disconnect();
                 return;
             }
@@ -37,7 +38,7 @@ internal static class SessionLiveness
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(LogCat.Conn, $"{label} session {session.Id} liveness probe failed", e);
         }
     }
 }

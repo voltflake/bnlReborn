@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
 using NetCoreServer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -17,7 +18,7 @@ public class MatchSession : TcpSession
         server.AddSenderTask(Id, senderTask);
         var sender = new SessionSender(server, Id, senderTask);
         _serviceDispatcher = new MatchServiceDispatcher(sender, Id);
-        _reader = new SessionReader(_serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _reader = new SessionReader(_serviceDispatcher,
             "Match server received packet with incorrect length");
     }
 
@@ -25,7 +26,7 @@ public class MatchSession : TcpSession
     {
         _connected = true;
         _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Match");
-        Console.WriteLine($"Match TCP session with Id {Id} connected!");
+        Log.Info(LogCat.Conn, $"Match session {Id} connected");
     }
 
     protected override void OnDisconnected()
@@ -35,7 +36,7 @@ public class MatchSession : TcpSession
         _livenessCts = null;
         Databases.RegionServerDatabase.RemoveMatchServices(Id);
         if (_connected)
-            Console.WriteLine($"Match TCP session with Id {Id} disconnected!");
+            Log.Info(LogCat.Conn, $"Match session {Id} disconnected");
 
         _connected = false;
     }
@@ -49,6 +50,6 @@ public class MatchSession : TcpSession
 
     protected override void OnError(SocketError error)
     {
-        Console.WriteLine($"Match TCP session caught an error with code {error}");
+        Log.Error(LogCat.Conn, $"Match session {Id} socket error: {error}");
     }
 }

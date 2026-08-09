@@ -5,6 +5,7 @@ using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -88,7 +89,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
             Databases.PlayerDatabase.GetPlayerDataNoWait(sender.AssociatedPlayerId.Value)?.Role
                 is not (PlayerRole.Core or PlayerRole.Admin))
         {
-            Console.WriteLine($"[MapEditor] Rejected save of '{key}' from an unprivileged session.");
+            Log.Warn(LogCat.Map, $"Rejected save of '{key}' from an unprivileged session");
             SendSaveMap(rpcId, "You do not have permission to save maps.");
             return;
         }
@@ -100,7 +101,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         }
         catch (Exception e)
         {
-            Console.WriteLine($"[MapEditor] Failed to save map '{key}': {e}");
+            Log.Error(LogCat.Map, $"Failed to save map '{key}'", e);
             SendSaveMap(rpcId, $"Failed to save map '{key}': {e.Message}");
         }
     }
@@ -309,7 +310,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
                 ReceivePlayMapKey(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service MapEditor id {serviceMapEditorId}");
+                Log.Warn(LogCat.Net, $"Unknown service MapEditor id {serviceMapEditorId}");
                 return false;
         }
         

@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
 using CouchDB.Driver;
 
@@ -68,7 +69,13 @@ public class ConfigDatabase : IConfigDatabase
 
     public string CouchDbDatabaseName() => _configs.CouchDbDatabaseName ?? string.Empty;
 
-    public bool DebugMode() => _configs.DebugMode;
+    /// <summary>
+    /// log_level when it is set, otherwise the old debug_mode flag: existing configs keep the
+    /// verbosity they already had without being edited.
+    /// </summary>
+    public LogLevel MinLogLevel() => string.IsNullOrWhiteSpace(_configs.LogLevel)
+        ? _configs.DebugMode ? LogLevel.Debug : LogLevel.Info
+        : LogNames.ParseLevel(_configs.LogLevel);
 
     public bool UseMaxDeviceLevel() => _configs.UseMaxDeviceLevel;
 

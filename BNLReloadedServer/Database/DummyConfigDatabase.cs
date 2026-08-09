@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Logging;
 using CouchDB.Driver;
 
 namespace BNLReloadedServer.Database;
@@ -56,7 +57,7 @@ public class DummyConfigDatabase : IConfigDatabase
 
     public string CouchDbDatabaseName() => "test";
     
-    public bool DebugMode() => true;
+    public LogLevel MinLogLevel() => LogLevel.Debug;
 
     public bool UseMaxDeviceLevel() => false;
 

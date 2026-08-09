@@ -70,6 +70,8 @@ function showPane(name) {
        run and the log would otherwise open at the top of the buffer. */
     const out = document.getElementById('consoleOutput');
     out.scrollTop = out.scrollHeight;
+    unreadErrors = 0;
+    updateErrorBadge();
     updateConsoleCount();
   }
 }
@@ -919,111 +921,219 @@ async function lookupCard() {
 
 /* ---------- console ---------- */
 
-/* /api/logs returns the whole buffer every poll. Rendering it again each time would
-   destroy any text selection the instant the next poll landed — so nodes are only ever
-   appended, and the delta is found by matching the tail of what is already rendered
-   against the new snapshot. There is no sequence number on the endpoint to key off. */
+/* /api/logs hands back records — sequence number, unix timestamp, level, category,
+   message, and a detail string for stack traces. The poll sends the last sequence
+   number it saw and gets only what followed, so there is no snapshot to diff and no
+   tail-matching to re-find our place. Nodes are only ever appended, which is what keeps
+   a text selection alive across a poll. */
 const MAX_LINES = 2000;
-const TAIL_WINDOW = 40;      // lines compared to re-find our place; chatter repeats
-let logLines = [];
+const LEVELS = ['error', 'warn', 'info', 'debug'];
 
-function msgOf(raw) {
-  const m = raw.match(/^\[[^\]]*\]\s?(.*)$/);
-  return m ? m[1] : raw;
+let logRecords = [];
+let logCursor = 0;     // highest sequence number rendered
+let logBoot = null;    // server run the cursor belongs to
+let unreadErrors = 0;  // errors that arrived while another pane was open
+
+function onConsolePane() { return document.body.classList.contains('pane-console'); }
+
+/* The record carries epoch milliseconds, so the browser renders it in the viewer's own
+   timezone — the server's clock no longer decides what the log says the time was. */
+function fmtLogTime(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) +
+         '.' + String(d.getMilliseconds()).padStart(3, '0');
 }
 
-/* ConsoleLogBuffer stamps every line "[yyyy-MM-dd HH:mm:ss.fff] ". The date is the same
-   for practically the whole buffer, so only the time is drawn. */
-function makeLogNode(raw) {
-  const m = raw.match(/^\[([\d\-]+ [\d:.]+)\]\s?(.*)$/);
+function makeLogNode(rec) {
   const line = document.createElement('div');
-  line.className = 'log-line';
+  line.className = 'log-line ' + rec.lvl;
+
   const t = document.createElement('span');
   t.className = 'log-time';
-  t.textContent = m ? m[1].slice(11) : '';
+  t.textContent = fmtLogTime(rec.ts);
+
+  const c = document.createElement('span');
+  c.className = 'log-cat';
+  c.textContent = rec.cat;
+
   const b = document.createElement('span');
   b.className = 'log-msg';
-  b.textContent = m ? m[2] : raw;   // never innerHTML — log lines carry nicknames
-  line.append(t, b);
+  b.textContent = rec.msg;     // never innerHTML — log lines carry nicknames
+
+  line.append(t, c, b);
   return line;
+}
+
+/* A stack trace is its own node under the line it belongs to: one failure stays one
+   line in the stream, and the filter hides both together. */
+function makeDetailNode(rec) {
+  const d = document.createElement('div');
+  d.className = 'log-detail';
+  d.textContent = rec.detail;
+  return d;
 }
 
 function atBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 24; }
 function currentFilter() { return document.getElementById('f-console-filter').value.toLowerCase(); }
-function matchesFilter(raw, q) { return !q || raw.toLowerCase().includes(q); }
+function currentCat() { return document.getElementById('f-console-cat').value; }
 
-function updateConsoleCount() {
-  const shown = document.querySelectorAll('#consoleOutput .log-line:not(.hidden)').length;
-  document.getElementById('consoleCount').textContent =
-    shown === logLines.length ? logLines.length.toLocaleString() + ' lines'
-                              : shown.toLocaleString() + ' of ' + logLines.length.toLocaleString();
+function currentLevels() {
+  const on = new Set();
+  for (const chip of document.querySelectorAll('#logChips .chip.on'))
+    on.add(chip.getAttribute('data-level'));
+  return on;
 }
 
-function appendLogLines(raws) {
-  if (!raws.length) return;
+function matchesFilter(rec, q, levels, cat) {
+  if (!levels.has(rec.lvl)) return false;
+  if (cat && rec.cat !== cat) return false;
+  if (!q) return true;
+  return (rec.msg + ' ' + rec.cat + ' ' + (rec.detail || '')).toLowerCase().includes(q);
+}
+
+function toggleLogChip(el) {
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-pressed', String(on));
+  renderConsole();
+}
+
+/* The category list is built from what the buffer actually contains rather than
+   hardcoded, so a category added on the server shows up here without a panel change. */
+function updateCatOptions() {
+  const sel = document.getElementById('f-console-cat');
+  const seen = [...new Set(logRecords.map(r => r.cat))].sort();
+  const have = [...sel.options].slice(1).map(o => o.value);
+  if (seen.length === have.length && seen.every((c, i) => c === have[i])) return;
+
+  const keep = sel.value;
+  sel.replaceChildren(new Option('All sources', ''));
+  for (const cat of seen) sel.append(new Option(cat, cat));
+  sel.value = seen.includes(keep) ? keep : '';
+}
+
+function updateConsoleCount() {
+  const tally = { error: 0, warn: 0, info: 0, debug: 0 };
+  for (const rec of logRecords) tally[rec.lvl] = (tally[rec.lvl] || 0) + 1;
+  for (const chip of document.querySelectorAll('#logChips .chip'))
+    chip.querySelector('.chip-n').textContent = String(tally[chip.getAttribute('data-level')] || 0);
+
+  const shown = document.querySelectorAll('#consoleOutput .log-line:not(.hidden)').length;
+  document.getElementById('consoleCount').textContent =
+    shown === logRecords.length ? logRecords.length.toLocaleString() + ' lines'
+                                : shown.toLocaleString() + ' of ' + logRecords.length.toLocaleString();
+  document.getElementById('consoleJump').hidden =
+    !document.querySelector('#consoleOutput .log-line.error:not(.hidden)');
+}
+
+function appendLogRecords(records) {
+  if (!records.length) return;
   const out = document.getElementById('consoleOutput');
   const stuck = atBottom(out);
   const q = currentFilter();
+  const levels = currentLevels();
+  const cat = currentCat();
 
   const frag = document.createDocumentFragment();
-  for (const raw of raws) {
-    const node = makeLogNode(raw);
-    if (!matchesFilter(raw, q)) node.classList.add('hidden');
-    logLines.push(raw);
+  for (const rec of records) {
+    const hide = !matchesFilter(rec, q, levels, cat);
+    const node = makeLogNode(rec);
+    if (hide) node.classList.add('hidden');
     frag.append(node);
+    if (rec.detail) {
+      const detail = makeDetailNode(rec);
+      if (hide) detail.classList.add('hidden');
+      frag.append(detail);
+    }
+    logRecords.push(rec);
   }
   out.append(frag);
 
-  while (logLines.length > MAX_LINES) {
-    logLines.shift();
+  while (logRecords.length > MAX_LINES) {
+    const dropped = logRecords.shift();
     out.firstElementChild?.remove();
+    if (dropped.detail) out.firstElementChild?.remove();
   }
 
+  updateCatOptions();
   updateConsoleCount();
+
+  /* Most of the time nobody is on this pane. Count the errors that land while you are
+     elsewhere and put the number on the rail; opening the pane clears it. */
+  if (!onConsolePane()) {
+    unreadErrors += records.filter(r => r.lvl === 'error').length;
+    updateErrorBadge();
+  }
+
   if (stuck) out.scrollTop = out.scrollHeight;
 }
 
-function rebuildLog(lines) {
-  document.getElementById('consoleOutput').replaceChildren();
-  logLines = [];
-  appendLogLines(lines);
+function updateErrorBadge() {
+  document.getElementById('railFaults').textContent =
+    unreadErrors ? unreadErrors + (unreadErrors === 1 ? ' error' : ' errors') : '';
 }
 
-/* Find where the rendered tail sits in the new snapshot and append only what follows.
-   A whole window is compared rather than one line because packet chatter repeats
-   verbatim and a single-line match would land on the wrong occurrence. */
-function syncLog(lines) {
-  const incoming = lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines;
-  if (!logLines.length) { rebuildLog(incoming); return; }
-
-  const k = Math.min(logLines.length, TAIL_WINDOW);
-  const base = logLines.length - k;
-  for (let start = incoming.length - k; start >= 0; start--) {
-    let hit = true;
-    for (let j = 0; j < k; j++) {
-      if (incoming[start + j] !== logLines[base + j]) { hit = false; break; }
-    }
-    if (hit) { appendLogLines(incoming.slice(start + k)); return; }
-  }
-  rebuildLog(incoming);     // server restarted, or the buffer moved further than we hold
+function resetLog() {
+  document.getElementById('consoleOutput').replaceChildren();
+  logRecords = [];
+  logCursor = 0;
 }
 
 async function pollLogs() {
   try {
-    const res = await fetch('/api/logs');
+    const res = await fetch('/api/logs?since=' + logCursor);
     if (!res.ok) return;
     const data = await res.json();
-    syncLog(data.lines || []);
+
+    /* Sequence numbers restart with the server, so a new boot id means the cursor is
+       meaningless. Drop what we have and take the buffer from the top. */
+    if (logBoot !== null && data.boot !== logBoot) {
+      resetLog();
+      logBoot = data.boot;
+      return pollLogs();
+    }
+    logBoot = data.boot;
+
+    /* Sliced before rendering, not after: the first poll of a full buffer returns
+       10 000 records, and building nodes for all of them only to trim to MAX_LINES
+       would cost a stall on every page load. */
+    const all = data.records || [];
+    if (all.length) logCursor = all[all.length - 1].seq;
+    appendLogRecords(all.length > MAX_LINES ? all.slice(-MAX_LINES) : all);
   } catch { /* ignore */ }
+}
+
+/* Landing on the tail is no help when the thing you came for scrolled past a thousand
+   debug lines ago — go to the newest error instead. */
+function jumpToErrors() {
+  if (!onConsolePane()) showPane('console');
+  const chip = document.querySelector('#logChips .chip[data-level="error"]');
+  if (!chip.classList.contains('on')) toggleLogChip(chip);
+  setTimeout(() => {
+    const out = document.getElementById('consoleOutput');
+    const hits = out.querySelectorAll('.log-line.error:not(.hidden)');
+    const last = hits[hits.length - 1];
+    if (!last) return;
+    last.scrollIntoView({ block: 'center' });
+    last.classList.add('jumped');
+    setTimeout(() => last.classList.remove('jumped'), 1400);
+  }, 40);
 }
 
 /* Filter changed: retag the nodes that already exist. Still no rebuild, so a selection
    survives typing in the filter box too. */
 function renderConsole() {
-  const nodes = document.getElementById('consoleOutput').children;
+  const out = document.getElementById('consoleOutput');
   const q = currentFilter();
-  for (let i = 0; i < nodes.length; i++) {
-    nodes[i].classList.toggle('hidden', !matchesFilter(logLines[i], q));
+  const levels = currentLevels();
+  const cat = currentCat();
+
+  let node = out.firstElementChild;
+  for (const rec of logRecords) {
+    const hide = !matchesFilter(rec, q, levels, cat);
+    if (node) { node.classList.toggle('hidden', hide); node = node.nextElementSibling; }
+    if (rec.detail && node) { node.classList.toggle('hidden', hide); node = node.nextElementSibling; }
   }
   updateConsoleCount();
 }
@@ -1058,8 +1168,8 @@ function showToast(type, msg) {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-/* 24-hour regardless of locale: the console beside it is 24-hour because that is how
-   ConsoleLogBuffer stamps a line, and one panel should not run two clocks. */
+/* 24-hour regardless of locale: the console beside it is 24-hour, and one panel should
+   not run two clocks. */
 function fmtUntil(ms) {
   return new Date(Number(ms)).toLocaleString(undefined,
     { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });

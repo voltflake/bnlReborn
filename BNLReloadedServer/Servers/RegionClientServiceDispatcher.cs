@@ -1,5 +1,6 @@
 ﻿using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -9,7 +10,7 @@ public class RegionClientServiceDispatcher(ISender sender) : IServiceDispatcher
 
     private static bool OnUnsupported(ServiceId? serviceId)
     {
-        Console.WriteLine($"Region client TCP session received unsupported serviceId: {serviceId}");
+        Log.Warn(LogCat.Net, $"Region client session received unsupported serviceId: {serviceId}");
         return false;
     }
     
@@ -22,10 +23,7 @@ public class RegionClientServiceDispatcher(ISender sender) : IServiceDispatcher
             serviceEnum = (ServiceId)serviceId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service ID: {serviceEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service ID: {serviceEnum.ToString()}");
 
         return serviceEnum switch
         {

@@ -2,6 +2,7 @@
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ProtocolHelpers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Database;
 
@@ -41,7 +42,7 @@ public class MapDatabase : IMapDatabase
         }
         catch (Exception e)
         {
-            Console.WriteLine($"[MapDatabase] Failed to read '{mapFile}': {e.Message}");
+            Log.Error(LogCat.Map, $"Failed to read '{mapFile}'", e);
             return null;
         }
     }
@@ -79,11 +80,11 @@ public class MapDatabase : IMapDatabase
 
         _maps[mapKey] = mapFile;
 
-        Console.WriteLine($"[MapEditor] Saved map '{key}' to {mapFile}");
+        Log.Info(LogCat.Map, $"Saved map '{key}' to {mapFile}");
 
         if (mapKey.GetCard<CardMap>() == null)
         {
-            Console.WriteLine($"[MapEditor] Map '{key}' has no CardMap in the catalogue — add one in CouchDB or it will never be playable.");
+            Log.Warn(LogCat.Map, $"Map '{key}' has no CardMap in the catalogue — add one in CouchDB or it will never be playable");
         }
     }
 }

@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -130,10 +131,7 @@ public class ServiceChat(ISender sender) : IServiceChat
             chatEnum = (ServiceChatId)serviceChatId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceChatId: {chatEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceChatId: {chatEnum.ToString()}");
 
         switch (chatEnum)
         {
@@ -147,7 +145,7 @@ public class ServiceChat(ISender sender) : IServiceChat
                 ReceiveRoomMessage(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service chat id {serviceChatId}");
+                Log.Warn(LogCat.Net, $"Unknown service chat id {serviceChatId}");
                 return false;
         }
         

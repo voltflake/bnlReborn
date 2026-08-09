@@ -1,5 +1,6 @@
 ﻿using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -31,13 +32,13 @@ public class MatchServiceDispatcher : IServiceDispatcher
         }
         catch(Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(LogCat.Net, $"Failed to register match services for session {sessionId}", e);
         }
     }
     
     private static bool OnUnsupported(ServiceId? serviceId)
     {
-        Console.WriteLine($"Match TCP session received unsupported serviceId: {serviceId}");
+        Log.Warn(LogCat.Net, $"Match session received unsupported serviceId: {serviceId}");
         return false;
     }
 
@@ -50,10 +51,7 @@ public class MatchServiceDispatcher : IServiceDispatcher
             serviceEnum = (ServiceId)serviceId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service ID: {serviceEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service ID: {serviceEnum.ToString()}");
 
         return serviceEnum switch
         {

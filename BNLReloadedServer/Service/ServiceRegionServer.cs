@@ -4,6 +4,7 @@ using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using Moserware.Skills;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -358,10 +359,7 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
             regionEnum = (ServiceRegionId)serviceRegionId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service Region ID: {regionEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service Region ID: {regionEnum.ToString()}");
 
         switch (regionEnum)
         {
@@ -402,7 +400,7 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
                 ReceiveLeaderboard(reader);
                 break;
             default:
-                Console.WriteLine($"Region service received unsupported serviceId: {serviceRegionId}");
+                Log.Warn(LogCat.Net, $"Region service received unsupported serviceId: {serviceRegionId}");
                 return false;
         }
         

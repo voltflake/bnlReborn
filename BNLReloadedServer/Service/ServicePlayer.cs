@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -750,10 +751,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
             playerEnum = (ServicePlayerId)servicePlayerId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServicePlayerId: {playerEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServicePlayerId: {playerEnum.ToString()}");
 
         switch (playerEnum)
         {
@@ -887,7 +885,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
                 ReceiveMarkItemAsShown(reader);
                 break;
             default:
-                Console.WriteLine($"Player service received unsupported serviceId: {servicePlayerId}");
+                Log.Warn(LogCat.Net, $"Player service received unsupported serviceId: {servicePlayerId}");
                 return false;
         }
         

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Channels;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.ServerTypes;
 
@@ -24,14 +25,14 @@ public abstract class Updater
                     var elapsed = Stopwatch.GetElapsedTime(start);
                     if (elapsed.TotalMilliseconds >= SlowActionMillis)
                     {
-                        Console.WriteLine($"Slow action: {ownerName} queue, {DescribeAction(action)} took " +
-                                          $"{elapsed.TotalMilliseconds:F0}ms, {actions.Count} queued");
+                        Log.Info(LogCat.Perf, $"Slow action: {ownerName} queue, {DescribeAction(action)} took " +
+                                              $"{elapsed.TotalMilliseconds:F0}ms, {actions.Count} queued");
                     }
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    Log.Error(LogCat.Server, $"Queued action failed on the {ownerName} queue", e);
                 }
             }
         }
@@ -41,7 +42,7 @@ public abstract class Updater
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(LogCat.Server, $"{ownerName} update loop stopped", e);
         }
     }
     

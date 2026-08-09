@@ -1,4 +1,5 @@
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Database;
 
@@ -20,7 +21,7 @@ public static class PlayerDataSanitizer
 
         if (stripped.Count == 0) return false;
 
-        Console.WriteLine(
+        Log.Warn(LogCat.Player,
             $"Player {player.PlayerId} ({player.Nickname}): removed stale card references: {string.Join(", ", stripped)}");
         return true;
     }

@@ -10,6 +10,7 @@ using BNLReloadedServer.Service;
 using Octree;
 using MatchType = BNLReloadedServer.BaseTypes.MatchType;
 using Timer = System.Timers.Timer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.ServerTypes;
 
@@ -717,7 +718,7 @@ public partial class GameZone : Updater
         var buildPhaseDamageKey = new Key("effect_build_phase_extra_world_damage");
         if (Databases.Catalogue.GetCard<CardEffect>(buildPhaseDamageKey) == null)
         {
-            Console.WriteLine($"[GameZone] effect '{buildPhaseDamageKey}' not found in catalogue, skipping build phase world damage effect");
+            Log.Warn(LogCat.Match, $"Effect '{buildPhaseDamageKey}' not found in catalogue, skipping build phase world damage effect");
         }
         else if (nextPhase is ZonePhaseType.Build or ZonePhaseType.Build2)
         {
@@ -1630,8 +1631,8 @@ public partial class GameZone : Updater
 
             if (ticksLastSecond < TicksPerSecond - 1)
             {
-                Console.WriteLine($"Low TPS: {ticksLastSecond} (GC paused {pausedMillis:F0}ms, " +
-                                  $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
+                Log.Info(LogCat.Perf, $"Low TPS: {ticksLastSecond} (GC paused {pausedMillis:F0}ms, " +
+                                      $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
             }
         }
 

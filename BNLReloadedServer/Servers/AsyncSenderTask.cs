@@ -1,5 +1,6 @@
 ﻿using System.Threading.Channels;
 using NetCoreServer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -37,7 +38,7 @@ public class AsyncSenderTask
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(LogCat.Net, "Send queue failed", e);
         }
     }
     

@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -200,10 +201,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
             lobbyEnum = (ServiceLobbyId)serviceLobbyId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service Lobby ID: {lobbyEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service Lobby ID: {lobbyEnum.ToString()}");
 
         switch (lobbyEnum)
         {
@@ -259,7 +257,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
                 ReceiveExitToMenuAsSquad(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service lobby id {serviceLobbyId}");
+                Log.Warn(LogCat.Net, $"Unknown service lobby id {serviceLobbyId}");
                 return false;
         }
         

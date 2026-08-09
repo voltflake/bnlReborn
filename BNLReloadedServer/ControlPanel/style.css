@@ -40,6 +40,10 @@
   --console-dim:    #98A0AC;
   --console-faint:  #565E69;
   --console-gutter: #454C56;
+  /* Warnings sit between the dim body text and the alarm red the errors use. Amber
+     rather than a second red, so a screen of warnings never reads as a screen of
+     failures. */
+  --warn-ink:       #E8B961;
 
   --perk-def:  #69B6C9;
   --perk-off:  #F0867C;
@@ -146,6 +150,18 @@ body {
 }
 .rail-count { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
 .logout-btn { width: 100%; }
+
+/* Where the project lives, not part of the panel's navigation — so these sit below
+   the rule as quiet text links rather than taking the weight of a .rail-item. */
+.rail-links { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.rail-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 4px; border-radius: var(--r);
+  color: var(--ink-3); font-size: 13px; text-decoration: none;
+  transition: color .12s;
+}
+.rail-link:hover { color: var(--ink-2); }
+.rail-link svg { flex: 0 0 auto; width: 14px; height: 14px; }
 
 /* min-width:0 on every grid child — without it an auto-min-width blows the
    whole page out horizontally on narrow screens */
@@ -871,7 +887,8 @@ tbody tr:hover td { background: var(--panel-2); }
 .view-pane.console-pane.active { display: flex; flex-direction: column; min-height: 0; }
 body.pane-console .work { display: flex; flex-direction: column; overflow: hidden; }
 .console-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.console-tools .search-input { flex: 0 1 380px; margin-bottom: 0; }
+.console-tools .search-input { flex: 0 1 320px; margin-bottom: 0; }
+.console-tools .console-cat { flex: 0 0 auto; width: auto; margin-bottom: 0; }
 /* Only shown when the buffer holds a fault: an always-present button that usually
    does nothing would be one more thing to ignore. */
 .console-jump {
@@ -896,16 +913,36 @@ body.pane-console .work { display: flex; flex-direction: column; overflow: hidde
   overflow: auto;
   font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
 }
-/* the timestamp gutter is the only structure the log actually has — use it */
+/* Timestamp and category are the two gutters the record actually has; both are fixed
+   width so the messages line up and the eye can run down them. */
 .log-line { display: flex; gap: 12px; padding: 0 18px; white-space: pre-wrap; }
 .log-line.hidden { display: none; }
 .log-line:hover { background: rgba(255,255,255,0.03); }
 .log-time { flex: 0 0 auto; color: var(--console-gutter); user-select: none; }
+/* 12ch is "20:01:34.600" and 9ch is the longest category name, so the message column
+   starts at the same place on every line and the detail padding below can match it. */
+.log-time { flex: 0 0 12ch; }
+.log-cat {
+  flex: 0 0 9ch; color: var(--console-faint); user-select: none;
+  overflow: hidden; text-overflow: ellipsis;
+}
 .log-msg { flex: 1 1 auto; min-width: 0; color: var(--console-dim); overflow-wrap: anywhere; }
-/* lifecycle lines are what you're scanning for; packet chatter recedes */
-.log-line.chatter .log-msg { color: var(--console-faint); }
-.log-line.event .log-msg { color: var(--console-ink); }
-.log-line.fault .log-msg { color: var(--alarm-ink); }
+/* The level is a field on the record now, so the colour is a fact rather than the
+   keyword guess the panel used to make. Info is the baseline and gets no treatment. */
+.log-line.debug .log-msg,
+.log-line.debug .log-cat { color: var(--console-faint); }
+.log-line.info .log-msg { color: var(--console-ink); }
+.log-line.warn .log-msg { color: var(--warn-ink); }
+.log-line.error .log-msg { color: var(--alarm-ink); }
+
+/* Stack traces: kept with their line, indented, and dimmed so a long trace does not
+   outweigh the failure it belongs to. */
+.log-detail {
+  margin: 2px 0 6px; padding: 0 18px 0 calc(18px + 12ch + 12px + 9ch + 12px);
+  color: var(--console-faint); line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.log-detail.hidden { display: none; }
 
 /* ---------- drawer ---------- */
 .overlay {
@@ -1182,6 +1219,8 @@ body.pane-console .work { display: flex; flex-direction: column; overflow: hidde
     gap: 12px; padding: 8px 12px;
   }
   .stat { font-size: 15px; }
+  /* the foot is a row here, so the links run along it instead of stacking */
+  .rail-links { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 0; }
   .logout-btn { width: auto; flex: 0 0 auto; }
   .rail-item { width: auto; white-space: nowrap; }
   .rail-item.active::before { left: 0; right: 0; top: auto; bottom: -8px; width: auto; height: 2px; }

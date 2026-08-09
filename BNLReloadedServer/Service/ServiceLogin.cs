@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
@@ -492,10 +493,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
             loginEnum = (ServiceLoginId)serviceLoginId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service Login ID: {loginEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service Login ID: {loginEnum.ToString()}");
 
         switch (loginEnum)
         {
@@ -533,7 +531,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
                 ReceiveLoginInstance(reader);
                 break;
             default:
-                Console.WriteLine($"Login service received unsupported serviceId: {serviceLoginId}");
+                Log.Warn(LogCat.Net, $"Login service received unsupported serviceId: {serviceLoginId}");
                 return false;
         }
         

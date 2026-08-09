@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using BNLReloadedServer.Database;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 namespace BNLReloadedServer.ControlPanel;
@@ -54,7 +55,7 @@ public sealed class ControlPanelServer : IDisposable
     {
         if (string.IsNullOrEmpty(Databases.ConfigDatabase.ControlPanelPasswordHash()))
         {
-            Console.WriteLine("Control panel: no control_panel_password_hash configured, refusing to start (would be unauthenticated).");
+            Log.Warn(LogCat.Panel, "No control_panel_password_hash configured, refusing to start (would be unauthenticated).");
             return;
         }
 
@@ -62,11 +63,11 @@ public sealed class ControlPanelServer : IDisposable
         {
             _listener.Start();
             _listenTask = Task.Run(() => ListenLoop(_cts.Token));
-            Console.WriteLine($"Control panel listening on {string.Join(", ", _listener.Prefixes)}");
+            Log.Info(LogCat.Panel, $"Listening on {string.Join(", ", _listener.Prefixes)}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to start control panel: {ex.Message}");
+            Log.Error(LogCat.Panel, "Failed to start", ex);
         }
     }
 
@@ -108,7 +109,7 @@ public sealed class ControlPanelServer : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Control panel error: {ex.Message}");
+                Log.Error(LogCat.Panel, "Request failed", ex);
             }
         }
     }
@@ -238,7 +239,7 @@ public sealed class ControlPanelServer : IDisposable
 
             if (method == "GET" && path == "/api/logs")
             {
-                await ServeLogs(ctx);
+                await ServeLogs(ctx, ctx.Request.QueryString["since"]);
                 return;
             }
 
@@ -306,7 +307,7 @@ public sealed class ControlPanelServer : IDisposable
 
         if (IsLockedOut(ip))
         {
-            Console.WriteLine($"Control panel: login blocked (too many failed attempts) from {ip} at {DateTime.UtcNow:o}");
+            Log.Warn(LogCat.Panel, $"Login blocked (too many failed attempts) from {ip}");
             ctx.Response.StatusCode = 429;
             await WriteJson(ctx, new { error = "Too many failed attempts. Try again later." });
             return;
@@ -332,7 +333,7 @@ public sealed class ControlPanelServer : IDisposable
         if (!match)
         {
             RecordFailedAttempt(ip);
-            Console.WriteLine($"Control panel: failed login attempt from {ip} at {DateTime.UtcNow:o}");
+            Log.Warn(LogCat.Panel, $"Failed login attempt from {ip}");
             ctx.Response.StatusCode = 401;
             await WriteJson(ctx, new { error = "Invalid password" });
             return;
@@ -344,7 +345,7 @@ public sealed class ControlPanelServer : IDisposable
         var expiry = DateTime.UtcNow + SessionDuration;
         _sessions[token] = expiry;
 
-        Console.WriteLine($"Control panel: successful login from {ip} at {DateTime.UtcNow:o}");
+        Log.Info(LogCat.Panel, $"Successful login from {ip}");
 
         ctx.Response.Headers.Add("Set-Cookie",
             $"{SessionCookieName}={token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={(int)SessionDuration.TotalSeconds}");
@@ -489,7 +490,7 @@ public sealed class ControlPanelServer : IDisposable
 
     private static async Task ServeReset(HttpListenerContext ctx)
     {
-        Console.WriteLine("Control panel: reset requested, shutting down (expecting the service to relaunch)...");
+        Log.Info(LogCat.Panel, "Reset requested, shutting down (expecting the service to relaunch)...");
         await WriteJson(ctx, new { message = "Server is shutting down and should be relaunched by the service shortly." });
         _ = Task.Run(async () =>
         {
@@ -500,18 +501,18 @@ public sealed class ControlPanelServer : IDisposable
 
     private void RefreshCatalogue()
     {
-        Console.Write("Control panel: refreshing catalogue...");
+        Log.Info(LogCat.Catalogue, "Refreshing catalogue on control panel request...");
         try
         {
             var newCardList = _catalogueStore.Load();
             _serverCatalogue.Replicate(newCardList);
             var catalogueReplicator = new Service.ServiceCatalogue(new ServerSender(_regionServer));
             catalogueReplicator.SendReplicate(newCardList);
-            Console.WriteLine("Done!");
+            Log.Info(LogCat.Catalogue, $"Refreshed: {newCardList.Count} cards replicated to connected clients");
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Failed - {e.Message}");
+            Log.Error(LogCat.Catalogue, "Catalogue refresh failed, keeping the current catalogue", e);
         }
     }
 
@@ -522,7 +523,9 @@ public sealed class ControlPanelServer : IDisposable
         var players = allPlayers.Select(p => new
         {
             id = p.PlayerId,
-            steam_id = p.SteamId,
+            // As a string: a SteamID needs 57 bits, and JSON numbers land in a JS double,
+            // which silently rounds anything past 2^53 to a different account.
+            steam_id = p.SteamId.ToString(),
             nickname = p.Nickname,
             role = p.Role.ToString(),
             role_id = (int)p.Role,
@@ -553,7 +556,7 @@ public sealed class ControlPanelServer : IDisposable
         var data = new
         {
             id = player.PlayerId,
-            steam_id = player.SteamId,
+            steam_id = player.SteamId.ToString(),
             nickname = player.Nickname,
             role = player.Role.ToString(),
             role_id = (int)player.Role,
@@ -632,9 +635,35 @@ public sealed class ControlPanelServer : IDisposable
         await WriteJson(ctx, data);
     }
 
-    private static async Task ServeLogs(HttpListenerContext ctx)
+    /// <summary>
+    /// Records newer than the caller's cursor. The panel used to be sent the whole 10 000-line
+    /// buffer every second and had to find the delta by matching a window of its own tail against
+    /// the snapshot; a sequence number makes that guesswork unnecessary.
+    ///
+    /// Sequence numbers restart with the process, so the boot id goes out with every response —
+    /// a caller whose boot id changed knows to drop its cursor and take the buffer from the top.
+    /// Levels are never filtered here: the config decides what gets recorded, and the panel
+    /// decides what gets shown, so raising the level cannot retroactively empty the history.
+    /// </summary>
+    private static async Task ServeLogs(HttpListenerContext ctx, string? since)
     {
-        await WriteJson(ctx, new { lines = ConsoleLogBuffer.GetAll() });
+        var cursor = long.TryParse(since, out var parsed) ? parsed : 0;
+        var records = LogBuffer.Since(cursor);
+
+        await WriteJson(ctx, new
+        {
+            boot = LogBuffer.Boot,
+            next = LogBuffer.LastSeq,
+            records = records.Select(r => new
+            {
+                seq = r.Seq,
+                ts = r.Ts,
+                lvl = LogNames.Of(r.Level),
+                cat = LogNames.Of(r.Cat),
+                msg = r.Msg,
+                detail = r.Detail
+            })
+        });
     }
 
     private static async Task ServeCard(HttpListenerContext ctx, string query)

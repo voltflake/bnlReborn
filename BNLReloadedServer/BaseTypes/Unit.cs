@@ -5,6 +5,7 @@ using BNLReloadedServer.Octree_Extensions;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Service;
 using ObservableCollections;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.BaseTypes;
 
@@ -256,7 +257,7 @@ public partial class Unit
     {
         if (effect.Card is null)
         {
-            Console.WriteLine($"[Unit] effect '{effect.Key}' not found in catalogue, skipping");
+            Log.Warn(LogCat.Match, $"Effect '{effect.Key}' not found in catalogue, skipping");
             return;
         }
 
@@ -790,7 +791,7 @@ public partial class Unit
                             ? (ulong)DateTimeOffset.Now.AddSeconds(dur).ToUnixTimeMilliseconds()
                             : null))
                     {
-                        Console.WriteLine($"[WARNING] Unit: card {uCard.Key} has duplicate effect {initEffect} in InitEffects");
+                        Log.Warn(LogCat.Match, $"Card {uCard.Key} has duplicate effect {initEffect} in InitEffects");
                     }
                 }
             }
@@ -803,7 +804,7 @@ public partial class Unit
                             ? (ulong)DateTimeOffset.Now.AddSeconds(dur).ToUnixTimeMilliseconds()
                             : null))
                     {
-                        Console.WriteLine($"[WARNING] Unit: card {uCard.Key} has duplicate effect {enabledEffect} in EnabledEffects");
+                        Log.Warn(LogCat.Match, $"Card {uCard.Key} has duplicate effect {enabledEffect} in EnabledEffects");
                     }
                 }
             }

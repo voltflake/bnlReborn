@@ -2,6 +2,7 @@
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Database;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using BNLReloadedServer.Service;
@@ -14,9 +15,10 @@ if (args is ["--hash-password", var passwordToHash])
     return;
 }
 
-Console.SetOut(new BroadcastingTextWriter(Console.Out));
+Log.Attach();
 
 var configs = Databases.ConfigDatabase;
+Log.MinLevel = configs.MinLogLevel();
 var masterMode = configs.IsMaster();
 var runServer = configs.DoRunServer();
 
@@ -37,12 +39,12 @@ if (runServer)
 {
     var loadedCards = catalogueStore.Load();
     ((ServerCatalogue)Databases.Catalogue).Replicate(loadedCards);
-    Console.WriteLine($"Replicated {loadedCards.Count} cards to server catalogue");
+    Log.Info(LogCat.Catalogue, $"Replicated {loadedCards.Count} cards to server catalogue");
 
     if (Databases.MapDatabase.GetMapIds().Count == 0)
     {
-        Console.WriteLine($"No maps found in '{Path.Combine(Databases.BaseFolderPath, "Maps")}' — " +
-                          "the server has nothing to put on a lobby ballot and would never start a match. Stopping.");
+        Log.Error(LogCat.Map, $"No maps found in '{Path.Combine(Databases.BaseFolderPath, "Maps")}' — " +
+                              "the server has nothing to put on a lobby ballot and would never start a match. Stopping.");
         return;
     }
 }
@@ -107,7 +109,7 @@ if (runServer)
         controlPanel.Start();
     }
     
-    Console.WriteLine("Press Enter to stop the server or '!' to restart the server...");
+    Log.Info(LogCat.Server, "Press Enter to stop the server or '!' to restart the server...");
     try
     {
         // Perform text input
@@ -124,29 +126,29 @@ if (runServer)
                     // Restart the server
                     case "!":
                     {
-                        Console.Write("Server restarting...");
+                        Log.Info(LogCat.Server, "Restarting listeners...");
                         server?.Restart();
                         regionServer.Restart();
                         regionClient.Disconnect();
                         regionClient.Reconnect();
                         matchServer.Restart();
-                        Console.WriteLine("Done!");
+                        Log.Info(LogCat.Server, "Listeners restarted");
                         break;
                     }
                     case "refreshCdbLoad" when Databases.Catalogue is ServerCatalogue serverCatalogue:
                     {
-                        Console.Write("Refreshing cdb...");
+                        Log.Info(LogCat.Catalogue, "Refreshing catalogue...");
                         try
                         {
                             var newCardList = catalogueStore.Load();
                             serverCatalogue.Replicate(newCardList);
                             var catalogueReplicator = new ServiceCatalogue(new ServerSender(regionServer));
                             catalogueReplicator.SendReplicate(newCardList);
-                            Console.WriteLine("Done!");
+                            Log.Info(LogCat.Catalogue, $"Refreshed: {newCardList.Count} cards replicated to connected clients");
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine($"Failed - {e.Message}");
+                            Log.Error(LogCat.Catalogue, "Catalogue refresh failed, keeping the current catalogue", e);
                         }
                         break;
                     }
@@ -162,7 +164,7 @@ if (runServer)
     finally
     {
         // Stop the server
-        Console.Write("Server stopping...");
+        Log.Info(LogCat.Server, "Server stopping...");
         server?.Stop();
         regionServer.Stop();
         regionClient.DisconnectAndStop();
@@ -172,6 +174,6 @@ if (runServer)
         }
         matchServer.Stop();
         controlPanel?.Dispose();
-        Console.WriteLine("Done!");
+        Log.Info(LogCat.Server, "Server stopped");
     }
 }

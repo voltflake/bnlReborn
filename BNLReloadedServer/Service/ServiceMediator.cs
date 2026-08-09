@@ -1,4 +1,5 @@
 ﻿using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -27,8 +28,8 @@ public class ServiceMediator(ISender sender) : IServiceMediator
     public bool Receive(BinaryReader reader)
     {
         var serviceMediatorId = reader.ReadByte();
-        Console.WriteLine($"ServiceMediatorId: {serviceMediatorId}");
-        Console.WriteLine($"Mediator service received unsupported serviceId: {serviceMediatorId}");
+        Log.Debug(LogCat.Net, $"ServiceMediatorId: {serviceMediatorId}");
+        Log.Warn(LogCat.Net, $"Mediator service received unsupported serviceId: {serviceMediatorId}");
         return false;
     }
 

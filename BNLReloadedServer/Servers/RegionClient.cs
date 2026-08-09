@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
 using TcpClient = NetCoreServer.TcpClient;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -14,7 +15,7 @@ public class RegionClient : TcpClient
     {
         var sender = new ClientSender(this);
         _serviceDispatcher = new RegionClientServiceDispatcher(sender);
-        _reader = new SessionReader(_serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _reader = new SessionReader(_serviceDispatcher,
             "Region client server received packet with incorrect length");
     }
     
@@ -28,13 +29,13 @@ public class RegionClient : TcpClient
 
     protected override void OnConnecting()
     {
-        Console.WriteLine("Region client connecting...");
+        Log.Info(LogCat.Conn, "Region client connecting to master...");
     }
 
     protected override void OnConnected()
     {
         _connected = true;
-        Console.WriteLine($"Region TCP client connected a new session with Id {Id}");
+        Log.Info(LogCat.Conn, $"Region client connected to master as session {Id}");
 
         var host = Databases.ConfigDatabase.RegionPublicHost();
         var guiInfo = Databases.ConfigDatabase.GetRegionInfo();
@@ -46,7 +47,7 @@ public class RegionClient : TcpClient
     protected override void OnDisconnected()
     {
         if (_connected)
-            Console.WriteLine($"Region TCP client disconnected a session with Id {Id}");
+            Log.Info(LogCat.Conn, $"Region client disconnected from master (session {Id})");
 
         _connected = false;
         
@@ -67,7 +68,7 @@ public class RegionClient : TcpClient
 
     protected override void OnError(SocketError error)
     {
-        Console.WriteLine($"Region TCP client caught an error with code {error}");
+        Log.Error(LogCat.Conn, $"Region client socket error: {error}");
     }
 
     private bool _stop;

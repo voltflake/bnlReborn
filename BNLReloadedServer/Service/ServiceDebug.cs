@@ -3,6 +3,7 @@ using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -386,10 +387,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
             debugEnum = (ServiceDebugId)serviceDebugId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceDebugId: {serviceDebugId}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceDebugId: {serviceDebugId}");
 
         switch (debugEnum)
         {
@@ -427,7 +425,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
                 ReceiveSubscribeZone(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service debug id {serviceDebugId}");
+                Log.Warn(LogCat.Net, $"Unknown service debug id {serviceDebugId}");
                 return false;
         }
         

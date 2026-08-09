@@ -1,5 +1,6 @@
 ﻿using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 public class MasterServiceDispatcher(ISender sender, Guid sessionId) : IServiceDispatcher
@@ -9,7 +10,7 @@ public class MasterServiceDispatcher(ISender sender, Guid sessionId) : IServiceD
 
     private static bool OnUnsupported(ServiceId? serviceId)
     {
-        Console.WriteLine($"Master TCP session received unsupported serviceId: {serviceId}");
+        Log.Warn(LogCat.Net, $"Master session received unsupported serviceId: {serviceId}");
         return false;
     }
     
@@ -22,10 +23,7 @@ public class MasterServiceDispatcher(ISender sender, Guid sessionId) : IServiceD
             serviceEnum = (ServiceId)serviceId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service ID: {serviceEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service ID: {serviceEnum.ToString()}");
 
         return serviceEnum switch
         {

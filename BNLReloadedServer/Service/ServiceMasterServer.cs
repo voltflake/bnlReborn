@@ -3,6 +3,7 @@ using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using Moserware.Skills;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -302,10 +303,7 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
             masterEnum = (ServiceMasterId)serviceMasterId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"Service Master ID: {masterEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"Service Master ID: {masterEnum.ToString()}");
 
         switch (masterEnum)
         {
@@ -361,7 +359,7 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
                 ReceivePlayerCount(reader);
                 break;
             default:
-                Console.WriteLine($"Master service received unsupported serviceId: {serviceMasterId}");
+                Log.Warn(LogCat.Net, $"Master service received unsupported serviceId: {serviceMasterId}");
                 return false;
         }
         

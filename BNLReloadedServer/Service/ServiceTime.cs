@@ -1,5 +1,6 @@
 ﻿using BNLReloadedServer.Database;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -60,10 +61,7 @@ public class ServiceTime(ISender sender) : IServiceTime
             timeEnum = (ServiceTimeId)serviceTimeId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceTimeId: {timeEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceTimeId: {timeEnum.ToString()}");
 
         switch (timeEnum)
         {
@@ -71,7 +69,7 @@ public class ServiceTime(ISender sender) : IServiceTime
                 ReceiveSync(reader);
                 break;
             default:
-                Console.WriteLine($"Time service received unsupported serviceId: {serviceTimeId}");
+                Log.Warn(LogCat.Net, $"Time service received unsupported serviceId: {serviceTimeId}");
                 return false;
         }
         

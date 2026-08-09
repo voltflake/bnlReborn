@@ -3,6 +3,7 @@ using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -1168,10 +1169,7 @@ public class ServiceZone(ISender sender) : IServiceZone
             zoneEnum = (ServiceZoneId)serviceZoneId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceZoneId: {zoneEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceZoneId: {zoneEnum.ToString()}");
 
         switch (zoneEnum)
         {
@@ -1314,7 +1312,7 @@ public class ServiceZone(ISender sender) : IServiceZone
                 ReceiveExecuteMapEditorCommand(reader);
                 break;
             default:
-                Console.WriteLine($"Zone service received unsupported serviceId: {serviceZoneId}");
+                Log.Warn(LogCat.Net, $"Zone service received unsupported serviceId: {serviceZoneId}");
                 return false;
         }
         

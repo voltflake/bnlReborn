@@ -2,6 +2,7 @@
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -315,10 +316,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
             matchEnum = (ServiceMatchmakerId)serviceMatchmakerId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceMatchmakerId: {matchEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceMatchmakerId: {matchEnum.ToString()}");
 
         switch (matchEnum)
         {
@@ -380,7 +378,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
                 ReceiveJoinCustomGameBySteam(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service matchmaker id {serviceMatchmakerId}");
+                Log.Warn(LogCat.Net, $"Unknown service matchmaker id {serviceMatchmakerId}");
                 return false;
         }
         

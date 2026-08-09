@@ -9,6 +9,7 @@ using Moserware.Skills;
 using NetCoreServer;
 using NumberPartitioning;
 using Timer = System.Timers.Timer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.ServerTypes;
 
@@ -642,7 +643,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
     {
         if (ShowQueueMessages)
         {
-            Console.WriteLine(message);
+            Log.Debug(LogCat.Match, message);
         }
     }
 

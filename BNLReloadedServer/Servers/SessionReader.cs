@@ -1,6 +1,8 @@
-﻿namespace BNLReloadedServer.Servers;
+﻿using BNLReloadedServer.Logging;
 
-public class SessionReader(IServiceDispatcher dispatcher, bool debugMode, string onError)
+namespace BNLReloadedServer.Servers;
+
+public class SessionReader(IServiceDispatcher dispatcher, string onError)
 {
     private bool _packetInBuffer;
     private const int BodyMaxSize = 100000000;
@@ -53,26 +55,14 @@ public class SessionReader(IServiceDispatcher dispatcher, bool debugMode, string
                 }
                 
                 var currentPosition = reader.BaseStream.Position;
-                if (debugMode)
+
+                Log.Debug(LogCat.Net, $"Packet length: {packetLength}");
+
+                if (!dispatcher.Dispatch(reader))
                 {
-                    Console.WriteLine($"Packet length: {packetLength}");
-                    var res = dispatcher.Dispatch(reader);
-                    Console.WriteLine();
-                    if (!res)
-                    {
-                        if (_packetInBuffer)
-                            WipeBuffer();
-                        break;
-                    }
-                }
-                else
-                {
-                    if (!dispatcher.Dispatch(reader))
-                    {
-                        if (_packetInBuffer)
-                            WipeBuffer();
-                        break;
-                    }
+                    if (_packetInBuffer)
+                        WipeBuffer();
+                    break;
                 }
 
                 if (reader.BaseStream.Position < currentPosition + packetLength)
@@ -86,11 +76,11 @@ public class SessionReader(IServiceDispatcher dispatcher, bool debugMode, string
         }
         catch (EndOfStreamException)
         {
-            Console.WriteLine(onError);
+            Log.Warn(LogCat.Net, onError);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(LogCat.Net, "Packet processing failed", e);
         }
     }
 

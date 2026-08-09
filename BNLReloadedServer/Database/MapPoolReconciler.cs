@@ -1,5 +1,6 @@
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ProtocolHelpers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Database;
 
@@ -74,15 +75,15 @@ public static class MapPoolReconciler
 
         if (problems.Count == 0)
         {
-            Console.WriteLine($"[MapCheck] {mapCards.Count} map cards, {mapIds.Count} .bnlbin on disk, " +
-                              $"all {poolsChecked} pool(s) aligned.");
+            Log.Info(LogCat.Map, $"{mapCards.Count} map cards, {mapIds.Count} .bnlbin on disk, " +
+                                 $"all {poolsChecked} pool(s) aligned");
             return;
         }
 
-        Console.WriteLine($"[MapCheck] {mapCards.Count} map cards in catalogue, {mapIds.Count} .bnlbin files on disk");
+        Log.Warn(LogCat.Map, $"{mapCards.Count} map cards in catalogue, {mapIds.Count} .bnlbin files on disk");
         foreach (var problem in problems)
         {
-            Console.WriteLine($"[MapCheck] {problem}");
+            Log.Warn(LogCat.Map, problem);
         }
 
         return;

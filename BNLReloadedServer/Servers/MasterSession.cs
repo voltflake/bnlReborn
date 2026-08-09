@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
 using NetCoreServer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -15,20 +16,20 @@ internal class MasterSession : TcpSession
         server.AddSenderTask(Id,  senderTask);
         var sender = new SessionSender(server, Id, senderTask);
         var serviceDispatcher = new MasterServiceDispatcher(sender, Id);
-        _reader = new SessionReader(serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _reader = new SessionReader(serviceDispatcher,
             "Master server received packet with incorrect length");
     }
 
     protected override void OnConnected()
     {
         _connected = true;
-        Console.WriteLine($"Master TCP session with Id {Id} connected!");
+        Log.Info(LogCat.Conn, $"Master session {Id} connected");
     }
 
     protected override void OnDisconnected()
     {
         if (_connected)
-            Console.WriteLine($"Master TCP session with Id {Id} disconnected!");
+            Log.Info(LogCat.Conn, $"Master session {Id} disconnected");
 
         _connected = false;
 
@@ -44,6 +45,6 @@ internal class MasterSession : TcpSession
 
     protected override void OnError(SocketError error)
     {
-        Console.WriteLine($"Master TCP session caught an error with code {error}");
+        Log.Error(LogCat.Conn, $"Master session {Id} socket error: {error}");
     }
 }

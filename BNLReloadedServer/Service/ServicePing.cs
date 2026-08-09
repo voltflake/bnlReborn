@@ -1,5 +1,6 @@
 ﻿using BNLReloadedServer.Database;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -63,10 +64,7 @@ public class ServicePing(ISender sender) : IServicePing
             pingEnum = (ServicePingId)servicePingId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServicePingId: {pingEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServicePingId: {pingEnum.ToString()}");
 
         switch (pingEnum)
         {
@@ -77,7 +75,7 @@ public class ServicePing(ISender sender) : IServicePing
                 ReceiveClientPing(reader);
                 break;
             default:
-                Console.WriteLine($"Unknown service ping id {servicePingId}");
+                Log.Warn(LogCat.Net, $"Unknown service ping id {servicePingId}");
                 return false;
         }
         

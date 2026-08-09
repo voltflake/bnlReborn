@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
 using NetCoreServer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
 
@@ -18,7 +19,7 @@ internal class RegionSession : TcpSession
         server.AddSenderTask(Id, senderTask);
         _sender = new SessionSender(server, Id, senderTask);
         _serviceDispatcher = new RegionServiceDispatcher(_sender, Id);
-        _reader = new SessionReader(_serviceDispatcher, Databases.ConfigDatabase.DebugMode(),
+        _reader = new SessionReader(_serviceDispatcher,
             "Region server received packet with incorrect length");
     }
 
@@ -26,7 +27,7 @@ internal class RegionSession : TcpSession
     {
         _connected = true;
         _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Region");
-        Console.WriteLine($"Region TCP session with Id {Id} connected!");
+        Log.Info(LogCat.Conn, $"Region session {Id} connected");
     }
 
     protected override void OnDisconnected()
@@ -45,7 +46,7 @@ internal class RegionSession : TcpSession
 
         if (_connected)
         {
-            Console.WriteLine($"Region TCP session with Id {Id} disconnected!");
+            Log.Info(LogCat.Conn, $"Region session {Id} disconnected");
         }
         
         _connected = false;
@@ -60,6 +61,6 @@ internal class RegionSession : TcpSession
 
     protected override void OnError(SocketError error)
     {
-        Console.WriteLine($"Region TCP session caught an error with code {error}");
+        Log.Error(LogCat.Conn, $"Region session {Id} socket error: {error}");
     }
 }

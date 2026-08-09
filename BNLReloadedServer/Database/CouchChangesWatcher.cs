@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using CouchDB.Driver;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Database;
 
@@ -28,7 +29,7 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CouchWatcher] connection lost ({ex.Message}), retrying in 5s...");
+                Log.Warn(LogCat.Catalogue, $"CouchDB connection lost ({ex.Message}), retrying in 5s...");
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
@@ -51,7 +52,7 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
         using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        Console.WriteLine("[CouchWatcher] listening for catalogue changes...");
+        Log.Info(LogCat.Catalogue, "Listening for catalogue changes...");
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream);
@@ -62,9 +63,9 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             var docId = TryGetChangedDocId(line);
-            Console.WriteLine(docId != null
-                ? $"[CouchWatcher] card changed: {docId}, reloading catalogue..."
-                : "[CouchWatcher] change detected, reloading catalogue...");
+            Log.Info(LogCat.Catalogue, docId != null
+                ? $"Card changed: {docId}, reloading catalogue..."
+                : "Change detected, reloading catalogue...");
 
             try
             {
@@ -72,7 +73,7 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CouchWatcher] reload failed, keeping the current catalogue: {ex.Message}");
+                Log.Error(LogCat.Catalogue, "Reload failed, keeping the current catalogue", ex);
             }
         }
     }

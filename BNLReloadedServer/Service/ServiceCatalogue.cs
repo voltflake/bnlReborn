@@ -1,6 +1,7 @@
 ﻿using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -48,8 +49,8 @@ public class ServiceCatalogue(ISender sender) : IServiceCatalogue
     public bool Receive(BinaryReader reader)
     {
         var serviceCatalogueId = reader.ReadByte();
-        Console.WriteLine($"ServiceCatalogueId: {serviceCatalogueId}");
-        Console.WriteLine($"Catalogue service received unsupported serviceId: {serviceCatalogueId}");
+        Log.Debug(LogCat.Net, $"ServiceCatalogueId: {serviceCatalogueId}");
+        Log.Warn(LogCat.Net, $"Catalogue service received unsupported serviceId: {serviceCatalogueId}");
         return false;
     }
 }

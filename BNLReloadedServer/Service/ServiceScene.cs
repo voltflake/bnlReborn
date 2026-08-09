@@ -1,6 +1,7 @@
 ﻿using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.Servers;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
 
@@ -65,10 +66,7 @@ public class ServiceScene(ISender sender) : IServiceScene
             sceneEnum = (ServiceSceneId)serviceSceneId;
         }
 
-        if (Databases.ConfigDatabase.DebugMode())
-        {
-            Console.WriteLine($"ServiceSceneId: {sceneEnum.ToString()}");
-        }
+        Log.Debug(LogCat.Net, $"ServiceSceneId: {sceneEnum.ToString()}");
 
         switch (sceneEnum)
         {
@@ -76,7 +74,7 @@ public class ServiceScene(ISender sender) : IServiceScene
                 ReceiveEnterScene(reader);
                 break;
             default:
-                Console.WriteLine($"Scene service received unsupported serviceId: {serviceSceneId}");
+                Log.Warn(LogCat.Net, $"Scene service received unsupported serviceId: {serviceSceneId}");
                 return false;
         }
         

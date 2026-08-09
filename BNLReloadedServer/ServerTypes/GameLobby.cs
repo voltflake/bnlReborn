@@ -4,6 +4,7 @@ using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
 using Timer = System.Timers.Timer;
+using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.ServerTypes;
 
@@ -590,7 +591,7 @@ public class GameLobby : Updater
                 }
                 else
                 {
-                    Console.WriteLine($"[GameLobby] Map card {mapInfo.MapKey} lost its map data after the ballot was built — the match cannot start.");
+                    Log.Error(LogCat.Match, $"Map card {mapInfo.MapKey} lost its map data after the ballot was built — the match cannot start");
                 }
             }
             _gameInstance.StartMatch(LobbyData.Players.Values);
