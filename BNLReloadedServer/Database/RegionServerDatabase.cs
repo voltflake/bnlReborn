@@ -350,12 +350,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     public bool RemoveCustomGame(ulong gameId)
     {
         if(!_customGamePlayerLists.TryGetValue(gameId, out var list)) return false;
-        foreach (var playerId in list.custom.Players.Select(player => player.Id))
+        foreach (var playerId in list.custom.PlayersSnapshot().Select(player => player.Id))
         {
-            if(UserConnected(playerId, out _)) 
+            if(UserConnected(playerId, out _))
                 RemoveFromCustomGame(playerId);
         }
-        list.custom.Stop();
         return _customGamePlayerLists.Remove(gameId);
     }
 
@@ -366,20 +365,21 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (password != customGame.custom.Password && !playerInfo.IsAdmin) return CustomGameJoinResult.WrongPassword;
         if (!customGame.custom.GameInfo.AllowBackfilling && !playerInfo.IsAdmin &&
             customGame.custom.GameInfo.Status != CustomGameStatus.Preparing) return CustomGameJoinResult.GameStarted;
-        if (customGame.custom.Players.Count >= CatalogueHelper.ModeCustom.PlayersPerTeam * 2) return CustomGameJoinResult.FullTeams;
+        // Subscribed first so the roster broadcast from AddPlayer reaches the joiner too.
         customGame.customSender.Subscribe(playerGuid);
-        if (customGame.custom.AddPlayer(playerId, false, _playerDatabase.GetPlayerProfile(playerId)))
+        var joinResult = customGame.custom.AddPlayer(playerId, false, _playerDatabase.GetPlayerProfile(playerId));
+        if (joinResult != CustomGameJoinResult.Accepted)
         {
-            playerInfo.CustomGameId = gameId;
-            if (GetService<IServiceChat>(playerGuid, ServiceId.ServiceChat, out var chatService))
-            {
-                customGame.custom.ChatRoom.AddToRoom(playerGuid, chatService);
-            }
-            return CustomGameJoinResult.Accepted;
+            customGame.customSender.Unsubscribe(playerGuid);
+            return joinResult;
         }
 
-        customGame.customSender.Unsubscribe(playerGuid);
-        return CustomGameJoinResult.FullTeams;
+        playerInfo.CustomGameId = gameId;
+        if (GetService<IServiceChat>(playerGuid, ServiceId.ServiceChat, out var chatService))
+        {
+            customGame.custom.ChatRoom.AddToRoom(playerGuid, chatService);
+        }
+        return CustomGameJoinResult.Accepted;
     }
 
     public bool BackfillCustomGame(uint playerId)
@@ -480,8 +480,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         var customId = playerInfo.CustomGameId;
         if (!customId.HasValue) return false;
         var gameId = customId.Value;
-        _customGamePlayerLists.TryGetValue(gameId, out var customGame);
-        customGame.custom.EnqueueAction(() => customGame.custom.SwapTeam(playerId));
+        if (!_customGamePlayerLists.TryGetValue(gameId, out var customGame)) return false;
+        customGame.custom.SwapTeam(playerId);
         return true;
     }
 
@@ -491,8 +491,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         var customId = playerInfo.CustomGameId;
         if (!customId.HasValue) return false;
         var gameId = customId.Value;
-        _customGamePlayerLists.TryGetValue(gameId, out var customGame);
-        customGame.custom.EnqueueAction(() => customGame.custom.UpdateSettings(playerId, settings));
+        if (!_customGamePlayerLists.TryGetValue(gameId, out var customGame)) return false;
+        customGame.custom.UpdateSettings(playerId, settings);
         return true;
     }
 
@@ -538,8 +538,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         gameInstance.SetMap(customGame.custom.GameInfo.MapInfo, map);
         gameInstance.CreateLobby(CatalogueHelper.ModeCustom.Key, customGame.custom.GameInfo.MapInfo);
         if (!_gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance)) return false;
-        var playerArray = customGame.custom.Players.ToArray();
-        foreach (var player in playerArray)
+        foreach (var player in customGame.custom.PlayersSnapshot())
         {
             if (!UserConnected(player.Id, out var playerInfo)) continue; 
             playerInfo.GameInstanceId = gameInstance.GameInstanceId;
