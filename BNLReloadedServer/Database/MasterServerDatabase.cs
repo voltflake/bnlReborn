@@ -9,7 +9,11 @@ namespace BNLReloadedServer.Database;
 
 public class MasterServerDatabase : IMasterServerDatabase
 {
+    // Region servers register on their session thread and deregister from disconnect teardown,
+    // while the control panel and login enumerate the list: every touch goes through the lock,
+    // and callers get a copy so they cannot enumerate it while it is being edited.
     private readonly List<RegionInfo> _regionServers = [];
+    private readonly Lock _regionServersLock = new();
     private readonly ConcurrentDictionary<string, IServiceMasterServer> _regionServerConnections = new();
     private readonly ConcurrentDictionary<string, int> _regionPlayerCounts = new();
     private readonly SQLiteAsyncConnection _playerDb;
@@ -22,34 +26,37 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb.CreateTableAsync<PlayerRecord>().Wait();
     }
 
-    public List<RegionInfo> GetRegionServers() => _regionServers;
+    public List<RegionInfo> GetRegionServers()
+    {
+        lock (_regionServersLock) return [.._regionServers];
+    }
 
     public bool AddRegionServer(string id, string host, RegionGuiInfo regionGuiInfo, IServiceMasterServer? serviceMasterServer = null)
     {
-        if (_regionServers.Any(x => x.Id == id)) return false;
-        _regionServers.Add(new RegionInfo
+        lock (_regionServersLock)
         {
-            Id = id,
-            Host = host,
-            Info = regionGuiInfo,
-            Port = 28101
-        });
-        
+            if (_regionServers.Any(x => x.Id == id)) return false;
+            _regionServers.Add(new RegionInfo
+            {
+                Id = id,
+                Host = host,
+                Info = regionGuiInfo,
+                Port = 28101
+            });
+        }
+
         if (serviceMasterServer != null)
             _regionServerConnections[id] = serviceMasterServer;
-        
+
         return true;
     }
 
     public bool RemoveRegionServer(string id)
     {
         _regionPlayerCounts.TryRemove(id, out _);
-        if (_regionServerConnections.Remove(id, out _))
-        {
-            return _regionServers.RemoveAll(r => r.Id == id) > 0;
-        }
-        
-        return false;
+        if (!_regionServerConnections.Remove(id, out _)) return false;
+
+        lock (_regionServersLock) return _regionServers.RemoveAll(r => r.Id == id) > 0;
     }
 
     public bool SetRegionPlayerCount(string id, int playerCount)
@@ -72,7 +79,10 @@ public class MasterServerDatabase : IMasterServerDatabase
 
     public int GetRegionPlayerCount(string id) => _regionPlayerCounts.GetValueOrDefault(id, 0);
 
-    public RegionInfo? GetRegionServer(string id) => _regionServers.FirstOrDefault(x => x.Id == id);
+    public RegionInfo? GetRegionServer(string id)
+    {
+        lock (_regionServersLock) return _regionServers.FirstOrDefault(x => x.Id == id);
+    }
 
     public async Task<PlayerData> AddPlayer(ulong steamId, string playerName, string region)
     {

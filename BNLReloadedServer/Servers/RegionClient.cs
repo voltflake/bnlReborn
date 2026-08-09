@@ -10,6 +10,7 @@ public class RegionClient : TcpClient
     private readonly RegionClientServiceDispatcher _serviceDispatcher;
     private readonly SessionReader _reader;
     private bool _connected;
+    private int _teardownStarted;
 
     public RegionClient(string address, int port) : base(address, port)
     {
@@ -34,6 +35,9 @@ public class RegionClient : TcpClient
 
     protected override void OnConnected()
     {
+        // Re-armed on every connect: unlike a server session this client outlives its
+        // connections and has to tear down again after each one.
+        Volatile.Write(ref _teardownStarted, 0);
         _connected = true;
         Log.Info(LogCat.Conn, $"Region client connected to master as session {Id}");
 
@@ -44,8 +48,13 @@ public class RegionClient : TcpClient
         _serviceDispatcher.ServiceRegionServer.SendRegionInfo(host, guiInfo);
     }
 
+    // Disconnect() gates on a plain IsConnected check, so the receive completion and an explicit
+    // Disconnect() can both land here. The loser would otherwise block a socket callback thread
+    // on the wait below and fire its own reconnect.
     protected override void OnDisconnected()
     {
+        if (Interlocked.Exchange(ref _teardownStarted, 1) != 0) return;
+
         if (_connected)
             Log.Info(LogCat.Conn, $"Region client disconnected from master (session {Id})");
 

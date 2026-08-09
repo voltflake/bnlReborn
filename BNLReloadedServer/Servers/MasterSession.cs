@@ -1,50 +1,22 @@
-﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
-using NetCoreServer;
-using BNLReloadedServer.Logging;
+using BNLReloadedServer.Service;
 
 namespace BNLReloadedServer.Servers;
 
-internal class MasterSession : TcpSession
+internal class MasterSession : ServerSession
 {
     private readonly SessionReader _reader;
-    private bool _connected;
 
-    public MasterSession(AsyncTaskTcpServer server) : base(server)
+    public MasterSession(AsyncTaskTcpServer server) : base(server, "Master")
     {
-        var senderTask = new AsyncSenderTask(this);
-        server.AddSenderTask(Id,  senderTask);
-        var sender = new SessionSender(server, Id, senderTask);
-        var serviceDispatcher = new MasterServiceDispatcher(sender, Id);
-        _reader = new SessionReader(serviceDispatcher,
+        _reader = new SessionReader(new MasterServiceDispatcher(Sender, Id),
             "Master server received packet with incorrect length");
     }
 
-    protected override void OnConnected()
-    {
-        _connected = true;
-        Log.Info(LogCat.Conn, $"Master session {Id} connected");
-    }
+    protected override SessionReader Reader => _reader;
 
-    protected override void OnDisconnected()
-    {
-        if (_connected)
-            Log.Info(LogCat.Conn, $"Master session {Id} disconnected");
+    protected override IServicePing? LivenessPing => null;
 
-        _connected = false;
-
+    protected override void OnTeardown() =>
         Databases.MasterServerDatabase.RemoveRegionServer(Id.ToString());
-    }
-
-    protected override void OnReceived(byte[] buffer, long offset, long size)
-    {
-        if (size <= 0) return;
-        
-        _reader.ProcessPacket(buffer, offset, size);
-    }
-
-    protected override void OnError(SocketError error)
-    {
-        Log.Error(LogCat.Conn, $"Master session {Id} socket error: {error}");
-    }
 }

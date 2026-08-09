@@ -48,7 +48,9 @@ public class GameInstance : IGameInstance
     private readonly SessionSender _lobbySender;
     private readonly SessionSender _zoneSender;
     
-    private readonly Dictionary<Guid, Dictionary<ServiceId, IService>> _services = new();
+    // Removed from during session teardown on arbitrary threads, read from the lobby and zone
+    // action queues. Inner dictionaries are built once at registration and only read afterwards.
+    private readonly ConcurrentDictionary<Guid, Dictionary<ServiceId, IService>> _services = new();
 
     private InstanceChatRooms ChatRooms { get; }
     
@@ -334,7 +336,7 @@ public class GameInstance : IGameInstance
             PlayerDisconnected(playerId);
         }
 
-        _services.Remove(sessionId);
+        _services.TryRemove(sessionId, out _);
         _lobbySender.Unsubscribe(sessionId);
         _zoneSender.Unsubscribe(sessionId);
     }

@@ -30,6 +30,14 @@ public class AsyncSenderTask
                 catch (OperationCanceledException)
                 {
                 }
+                // One bad packet must not take the queue down with it. Send() tears the session
+                // down itself on a socket error, so a dead session means there is nothing left
+                // to drain and anything else is worth a line in the log.
+                catch (Exception e)
+                {
+                    if (!session.IsConnected) break;
+                    Log.Error(LogCat.Net, $"Failed to send packet on session {session.Id}", e);
+                }
             }
         }
         catch (OperationCanceledException)

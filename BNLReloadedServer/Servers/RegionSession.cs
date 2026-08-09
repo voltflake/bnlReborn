@@ -1,66 +1,32 @@
-﻿using System.Net.Sockets;
 using BNLReloadedServer.Database;
-using NetCoreServer;
-using BNLReloadedServer.Logging;
+using BNLReloadedServer.Service;
 
 namespace BNLReloadedServer.Servers;
 
-internal class RegionSession : TcpSession
+internal class RegionSession : ServerSession
 {
-    private readonly SessionSender _sender;
-    private readonly SessionReader _reader;
     private readonly RegionServiceDispatcher _serviceDispatcher;
-    private CancellationTokenSource? _livenessCts;
-    private bool _connected;
+    private readonly SessionReader _reader;
 
-    public RegionSession(AsyncTaskTcpServer server) : base(server)
+    public RegionSession(AsyncTaskTcpServer server) : base(server, "Region")
     {
-        var senderTask = new AsyncSenderTask(this);
-        server.AddSenderTask(Id, senderTask);
-        _sender = new SessionSender(server, Id, senderTask);
-        _serviceDispatcher = new RegionServiceDispatcher(_sender, Id);
+        _serviceDispatcher = new RegionServiceDispatcher(Sender, Id);
         _reader = new SessionReader(_serviceDispatcher,
             "Region server received packet with incorrect length");
     }
 
-    protected override void OnConnected()
-    {
-        _connected = true;
-        _livenessCts = SessionLiveness.Start(_serviceDispatcher.Ping, this, "Region", _sender, _reader);
-        Log.Info(LogCat.Conn, $"Region session {Id} connected");
-    }
+    protected override SessionReader Reader => _reader;
 
-    protected override void OnDisconnected()
-    {
-        _livenessCts?.Cancel();
-        _livenessCts?.Dispose();
-        _livenessCts = null;
+    protected override IServicePing LivenessPing => _serviceDispatcher.Ping;
 
-        if (_sender.AssociatedPlayerId != null)
+    protected override void OnTeardown()
+    {
+        if (Sender.AssociatedPlayerId != null)
         {
-            Databases.RegionServerDatabase.RemoveUser(_sender.AssociatedPlayerId.Value);
-            Databases.PlayerDatabase.RemovePlayer(_sender.AssociatedPlayerId.Value);
+            Databases.RegionServerDatabase.RemoveUser(Sender.AssociatedPlayerId.Value);
+            Databases.PlayerDatabase.RemovePlayer(Sender.AssociatedPlayerId.Value);
         }
-            
+
         Databases.RegionServerDatabase.RemoveServices(Id);
-
-        if (_connected)
-        {
-            Log.Info(LogCat.Conn, $"Region session {Id} disconnected");
-        }
-        
-        _connected = false;
-    }
-
-    protected override void OnReceived(byte[] buffer, long offset, long size)
-    {
-        if (size <= 0) return;
-        
-        _reader.ProcessPacket(buffer, offset, size);
-    }
-
-    protected override void OnError(SocketError error)
-    {
-        Log.Error(LogCat.Conn, $"Region session {Id} socket error: {error}");
     }
 }
