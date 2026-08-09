@@ -68,6 +68,11 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
 
                 if (!dispatcher.Dispatch(reader))
                 {
+                    // The dispatcher has already said what it could not route; this says what the
+                    // bytes were, which is the part that identifies a peer talking another protocol.
+                    Log.Warn(LogCat.Net, "Rejected frame: " +
+                                         Hex(reader, startPosition, currentPosition + packetLength));
+
                     if (_packetInBuffer)
                         WipeBuffer();
                     break;
@@ -89,6 +94,34 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
         catch (Exception e)
         {
             Log.Error(LogCat.Net, "Packet processing failed", e);
+        }
+    }
+
+    // Enough to see the length prefix, the service byte and the start of a body — a peer speaking
+    // something else entirely gives itself away in the first few.
+    private const int HexPreviewBytes = 32;
+
+    private static string Hex(BinaryReader reader, long start, long end)
+    {
+        try
+        {
+            var stream = reader.BaseStream;
+
+            // A frame that declares length zero still made the dispatcher read a byte, and that
+            // byte is the one worth seeing, so never stop short of where the dispatcher got to.
+            var stop = Math.Min(Math.Max(end, stream.Position), stream.Length);
+            var available = stop - start;
+            var count = (int)Math.Min(available, HexPreviewBytes);
+            if (count <= 0) return "<empty>";
+
+            // Reading from here is safe: the caller stops parsing this buffer either way.
+            stream.Position = start;
+            var preview = string.Join(' ', reader.ReadBytes(count).Select(b => b.ToString("X2")));
+            return available > count ? $"{preview} ... ({available} bytes)" : preview;
+        }
+        catch (Exception)
+        {
+            return "<unreadable>";
         }
     }
 

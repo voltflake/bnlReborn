@@ -13,6 +13,13 @@ public abstract class ServerSession : TcpSession
     private CancellationTokenSource? _livenessCts;
     private bool _connected;
 
+    // Resolved once while the socket is up — RemoteEndPoint is gone by the time anything wants to
+    // name the peer in a teardown line — and on first use rather than at connect, because the
+    // receive callback can get there before OnConnected does.
+    private volatile string? _peer;
+
+    private string? Peer => _peer ??= ReadPeer();
+
     protected SessionSender Sender { get; }
 
     protected string Label { get; }
@@ -35,6 +42,7 @@ public abstract class ServerSession : TcpSession
     protected override void OnConnected()
     {
         _connected = true;
+        _ = Peer;
 
         if (LivenessPing is { } ping)
         {
@@ -45,7 +53,22 @@ public abstract class ServerSession : TcpSession
                 StopLiveness();
         }
 
-        Log.Info(LogCat.Conn, $"{Label} session {Id} connected");
+        Log.Info(LogCat.Conn, $"{Label} session {Id} connected{From}");
+    }
+
+    private string From => Peer is { } peer ? $" from {peer}" : string.Empty;
+
+    private string? ReadPeer()
+    {
+        try
+        {
+            return Socket.RemoteEndPoint?.ToString();
+        }
+        catch (Exception)
+        {
+            // A socket that died between accept and here has no address left to report.
+            return null;
+        }
     }
 
     // Disconnect() gates on a plain IsConnected check, so the liveness timer, the receive
@@ -59,7 +82,7 @@ public abstract class ServerSession : TcpSession
         OnTeardown();
 
         if (_connected)
-            Log.Info(LogCat.Conn, $"{Label} session {Id} disconnected");
+            Log.Info(LogCat.Conn, $"{Label} session {Id} disconnected{From}");
 
         _connected = false;
     }
@@ -77,11 +100,12 @@ public abstract class ServerSession : TcpSession
     {
         if (size <= 0) return;
 
+        using var peer = Log.WithPeer(Peer);
         Reader.ProcessPacket(buffer, offset, size);
     }
 
     protected override void OnError(SocketError error)
     {
-        Log.Error(LogCat.Conn, $"{Label} session {Id} socket error: {error}");
+        Log.Error(LogCat.Conn, $"{Label} session {Id} socket error: {error}{From}");
     }
 }

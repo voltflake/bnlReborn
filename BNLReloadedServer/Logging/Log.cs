@@ -40,6 +40,27 @@ public static class Log
 
     public static bool Enabled(LogLevel level) => level >= MinLevel;
 
+    // Who the current thread is serving, for the stretch of work that answers one peer. Warnings
+    // raised in there name the address without every call site having to carry it down.
+    // Thread-bound rather than AsyncLocal on purpose: an AsyncLocal would ride into every task
+    // started while handling a packet and keep stamping that address on it long after the session
+    // is gone. Everything this is meant to label is raised synchronously inside ProcessPacket.
+    [ThreadStatic] private static string? _peer;
+
+    // A struct, and returned as one, so the scope this opens on every received buffer allocates
+    // nothing.
+    public static PeerScope WithPeer(string? peer)
+    {
+        var scope = new PeerScope(_peer);
+        _peer = peer;
+        return scope;
+    }
+
+    public readonly struct PeerScope(string? previous) : IDisposable
+    {
+        public void Dispose() => _peer = previous;
+    }
+
     // A null Enum? interpolates to an empty string, which is exactly the case worth logging:
     // an id byte outside the enum. Keep the raw byte so an unknown id is still identifiable.
     public static string EnumName<T>(T? value, byte raw) where T : struct, Enum =>
@@ -76,6 +97,12 @@ public static class Log
     private static void Write(LogLevel level, LogCat cat, string message, string? detail)
     {
         if (!Enabled(level)) return;
+
+        // Only on the levels somebody investigates: debug lines repeat per packet, and the address
+        // is already on the connect line above them.
+        if (level >= LogLevel.Warn && _peer is { } peer)
+            message = $"{message} (peer {peer})";
+
         Record(level, cat, message, detail);
         Print(level, cat, message, detail);
     }

@@ -11,6 +11,9 @@ public class RegionClient : TcpClient
     private readonly SessionReader _reader;
     private bool _connected;
     private int _teardownStarted;
+    private volatile string? _peer;
+
+    private string? Peer => _peer ??= ReadPeer();
 
     public RegionClient(string address, int port) : base(address, port)
     {
@@ -39,7 +42,7 @@ public class RegionClient : TcpClient
         // connections and has to tear down again after each one.
         Volatile.Write(ref _teardownStarted, 0);
         _connected = true;
-        Log.Info(LogCat.Conn, $"Region client connected to master as session {Id}");
+        Log.Info(LogCat.Conn, $"Region client connected to master{From} as session {Id}");
 
         var host = Databases.ConfigDatabase.RegionPublicHost();
         var guiInfo = Databases.ConfigDatabase.GetRegionInfo();
@@ -71,8 +74,23 @@ public class RegionClient : TcpClient
     protected override void OnReceived(byte[] buffer, long offset, long size)
     {
         if (size <= 0) return;
-        
+
+        using var peer = Log.WithPeer(Peer);
         _reader.ProcessPacket(buffer, offset, size);
+    }
+
+    private string From => Peer is { } peer ? $" {peer}" : string.Empty;
+
+    private string? ReadPeer()
+    {
+        try
+        {
+            return Socket.RemoteEndPoint?.ToString();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     protected override void OnError(SocketError error)
