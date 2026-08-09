@@ -1,11 +1,12 @@
-﻿using BNLReloadedServer.BaseTypes;
+﻿using System.Net;
+using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
-public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
+public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress) : IServiceLogin
 {
     private enum ServiceLoginId : byte
     {
@@ -35,6 +36,24 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
     private readonly IMasterServerDatabase _masterServerDatabase = Databases.MasterServerDatabase;
     private readonly IRegionServerDatabase _regionServerDatabase = Databases.RegionServerDatabase;
+
+    // Filed at every point a connection stops being anonymous, so an address can be traced back to
+    // the accounts that logged in from it and back again. Deliberately not awaited: this is a
+    // record kept alongside the login, and a database hiccup must not fail or stall the handshake.
+    private void RecordLoginAddress(uint playerId)
+    {
+        if (peerAddress() is not { } address)
+        {
+            // Says the lookup table is empty because this broke, rather than because nobody
+            // logged in. The player id is spelled out because this runs off the peer scope.
+            Log.Warn(LogCat.Conn, $"No address to record for player {playerId}");
+            return;
+        }
+
+        _masterServerDatabase.RecordPlayerIp(playerId, address).ContinueWith(
+            task => Log.Error(LogCat.Conn, $"Failed to record login address for player {playerId}", task.Exception!),
+            TaskContinuationOptions.OnlyOnFaulted);
+    }
 
     private static BinaryWriter CreateWriter()
     {
@@ -274,6 +293,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
         sender.AssociatedPlayerId = player?.PlayerId ??
                                     _masterServerDatabase.AddPlayer(loginInfo.SteamId, string.Empty, "master").Result
                                         .PlayerId;
+        RecordLoginAddress(sender.AssociatedPlayerId.Value);
         SendLoginMasterSteam(rpcId, sender.AssociatedPlayerId);
     }
     
@@ -415,6 +435,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
             SendLoginRegion(rpcId, null, new EAuthFailed());
             return;
         }
+        RecordLoginAddress(sender.AssociatedPlayerId.Value);
         _regionServerDatabase.AddUser(sender.AssociatedPlayerId.Value, sessionId);
         var player = _playerDatabase.GetPlayerData(sender.AssociatedPlayerId.Value).Result;
         SendLoginRegion(rpcId, player.Role);
@@ -479,6 +500,7 @@ public class ServiceLogin(ISender sender, Guid sessionId) : IServiceLogin
         }
         else
         {
+            RecordLoginAddress(sender.AssociatedPlayerId.Value);
             SendLoginInstance(rpcId);
             _regionServerDatabase.LinkMatchSessionGuidToUser(sender.AssociatedPlayerId.Value, sessionId);
         }

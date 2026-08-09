@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Sockets;
+using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
 using NetCoreServer;
 using BNLReloadedServer.Logging;
@@ -19,6 +21,14 @@ public abstract class ServerSession : TcpSession
     private volatile string? _peer;
 
     private string? Peer => _peer ??= ReadPeer();
+
+    // The address on its own, for the records that key on the client rather than describe one
+    // connection. Read off the endpoint instead of parsed back out of Peer, whose IPv6 form has
+    // colons of its own, and folded back to v4 when the accept came in v4-mapped, so a dual-stack
+    // listener does not file one client under two addresses.
+    private volatile IPAddress? _peerAddress;
+
+    protected IPAddress? PeerAddress => _peerAddress ??= ReadPeerAddress();
 
     protected SessionSender Sender { get; }
 
@@ -43,6 +53,7 @@ public abstract class ServerSession : TcpSession
     {
         _connected = true;
         _ = Peer;
+        _ = PeerAddress;
 
         if (LivenessPing is { } ping)
         {
@@ -53,7 +64,51 @@ public abstract class ServerSession : TcpSession
                 StopLiveness();
         }
 
-        Log.Info(LogCat.Conn, $"{Label} session {Describe} connected");
+        LogPeerEvent($"{Label} session {Describe} connected");
+    }
+
+    // How many previous names to name before the guess stops being a guess worth reading.
+    private const int MaxPeerNames = 3;
+
+    // One lookup per session, shared by the connect and disconnect lines, kept as the finished
+    // suffix so neither line has to know how the guess is worded.
+    private Task<string>? _peerNames;
+
+    // The names cost a database read, so the line is printed by the lookup rather than ahead of
+    // it: knowing who an address probably is beats printing the line a millisecond sooner. Nothing
+    // waits on this — a session is never held up by its own log line.
+    private void LogPeerEvent(string message) => _ = LogPeerEventAsync(message);
+
+    private async Task LogPeerEventAsync(string message)
+    {
+        string names;
+        try
+        {
+            names = await (_peerNames ??= ResolvePeerNames());
+        }
+        catch (Exception e)
+        {
+            Log.Info(LogCat.Conn, message);
+            Log.Error(LogCat.Conn, $"Failed to look up who {Describe} has been before", e);
+            return;
+        }
+
+        Log.Info(LogCat.Conn, message + names);
+    }
+
+    private async Task<string> ResolvePeerNames()
+    {
+        if (PeerAddress is not { } address) return string.Empty;
+
+        // One more than gets printed, purely to tell "that is all of them" from "and others" —
+        // counting the rest would mean reading every account the address has ever carried.
+        var names = await Databases.MasterServerDatabase.GetNicknamesForIp(address.ToString(), MaxPeerNames + 1);
+        if (names.Count == 0) return string.Empty;
+
+        var shown = names.Take(MaxPeerNames).ToList();
+        if (names.Count > MaxPeerNames) shown.Add("...");
+
+        return $" ({string.Join(", ", shown)})";
     }
 
     // Who the session is, for a log line: the address it came from, with the tail of its id in
@@ -73,6 +128,19 @@ public abstract class ServerSession : TcpSession
         }
     }
 
+    private IPAddress? ReadPeerAddress()
+    {
+        try
+        {
+            if (Socket.RemoteEndPoint is not IPEndPoint endPoint) return null;
+            return endPoint.Address.IsIPv4MappedToIPv6 ? endPoint.Address.MapToIPv4() : endPoint.Address;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     // Disconnect() gates on a plain IsConnected check, so the liveness timer, the receive
     // completion and a failing Send can all reach here at once. The first thread in does the
     // teardown; the rest fall straight through.
@@ -84,7 +152,7 @@ public abstract class ServerSession : TcpSession
         OnTeardown();
 
         if (_connected)
-            Log.Info(LogCat.Conn, $"{Label} session {Describe} disconnected");
+            LogPeerEvent($"{Label} session {Describe} disconnected");
 
         _connected = false;
     }

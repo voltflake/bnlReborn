@@ -1,3 +1,4 @@
+using System.Net;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Service;
 using Moserware.Skills;
@@ -15,6 +16,10 @@ public interface IMasterServerDatabase
     public Task<PlayerData> AddPlayer(ulong steamId, string playerName, string region);
     public Task<PlayerData?> GetPlayer(ulong steamId);
     public Task<PlayerData?> GetPlayer(uint playerId);
+    public Task RecordPlayerIp(uint playerId, IPAddress? address);
+    public Task<List<PlayerIpRecord>> GetIpsForPlayer(uint playerId);
+    public Task<List<PlayerIpRecord>> GetPlayersForIp(string ip);
+    public Task<List<string>> GetNicknamesForIp(string ip, int limit);
     public Task<bool> SetRegionForPlayer(uint playerId, string region);
     public Task<bool> SetUsernameForPlayer(uint playerId, string username);
     public Task<bool> SetLookingForFriendsForPlayer(uint playerId, bool lookingForFriends);

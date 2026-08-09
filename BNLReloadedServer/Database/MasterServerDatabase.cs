@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Text;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Service;
@@ -24,6 +25,7 @@ public class MasterServerDatabase : IMasterServerDatabase
     {
         _playerDb = new SQLiteAsyncConnection(Databases.PlayerDatabaseFile);
         _playerDb.CreateTableAsync<PlayerRecord>().Wait();
+        _playerDb.CreateTableAsync<PlayerIpRecord>().Wait();
     }
 
     public List<RegionInfo> GetRegionServers()
@@ -145,6 +147,73 @@ public class MasterServerDatabase : IMasterServerDatabase
         }
 
         return player;
+    }
+
+    public async Task RecordPlayerIp(uint playerId, IPAddress? address)
+    {
+        // A session whose socket died before anyone asked has no address left to attribute.
+        if (address == null) return;
+
+        var ip = address.ToString();
+        var now = DateTimeOffset.UtcNow;
+
+        await _asyncLock.WaitAsync();
+        try
+        {
+            var record = await _playerDb.Table<PlayerIpRecord>()
+                .Where(x => x.PlayerId == playerId && x.Ip == ip).FirstOrDefaultAsync();
+
+            if (record == null)
+            {
+                await _playerDb.InsertAsync(new PlayerIpRecord
+                {
+                    PlayerId = playerId,
+                    Ip = ip,
+                    FirstSeen = now,
+                    LastSeen = now,
+                    Hits = 1
+                });
+            }
+            else
+            {
+                record.LastSeen = now;
+                record.Hits += 1;
+                await _playerDb.UpdateAsync(record);
+            }
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
+    }
+
+    public async Task<List<PlayerIpRecord>> GetIpsForPlayer(uint playerId) =>
+        await _playerDb.Table<PlayerIpRecord>().Where(x => x.PlayerId == playerId)
+            .OrderByDescending(x => x.LastSeen).ToListAsync();
+
+    public async Task<List<PlayerIpRecord>> GetPlayersForIp(string ip) =>
+        await _playerDb.Table<PlayerIpRecord>().Where(x => x.Ip == ip)
+            .OrderByDescending(x => x.LastSeen).ToListAsync();
+
+    // Who an address has been before, likeliest first: a connection is anonymous until it logs in,
+    // and this is the only thing that can put a name to it in the meantime. An account that never
+    // picked a nickname is still worth naming, by id.
+    // The limit is applied in the query rather than by the caller: a shared address — a household,
+    // a school, a VPN exit — collects a row per account that ever logged in from it, and every one
+    // of those ids would otherwise end up in the nickname lookup's IN list.
+    public async Task<List<string>> GetNicknamesForIp(string ip, int limit)
+    {
+        var rows = await _playerDb.Table<PlayerIpRecord>().Where(x => x.Ip == ip)
+            .OrderByDescending(x => x.LastSeen).Take(limit).ToListAsync();
+        if (rows.Count == 0) return [];
+
+        var found = (await GetSearchResults(rows.Select(row => row.PlayerId).ToList()))
+            .ToDictionary(result => result.PlayerId, result => result.Nickname);
+
+        return rows.Select(row =>
+            found.TryGetValue(row.PlayerId, out var nickname) && !string.IsNullOrWhiteSpace(nickname)
+                ? nickname
+                : $"#{row.PlayerId}").ToList();
     }
 
     public async Task<bool> SetRegionForPlayer(uint playerId, string region)

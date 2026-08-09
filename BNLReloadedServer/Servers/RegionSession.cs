@@ -10,7 +10,7 @@ internal class RegionSession : ServerSession
 
     public RegionSession(AsyncTaskTcpServer server) : base(server, "Region")
     {
-        _serviceDispatcher = new RegionServiceDispatcher(Sender, Id);
+        _serviceDispatcher = new RegionServiceDispatcher(Sender, Id, () => PeerAddress);
         _reader = new SessionReader(_serviceDispatcher,
             "Region server received packet with incorrect length");
     }

@@ -9,7 +9,7 @@ internal class MasterSession : ServerSession
 
     public MasterSession(AsyncTaskTcpServer server) : base(server, "Master")
     {
-        _reader = new SessionReader(new MasterServiceDispatcher(Sender, Id),
+        _reader = new SessionReader(new MasterServiceDispatcher(Sender, Id, () => PeerAddress),
             "Master server received packet with incorrect length");
     }
 

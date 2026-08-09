@@ -1,4 +1,5 @@
-﻿using BNLReloadedServer.Database;
+﻿using System.Net;
+using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
 using BNLReloadedServer.Logging;
 
@@ -20,9 +21,9 @@ public class RegionServiceDispatcher : IServiceDispatcher
 
     public IServicePing Ping => _servicePing;
 
-    public RegionServiceDispatcher(ISender sender, Guid sessionId)
+    public RegionServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress)
     {
-        _serviceLogin = new ServiceLogin(sender, sessionId);
+        _serviceLogin = new ServiceLogin(sender, sessionId, peerAddress);
         _serviceScene = new ServiceScene(sender);
         _serviceTime = new ServiceTime(sender);
         _serviceCatalogue = new ServiceCatalogue(sender);

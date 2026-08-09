@@ -10,7 +10,7 @@ public class MatchSession : ServerSession
 
     public MatchSession(AsyncTaskTcpServer server) : base(server, "Match")
     {
-        _serviceDispatcher = new MatchServiceDispatcher(Sender, Id);
+        _serviceDispatcher = new MatchServiceDispatcher(Sender, Id, () => PeerAddress);
         _reader = new SessionReader(_serviceDispatcher,
             "Match server received packet with incorrect length");
     }

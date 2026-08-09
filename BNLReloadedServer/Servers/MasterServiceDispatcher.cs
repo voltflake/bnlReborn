@@ -1,11 +1,12 @@
-﻿using BNLReloadedServer.Database;
+﻿using System.Net;
+using BNLReloadedServer.Database;
 using BNLReloadedServer.Service;
 using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
-public class MasterServiceDispatcher(ISender sender, Guid sessionId) : IServiceDispatcher
+public class MasterServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress) : IServiceDispatcher
 {
-    private readonly ServiceLogin _serviceLogin = new(sender, sessionId);
+    private readonly ServiceLogin _serviceLogin = new(sender, sessionId, peerAddress);
     private readonly ServiceMasterServer _serviceMasterServer = new(sender, sessionId);
 
     private static bool OnUnsupported(ServiceId? serviceEnum, byte raw)
