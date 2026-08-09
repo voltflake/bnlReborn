@@ -12,17 +12,17 @@ public partial class GameZone
 {
     private void UnitCreated(Unit unit, UnitInit unitInit, IServiceZone? creatorService = null)
     {
-        if (_units.TryAdd(unit.Id, unit))
+        // On respawn ChangeId has already re-registered the unit under its new id, so TryAdd fails here.
+        if (_units.TryAdd(unit.Id, unit) && unitInit.PlayerId != null)
         {
-            if (unitInit.PlayerId != null)
-            {
-                _playerUnits.Add(unit.Id, unit);
-                _playerIdToUnitId.Add(unitInit.PlayerId.Value, unit.Id);
-                if (_zoneData.Phase.PhaseType is ZonePhaseType.Build or ZonePhaseType.Build2)
-                {
-                    unit.AddEffect(new ConstEffectInfo(new Key("effect_build_phase_extra_world_damage")), unit.Team, null);
-                }
-            }
+            _playerUnits.Add(unit.Id, unit);
+            _playerIdToUnitId.Add(unitInit.PlayerId.Value, unit.Id);
+        }
+
+        // Applied on both creation and respawn - effects are wiped on death.
+        if (unitInit.PlayerId != null && _zoneData.Phase.PhaseType is ZonePhaseType.Build or ZonePhaseType.Build2)
+        {
+            unit.AddEffect(new ConstEffectInfo(new Key("effect_build_phase_extra_world_damage")), unit.Team, null);
         }
 
         if (unitInit.Transform is not null)
