@@ -26,7 +26,40 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb = new SQLiteAsyncConnection(Databases.PlayerDatabaseFile);
         _playerDb.CreateTableAsync<PlayerRecord>().Wait();
         _playerDb.CreateTableAsync<PlayerIpRecord>().Wait();
+        BackfillRankEligibility().Wait();
     }
+
+    // Ranks are relative, so the ladder is rebuilt whenever a rating or a match count could have
+    // moved: after a match, after a control panel edit, and once at startup.
+    private async Task RefreshLadder()
+    {
+        var records = await _playerDb.Table<PlayerRecord>().ToListAsync() ?? [];
+        SetLadderFrom(records);
+    }
+
+    // rank_eligible_until only starts being written when a player finishes a match, so fill it in
+    // from the match history everyone already has, or the whole server reads as unranked until it
+    // has played through another five matches.
+    private async Task BackfillRankEligibility()
+    {
+        var records = await _playerDb.Table<PlayerRecord>().ToListAsync() ?? [];
+        var changed = new List<PlayerRecord>();
+        foreach (var record in records)
+        {
+            var eligibleUntil = LeagueRanker.EligibleUntil(PlayerData.ReadMatchByteRecord(record.MatchHistory));
+            if (eligibleUntil == record.RankEligibleUntil) continue;
+            record.RankEligibleUntil = eligibleUntil;
+            changed.Add(record);
+        }
+
+        if (changed.Count > 0) await _playerDb.UpdateAllAsync(changed);
+        SetLadderFrom(records);
+    }
+
+    private static void SetLadderFrom(List<PlayerRecord> records) =>
+        LeagueRanker.SetLadder(records
+            .Where(LeagueRanker.IsOnLadder)
+            .Select(r => r.RatingMean));
 
     public List<RegionInfo> GetRegionServers()
     {
@@ -442,12 +475,17 @@ public class MasterServerDatabase : IMasterServerDatabase
 
             record = currPlayer.ToPlayerRecord();
             await _playerDb.UpdateAsync(record);
+            // This match may have been the fifth one that makes the player rankable, so the ladder
+            // has to be rebuilt before their league is read back out of the record.
+            await RefreshLadder();
+            var league = LeagueRanker.Derive(record);
             foreach (var regionServer in _regionServerConnections.Values)
             {
                 regionServer.SendHeroStats(currPlayer.PlayerId, currPlayer.HeroStats);
                 regionServer.SendPlayerUpdate(currPlayer.PlayerId, new PlayerUpdate
                 {
-                    Progression = currPlayer.Progression
+                    Progression = currPlayer.Progression,
+                    League = league
                 });
                 regionServer.SendMatchHistory(currPlayer.PlayerId, currPlayer.MatchHistory);
             }
@@ -497,11 +535,19 @@ public class MasterServerDatabase : IMasterServerDatabase
                 player?.Rating = rating;
             }
 
-            var newRecords = allPlayers.Select(d => d.ToPlayerRecord());
+            var newRecords = allPlayers.Select(d => d.ToPlayerRecord()).ToList();
             await _playerDb.UpdateAllAsync(newRecords);
+            await RefreshLadder();
+            var leagues = newRecords.ToDictionary(r => r.PlayerId, LeagueRanker.Derive);
             foreach (var regionServer in _regionServerConnections.Values)
             {
                 regionServer.SendRatingsUpdate(allPlayers.ToDictionary(p => p.PlayerId, p => p.Rating));
+                // The region caches a player's league, so a new rank only reaches the client if it
+                // is pushed alongside the rating it was derived from.
+                foreach (var (playerId, league) in leagues)
+                {
+                    regionServer.SendPlayerUpdate(playerId, new PlayerUpdate { League = league });
+                }
             }
         }
         finally
@@ -700,6 +746,14 @@ public class MasterServerDatabase : IMasterServerDatabase
             record.GraveyardLeaveTime = updated.GraveyardLeaveTime.HasValue
                 ? DateTimeOffset.FromUnixTimeMilliseconds((long)updated.GraveyardLeaveTime.Value) : null;
             await _playerDb.UpdateAsync(record);
+            // A rating edited from the control panel moves this player through the ladder. Everyone
+            // they passed is left to pick their new rank up on their next match or profile read.
+            await RefreshLadder();
+            var league = LeagueRanker.Derive(record);
+            foreach (var regionServer in _regionServerConnections.Values)
+            {
+                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate { League = league });
+            }
         }
         finally
         {
@@ -710,17 +764,19 @@ public class MasterServerDatabase : IMasterServerDatabase
 
     public async Task<List<LeagueLeaderboardRecord>> GetLeaderboard()
     {
-        var records = await _playerDb.Table<PlayerRecord>().Where(p =>
-                p.RatingMean != Databases.DefaultMean || p.RatingDeviation != Databases.DefaultSd)
+        // Same population the tiers are cut from, so the position shown here is the one a Pro
+        // player's badge counts off.
+        var records = (await _playerDb.Table<PlayerRecord>().ToListAsync() ?? [])
+            .Where(LeagueRanker.IsOnLadder)
             .OrderByDescending(p => p.RatingMean).Take(100)
-            .ToListAsync();
+            .ToList();
 
         return records.Select(PlayerData.FromPlayerRecord).Select((p, idx) => new LeagueLeaderboardRecord
         {
             PlayerId = p.PlayerId,
             SteamId = p.SteamId,
             PlayerName = p.Nickname,
-            Points = (int)double.Ceiling(p.Rating.Mean * 100),
+            Points = LeagueRanker.PointsFor(p.Rating.Mean),
             Status = idx + 1,
             Wins = p.HeroStats.Sum(h => h.Wins),
             TotalMatches = p.HeroStats.Sum(h => h.TotalMatches),

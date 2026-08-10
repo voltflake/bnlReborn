@@ -33,6 +33,11 @@ public class PlayerRecord
     
     [Column("league_info")]
     public byte[]? LeagueInfo { get; set; }
+
+    // When this player stops counting as ranked, kept as a column so building the ladder does not
+    // mean parsing a match history blob per row. Recomputed on every save.
+    [Column("rank_eligible_until")]
+    public DateTimeOffset? RankEligibleUntil { get; set; }
     
     [Column("progression")]
     public byte[] Progression { get; set; } = [];

@@ -190,6 +190,18 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
     }
 
+    public void NotifyLeague(uint playerId, League league)
+    {
+        if (UserConnected(playerId, out var playerInfo) &&
+            GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var servicePlayer))
+        {
+            servicePlayer.SendPlayerUpdate(new PlayerUpdate
+            {
+                League = league
+            });
+        }
+    }
+
     public async Task NotifyRequests(uint receiverId, uint senderId)
     {
         var receiverInfo = await _playerDatabase.GetFriendRequestsFor(receiverId);

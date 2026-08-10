@@ -641,6 +641,9 @@ public class PlayerDatabase : IPlayerDatabase
         if (update.League != null)
         {
             player.League = update.League;
+            // The master only reaches this cache, so the new rank needs forwarding or the client
+            // keeps the badge it logged in with.
+            Databases.RegionServerDatabase.NotifyLeague(playerId, update.League);
         }
 
         if (update.RequestsFromFriends != null)

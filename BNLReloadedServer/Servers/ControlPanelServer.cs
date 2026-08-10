@@ -790,15 +790,8 @@ public sealed class ControlPanelServer : IDisposable
                 updated.Rating = new Moserware.Skills.Rating(mean, dev);
             }
 
-            if (root.TryGetProperty("league_tier", out _) ||
-                root.TryGetProperty("league_division", out _) ||
-                root.TryGetProperty("league_points", out _))
-            {
-                updated.League ??= new BaseTypes.League();
-                if (root.TryGetProperty("league_tier", out var lt)) updated.League.Tier = lt.GetInt32();
-                if (root.TryGetProperty("league_division", out var ld)) updated.League.Division = ld.GetInt32();
-                if (root.TryGetProperty("league_points", out var lp)) updated.League.Points = lp.GetInt32();
-            }
+            // No league_tier/league_division/league_points here: a rank is a position on the
+            // ladder now, so edit the rating and the tier follows.
 
             if (root.TryGetProperty("tutorial_tokens", out var tokensProp))
                 updated.TutorialTokens = tokensProp.GetInt32();
