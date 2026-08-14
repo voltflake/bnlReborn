@@ -16,6 +16,8 @@ public class GameLobby : Updater
     
     private readonly ConcurrentDictionary<Timer, uint> _requeueTimers = new();
     private readonly ConcurrentDictionary<uint, LobbyTimer> _requeueLobbyTimers = new();
+
+    private readonly Lock _votesLock = new();
     
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
     private readonly IServiceLobby _serviceLobby;
@@ -164,7 +166,7 @@ public class GameLobby : Updater
             LobbyData.Players.Remove(playerId, out _);
         }
         lobbyService?.SendClearLobby();
-        SendLobbyUpdate(players: LobbyData.Players.Values.ToList());
+        SendLobbyUpdate(players: LobbyData.Players.Values.ToList(), maps: WithdrawVote(playerId));
     }
 
     public void SwapHero(uint playerId, Key hero)
@@ -284,12 +286,48 @@ public class GameLobby : Updater
         SendLobbyUpdate(players: LobbyData.Players.Values.ToList());
     }
 
+    private bool BallotOpen => LobbyData.Timer.TimerType != LobbyTimerType.Requeue;
+
     public void VoteForMap(uint playerId, Key mapKey)
     {
         if (!LobbyData.Players.ContainsKey(playerId)) return;
-        var map = LobbyData.Maps.FirstOrDefault(map => (map.Info as MapInfoCard)?.MapKey == mapKey);
-        map?.PlayerVotes?.Add(playerId);
-        SendLobbyUpdate(maps: LobbyData.Maps);
+        if (!BallotOpen) return;
+        List<LobbyMapData> maps;
+        lock (_votesLock)
+        {
+            var map = LobbyData.Maps.FirstOrDefault(map => (map.Info as MapInfoCard)?.MapKey == mapKey);
+            if (map?.PlayerVotes == null) return;
+            if (LobbyData.Maps.Any(m => m.PlayerVotes?.Contains(playerId) == true)) return;
+            map.PlayerVotes.Add(playerId);
+            maps = SnapshotMaps();
+        }
+        SendLobbyUpdate(maps: maps);
+    }
+
+    private List<LobbyMapData>? WithdrawVote(uint playerId)
+    {
+        if (!BallotOpen) return null;
+        lock (_votesLock)
+        {
+            var withdrawn = false;
+            foreach (var map in LobbyData.Maps)
+            {
+                withdrawn |= map.PlayerVotes?.Remove(playerId) == true;
+            }
+            return withdrawn ? SnapshotMaps() : null;
+        }
+    }
+
+    private List<LobbyMapData> SnapshotMaps()
+    {
+        lock (_votesLock)
+        {
+            return LobbyData.Maps.ConvertAll(m => new LobbyMapData
+            {
+                Info = m.Info,
+                PlayerVotes = m.PlayerVotes == null ? null : [..m.PlayerVotes]
+            });
+        }
     }
 
     public void StartGame() => SendLobbyUpdate(started: true);
@@ -374,7 +412,7 @@ public class GameLobby : Updater
         {
             MatchMode = LobbyData.MatchModeKey,
             GameMode = LobbyData.GameModeKey,
-            Maps = LobbyData.Maps,
+            Maps = SnapshotMaps(),
             Started = LobbyData.IsStarted,
             Timer = LobbyData.Timer.TimerType == LobbyTimerType.Requeue ? GetRequeueTimer(playerId) : LobbyData.Timer,
             Players = LobbyData.Players.Values.ToList(),
@@ -582,7 +620,7 @@ public class GameLobby : Updater
         LobbyData.Timer.TimerType = LobbyTimerType.Requeue;
         EnqueueAction(() =>
         {
-            var mostVoted = LobbyData.Maps.MaxBy(m => m.PlayerVotes?.Count);
+            var mostVoted = SnapshotMaps().MaxBy(m => m.PlayerVotes?.Count);
             if (mostVoted?.Info is MapInfoCard mapInfo && _gameInstance.IsMapNull())
             {
                 if (Databases.MapDatabase.LoadMapData(mapInfo.MapKey) is { } mapData)
