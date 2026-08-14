@@ -69,6 +69,8 @@ public static class CatalogueHelper
     public static CardGameMode ModeMad => Databases.Catalogue.GetCard<CardGameMode>("game_mode_mad")!;
 
     public static CardGameMode ModeTutorial => Databases.Catalogue.GetCard<CardGameMode>("game_mode_tutorial")!;
+
+    public static CardGameMode ModeTimeTrial => Databases.Catalogue.GetCard<CardGameMode>("game_mode_time_trial")!;
     public static Key BrawnClassKey { get; } = new("hero_class_brawn");
     public static Key SkillsClassKey { get; } = new("hero_class_skills");
     public static Key BrainsClassKey { get; } = new("hero_class_brains");
@@ -126,6 +128,22 @@ public static class CatalogueHelper
             { 5, heroData.DefaultDevices[3] },
             { 6, heroData.DefaultDevices[4] }
         };
+    }
+
+    public static Dictionary<int, Key>? GetCourseDevices(TimeTrialCourse course)
+    {
+        var devices = GetDefaultDevices(course.Hero);
+        if (course.Devices is not { Count: > 0 } courseDevices) return devices;
+
+        devices ??= new Dictionary<int, Key>();
+        // Slot 1 is the hero's special device. Courses that keep it list only the five
+        // regular slots, so those start at 2; a course overriding it lists all six.
+        var slot = courseDevices.Count >= 6 ? 1 : 2;
+        foreach (var device in courseDevices.Take(6))
+        {
+            devices[slot++] = device;
+        }
+        return devices;
     }
     extension(ShopData shop)
     {

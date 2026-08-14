@@ -22,7 +22,7 @@ public interface IPlayerDatabase
     public ProfileData GetPlayerProfile(uint playerId);
     public Key GetLastPlayedHero(uint playerId);
     public LobbyLoadout GetLoadoutForHero(uint playerId, Key heroKey, bool defaultLoadout = false);
-    public PlayerLobbyState GetDummyPlayerLobbyInfo(uint playerId, Key heroKey, TeamType team);
+    public PlayerLobbyState GetDummyPlayerLobbyInfo(uint playerId, Key heroKey, TeamType team, Dictionary<int, Key>? devices = null);
     public Dictionary<Key, int> GetDeviceLevels(uint playerId);
     public List<uint> GetIgnoredUsers(uint playerId);
     public Dictionary<CurrencyType, float> GetCurrency(uint playerId);
@@ -32,6 +32,7 @@ public interface IPlayerDatabase
     public Task<List<FriendRequest>> GetFriendRequestsFor(uint playerId);
     public Task<List<FriendRequest>> GetFriendRequestsFrom(uint playerId);
     public Task<List<LeagueLeaderboardRecord>?> GetLeaderboard();
+    public Task<Dictionary<Key, List<TtLeaderboardRecord>>?> GetTimeTrialLeaderboard();
     public bool IsBanned(uint playerId);
     public IEnumerable<PlayerData> GetAllPlayers();
     public void SetPlayerName(uint playerId, string name);

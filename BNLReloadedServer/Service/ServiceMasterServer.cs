@@ -33,7 +33,8 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         MessageFriendSearch = 19,
         MessageFriendSearchSteam = 20,
         MessageGetLeaderboard = 21,
-        MessagePlayerCount = 22
+        MessagePlayerCount = 22,
+        MessageGetTimeTrialLeaderboard = 23
     }
     
     private readonly IMasterServerDatabase _masterServerDatabase = Databases.MasterServerDatabase;
@@ -285,8 +286,24 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
     public void ReceiveLeaderboard(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
-        
+
         SendLeaderboard(rpcId, _masterServerDatabase.GetLeaderboard().Result);
+    }
+
+    public void SendTimeTrialLeaderboard(ushort rpcId, Dictionary<Key, List<TtLeaderboardRecord>> leaderboard)
+    {
+        using var writer = CreateWriter();
+        writer.Write((byte)ServiceMasterId.MessageGetTimeTrialLeaderboard);
+        writer.Write(rpcId);
+        writer.WriteMap(leaderboard, Key.WriteRecord, item => writer.WriteList(item, TtLeaderboardRecord.WriteRecord));
+        sender.Send(writer);
+    }
+
+    public void ReceiveTimeTrialLeaderboard(BinaryReader reader)
+    {
+        var rpcId = reader.ReadUInt16();
+
+        SendTimeTrialLeaderboard(rpcId, _masterServerDatabase.GetTimeTrialLeaderboard().Result);
     }
     public void ReceivePlayerCount(BinaryReader reader)
     {
@@ -357,6 +374,9 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
                 break;
             case ServiceMasterId.MessagePlayerCount:
                 ReceivePlayerCount(reader);
+                break;
+            case ServiceMasterId.MessageGetTimeTrialLeaderboard:
+                ReceiveTimeTrialLeaderboard(reader);
                 break;
             default:
                 Log.Warn(LogCat.Net, $"Master service received unsupported serviceId: {Log.EnumName(masterEnum, serviceMasterId)}");

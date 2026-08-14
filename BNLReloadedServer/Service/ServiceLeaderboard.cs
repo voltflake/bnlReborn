@@ -49,6 +49,23 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
     private void ReceiveGetTimeTrialLeaderboard(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
+
+        var result = Databases.PlayerDatabase.GetTimeTrialLeaderboard().Result;
+        if (result == null)
+        {
+            SendGetTimeTrialLeaderboard(rpcId, null, new ELeaderboardUpdateCooldown());
+            return;
+        }
+
+        // The panel indexes this by every course map it finds in the catalogue, so a course nobody
+        // has finished yet has to come back as an empty board rather than a missing key.
+        var boards = new Dictionary<Key, List<TtLeaderboardRecord>>();
+        foreach (var course in CatalogueHelper.GlobalLogic.TimeTrial?.Courses ?? [])
+        {
+            boards[course.Map] = result.GetValueOrDefault(course.Map) ?? [];
+        }
+
+        SendGetTimeTrialLeaderboard(rpcId, boards);
     }
 
     public void SendGetLeagueLeaderboard(ushort rpcId, List<LeagueLeaderboardRecord>? data, ELeaderboardUpdateCooldown? eLeaderboardUpdateCooldown = null,

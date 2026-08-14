@@ -362,7 +362,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
         };
     }
 
-    public PlayerLobbyState GetDummyPlayerLobbyInfo(uint playerId, Key heroKey, TeamType team)
+    public PlayerLobbyState GetDummyPlayerLobbyInfo(uint playerId, Key heroKey, TeamType team, Dictionary<int, Key>? devices = null)
     {
         var profileData = Databases.PlayerDatabase.GetPlayerProfile(playerId);
         var defaultLoadout = GetLoadoutForHero(playerId, heroKey, true);
@@ -378,7 +378,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
             SelectedBadges = profileData.SelectedBadges,
             Team = team,
             Hero = heroKey,
-            Devices = defaultLoadout.Devices,
+            Devices = devices ?? defaultLoadout.Devices,
             Perks = defaultLoadout.Perks,
             RestrictedHeroes = [],
             SkinKey = defaultLoadout.SkinKey,
@@ -423,6 +423,8 @@ public class DummyPlayerDatabase : IPlayerDatabase
     public async Task<List<FriendRequest>> GetFriendRequestsFrom(uint playerId) => [];
 
     public async Task<List<LeagueLeaderboardRecord>?> GetLeaderboard() => [];
+
+    public async Task<Dictionary<Key, List<TtLeaderboardRecord>>?> GetTimeTrialLeaderboard() => [];
 
     public bool IsBanned(uint playerId) => false;
 

@@ -247,12 +247,17 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
 
     private void ReceiveStartTimeTrial(BinaryReader reader)
     {
-        
+        if (!sender.AssociatedPlayerId.HasValue) return;
+        // The time trial menu never drops the queue the way the custom game and map editor buttons
+        // do, and a pop landing mid-course would drag the player into a second match.
+        _serverDatabase.LeaveQueue(sender.AssociatedPlayerId.Value, this);
+        _serverDatabase.StartTimeTrialGame(sender.AssociatedPlayerId.Value);
     }
 
     private void ReceiveRestartTimeTrial(BinaryReader reader)
     {
-        
+        if (sender.AssociatedPlayerId.HasValue)
+            _serverDatabase.RestartTimeTrialGame(sender.AssociatedPlayerId.Value);
     }
     
     public void SendUpdateCustomGame(CustomGameUpdate update)

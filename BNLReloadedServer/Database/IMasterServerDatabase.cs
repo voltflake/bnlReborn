@@ -36,6 +36,7 @@ public interface IMasterServerDatabase
     public Task<List<SearchResult>> GetSearchResults(List<uint> playerIds);
     public Task<List<SearchResult>> GetSearchResults(List<ulong> steamIds);
     public Task<List<LeagueLeaderboardRecord>> GetLeaderboard();
+    public Task<Dictionary<Key, List<TtLeaderboardRecord>>> GetTimeTrialLeaderboard();
     public Task<List<PlayerData>> GetAllPlayersAsync();
     public Task<bool> UpdatePlayerAsync(uint playerId, PlayerData updated);
 

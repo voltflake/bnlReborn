@@ -395,6 +395,21 @@ public class MasterServerDatabase : IMasterServerDatabase
         return true;
     }
 
+    // The region computed this against its own copy of the record, which can lag a write it has
+    // not been told about yet, so the goals are merged rather than assigned and the time is kept
+    // only if it beats what is already stored.
+    private static void ApplyTimeTrialResult(PlayerData player, Key mapKey, TimeTrialResultData result)
+    {
+        var completedGoals = player.TimeTrial.CompletedGoals ??= new Dictionary<Key, List<int>>();
+        var bestTimes = player.TimeTrial.BestResultTime ??= new Dictionary<Key, float>();
+
+        completedGoals[mapKey] = (completedGoals.GetValueOrDefault(mapKey) ?? [])
+            .Union(result.NewGoalsCompleted ?? []).Order().ToList();
+
+        if (result.BestResultTime is not { } best) return;
+        bestTimes[mapKey] = bestTimes.TryGetValue(mapKey, out var previous) ? MathF.Min(previous, best) : best;
+    }
+
     public async Task<bool> SetNewMatchDataForPlayer(EndMatchResults endMatchResults)
     {
         await _asyncLock.WaitAsync();
@@ -410,25 +425,35 @@ public class MasterServerDatabase : IMasterServerDatabase
             // Update hero stats
             var endMatchData = endMatchResults.MatchData;
             var hero = endMatchData.HeroKey;
-            
-            if (currPlayer.HeroStats.All(x => x.Hero != hero))
-            {
-                currPlayer.HeroStats.Add(new HeroStats
-                {
-                    Hero = hero,
-                    TotalMatches = 0,
-                    Wins = 0
-                });
-            }
-            
-            foreach (var stat in currPlayer.HeroStats.FindAll(s => s.Hero == hero))
-            {
-                if (endMatchData is not { IsBackfiller: false }) continue;
+            var timeTrialResult = endMatchData.TimeTrialData;
 
-                stat.TotalMatches += 1;
-                if (endMatchData is { IsWinner: true })
+            // A solo course is not a match: it keeps its own goal and best time record, and stays
+            // out of the hero's played/won tally and the match history.
+            if (timeTrialResult != null)
+            {
+                ApplyTimeTrialResult(currPlayer, endMatchResults.MapKey, timeTrialResult);
+            }
+            else
+            {
+                if (currPlayer.HeroStats.All(x => x.Hero != hero))
                 {
-                    stat.Wins += 1;
+                    currPlayer.HeroStats.Add(new HeroStats
+                    {
+                        Hero = hero,
+                        TotalMatches = 0,
+                        Wins = 0
+                    });
+                }
+
+                foreach (var stat in currPlayer.HeroStats.FindAll(s => s.Hero == hero))
+                {
+                    if (endMatchData is not { IsBackfiller: false }) continue;
+
+                    stat.TotalMatches += 1;
+                    if (endMatchData is { IsWinner: true })
+                    {
+                        stat.Wins += 1;
+                    }
                 }
             }
 
@@ -448,7 +473,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             var encoder = new UTF8Encoding();
             var currPlayerResults =
                 endMatchData.PlayersData?.FirstOrDefault(x => x.PlayerId == endMatchResults.PlayerId);
-            var history = new MatchHistoryRecord
+            var history = timeTrialResult != null ? null : new MatchHistoryRecord
             {
                 MatchId = encoder.GetBytes(endMatchResults.GameInstanceId),
                 HeroKey = hero,
@@ -471,7 +496,10 @@ public class MasterServerDatabase : IMasterServerDatabase
                 Assist = currPlayerResults?.Stats?.Stats?.GetValueOrDefault(PlayerMatchStatType.Assist) ?? 0
             };
 
-            currPlayer.MatchHistory = currPlayer.MatchHistory.Prepend(history).Take(10).ToList();
+            if (history != null)
+            {
+                currPlayer.MatchHistory = currPlayer.MatchHistory.Prepend(history).Take(10).ToList();
+            }
 
             record = currPlayer.ToPlayerRecord();
             await _playerDb.UpdateAsync(record);
@@ -485,7 +513,8 @@ public class MasterServerDatabase : IMasterServerDatabase
                 regionServer.SendPlayerUpdate(currPlayer.PlayerId, new PlayerUpdate
                 {
                     Progression = currPlayer.Progression,
-                    League = league
+                    League = league,
+                    TimeTrial = currPlayer.TimeTrial
                 });
                 regionServer.SendMatchHistory(currPlayer.PlayerId, currPlayer.MatchHistory);
             }
@@ -760,6 +789,40 @@ public class MasterServerDatabase : IMasterServerDatabase
             _asyncLock.Release();
         }
         return true;
+    }
+
+    // Only maps somebody has finished come back; the region fills in the courses nobody has run
+    // yet, since it is the side that is certain to have the catalogue.
+    public async Task<Dictionary<Key, List<TtLeaderboardRecord>>> GetTimeTrialLeaderboard()
+    {
+        var leaderboard = new Dictionary<Key, List<TtLeaderboardRecord>>();
+        foreach (var record in await _playerDb.Table<PlayerRecord>().ToListAsync() ?? [])
+        {
+            var player = PlayerData.FromPlayerRecord(record);
+            if (player.TimeTrial.BestResultTime is not { } bestTimes) continue;
+
+            foreach (var (mapKey, seconds) in bestTimes)
+            {
+                if (!leaderboard.TryGetValue(mapKey, out var records))
+                {
+                    leaderboard[mapKey] = records = [];
+                }
+
+                records.Add(new TtLeaderboardRecord
+                {
+                    PlayerId = player.PlayerId,
+                    PlayerName = player.Nickname,
+                    ResultSeconds = seconds
+                });
+            }
+        }
+
+        foreach (var (mapKey, records) in leaderboard)
+        {
+            leaderboard[mapKey] = records.OrderBy(r => r.ResultSeconds).Take(100).ToList();
+        }
+
+        return leaderboard;
     }
 
     public async Task<List<LeagueLeaderboardRecord>> GetLeaderboard()

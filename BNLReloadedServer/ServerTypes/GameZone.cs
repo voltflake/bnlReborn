@@ -1205,9 +1205,13 @@ public partial class GameZone : Updater
         _zoneData.MatchCard.Data?.Type switch
         {
             MatchType.ShieldRush2 or MatchType.ShieldCapture => _objectiveConquest[(int)targetTeam].Count == 0,
+            // A kill with nobody behind it — lava, a trap, a block falling on something — has no
+            // team, and every course objective belongs to one. Matching none of them must not read
+            // as "all of them are done", which is what an unguarded All on an empty set says.
             MatchType.Tutorial or MatchType.TimeTrial => _zoneData.Objectives
                 .Where(obj => obj.Team == (killer?.Team ?? TeamType.Neutral))
-                .All(obj => obj.Counter >= obj.RequiredCounter),
+                .ToList() is { Count: > 0 } objectives &&
+                objectives.All(obj => obj.Counter >= obj.RequiredCounter),
             _ => false
         };
 
@@ -1230,6 +1234,75 @@ public partial class GameZone : Updater
         }
         
         EnqueueAction(() => EndGame(winner));
+    }
+
+    // Builds the result the reward screen renders, and folds it into the region's copy of the
+    // player's record so an immediate retry cannot re-earn goals this run already paid out. The
+    // master's authoritative copy comes back asynchronously once the match end reaches it.
+    private TimeTrialResultData ApplyTimeTrialResult(uint playerId, bool completed, float resultTime)
+    {
+        var mapKey = _zoneData.MapKey ?? Key.None;
+        var goals = _zoneData.GetTimeTrialCourse()?.Goals;
+        var stored = Databases.PlayerDatabase.GetPlayerDataNoWait(playerId)?.TimeTrial;
+
+        var oldGoals = stored?.CompletedGoals?.GetValueOrDefault(mapKey)?.ToList() ?? [];
+        var newGoals = oldGoals.ToList();
+        var xpReward = 0f;
+        // The reward screen indexes this by Virtual rather than looking it up safely, so the key
+        // is always present even on a run that earned nothing.
+        var currencyReward = new Dictionary<CurrencyType, float> { [CurrencyType.Virtual] = 0 };
+
+        if (completed && goals != null)
+        {
+            // A goal with no time limit is the bare "finish the course" one.
+            foreach (var (goalId, goal) in goals.Where(g =>
+                         g.Value.CompletionSeconds is not { } limit || resultTime < limit))
+            {
+                if (newGoals.Contains(goalId)) continue;
+                newGoals.Add(goalId);
+                xpReward += goal.RewardXp;
+                foreach (var (currency, amount) in goal.RewardCurrency ?? [])
+                {
+                    currencyReward[currency] = currencyReward.GetValueOrDefault(currency) + amount;
+                }
+            }
+            newGoals.Sort();
+        }
+
+        var bestTime = stored?.BestResultTime is { } bests && bests.TryGetValue(mapKey, out var best)
+            ? best
+            : (float?) null;
+        if (completed)
+        {
+            bestTime = bestTime is { } previous ? MathF.Min(previous, resultTime) : resultTime;
+        }
+
+        var mergedGoals = new Dictionary<Key, List<int>>(stored?.CompletedGoals ?? []) { [mapKey] = newGoals };
+        var mergedBests = new Dictionary<Key, float>(stored?.BestResultTime ?? []);
+        if (bestTime is { } bestResult)
+        {
+            mergedBests[mapKey] = bestResult;
+        }
+
+        Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate
+        {
+            TimeTrial = new TimeTrialData
+            {
+                CompletedGoals = mergedGoals,
+                BestResultTime = mergedBests,
+                ResetTime = stored?.ResetTime ?? 0
+            }
+        });
+
+        return new TimeTrialResultData
+        {
+            OldGoalsCompleted = oldGoals,
+            NewGoalsCompleted = newGoals,
+            XpReward = xpReward,
+            CurrencyReward = currencyReward,
+            ResultTime = resultTime,
+            BestResultTime = bestTime
+        };
     }
 
     private void EndGame(TeamType winner)
@@ -1336,10 +1409,19 @@ public partial class GameZone : Updater
             endMatchData.OldPlayerXp = profileData.Progression?.PlayerProgress;
             endMatchData.OldHeroXp = profileData.Progression?.HeroesProgress?.GetValueOrDefault(player.Key);
 
-            var xpAmount = zoneDataGameModeCard.XpLogic is not null
+            // The reward screen reads this for every time trial end, completed or not, and faults
+            // on a null one, so a failed run still gets a result — it just carries no new goals.
+            if (_zoneData.MatchCard.Data?.Type is MatchType.TimeTrial)
+            {
+                endMatchData.TimeTrialData = ApplyTimeTrialResult(player.PlayerId.Value, endMatchData.IsWinner,
+                    (float)gameLength.TotalSeconds);
+            }
+
+            // A time trial has no xp_logic; its xp is what the goals it just cleared are worth.
+            var xpAmount = endMatchData.TimeTrialData?.XpReward ?? (zoneDataGameModeCard.XpLogic is not null
                 ? float.Clamp(zoneDataGameModeCard.XpLogic.XpPerMinute * (float)gameLength.TotalMinutes,
                     zoneDataGameModeCard.XpLogic.MinXpCap, zoneDataGameModeCard.XpLogic.MaxXpCap)
-                : 0;
+                : 0);
 
             var applicableBonuses = new Dictionary<MatchRewardBonusType, float>();
             if (zoneDataGameModeCard.RewardLogic?.Bonuses is not null)
@@ -1419,7 +1501,10 @@ public partial class GameZone : Updater
             endMatchData.RewardBonuses = applicableBonuses;
             endMatchData.ChallengesData = [];
 
-            if (!_gameInitiator.IsMapEditor() && zoneDataGameModeCard.Ranking is GameRankingType.Friendly or GameRankingType.Ranked)
+            // Time trials are unranked, but the master still has to hear about them: the goals and
+            // the best time only survive a relog if they reach the record it writes.
+            if (!_gameInitiator.IsMapEditor() && (endMatchData.TimeTrialData is not null ||
+                                                  zoneDataGameModeCard.Ranking is GameRankingType.Friendly or GameRankingType.Ranked))
             {
                 Databases.PlayerDatabase.UpdateMatchStats(new EndMatchResults
                 {

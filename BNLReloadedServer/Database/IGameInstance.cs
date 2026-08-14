@@ -9,6 +9,7 @@ namespace BNLReloadedServer.Database;
 public interface IGameInstance
 {
     public bool HasLobby();
+    public bool IsStarted { get; }
     public bool IsOver();
     public void LinkGuidToPlayer(uint userId, Guid guid, Guid regionGuid);
     public void UserEnteredLobby(uint userId);
@@ -41,7 +42,7 @@ public interface IGameInstance
     public void VoteForMap(uint playerId, Key mapKey);
     public void PlayerReady(uint playerId);
     public void LoadProgressUpdate(uint playerId, float progress);
-    public void StartMatch(ICollection<PlayerLobbyState> playerList);
+    public void StartMatch(ICollection<PlayerLobbyState> playerList, bool restart = false);
     public void SendUserToZone(uint playerId);
     public void PlayerEnterScene(uint playerId);
     public void PlayerZoneReady(uint playerId);

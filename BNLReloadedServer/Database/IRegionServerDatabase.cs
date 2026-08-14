@@ -11,7 +11,7 @@ public interface IRegionServerDatabase
     public void UserUiChanged(uint userId, UiId uiId, float duration);
     public UiId? GetUiId(uint userId);
     public bool UpdateScene(uint userId, Scene scene, IServiceScene sceneService, bool enterInstance);
-    public bool UpdateScene(uint userId, Scene scene);
+    public bool UpdateScene(uint userId, Scene scene, bool forceEnterInstance = false);
     public void UserEnterScene(uint userId);
     public Scene GetLastScene(uint userId);
     public bool RegisterService(Guid sessionId, IService service, ServiceId serviceId);
@@ -39,6 +39,8 @@ public interface IRegionServerDatabase
     public CustomGameUpdate? GetFullCustomGameUpdate(uint playerId);
     public bool StartCustomGame(uint playerId, string? signedMap);
     public bool StartMapEditorGame(uint playerId, MapData map, Key heroKey, TeamType team);
+    public bool StartTimeTrialGame(uint playerId);
+    public bool RestartTimeTrialGame(uint playerId);
     public bool StartGameFromMatchmaker(CardGameMode gameMode, List<PlayerQueueData> team1, List<PlayerQueueData> team2);
     public bool BackfillMatchmakerGame(PlayerQueueData player, TeamType team, string gameInstanceId);
     public bool SendMessage(uint playerId, RoomId roomId, string message);

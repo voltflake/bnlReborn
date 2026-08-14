@@ -263,7 +263,9 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         return true;
     }
 
-    public bool UpdateScene(uint userId, Scene scene)
+    // forceEnterInstance is for a zone that replaces another one the player never left: the scene
+    // does not change from the menu, but the client still has to reconnect to the new instance.
+    public bool UpdateScene(uint userId, Scene scene, bool forceEnterInstance = false)
     {
         if(!UserConnected(userId, out var playerInfo)) return false;
         var guid = playerInfo.Guid;
@@ -273,7 +275,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             RemoveUser(userId);
         }
-        return GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService) && UpdateScene(userId, scene, sceneService, oldScene is SceneMainMenu);
+        return GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService) &&
+               UpdateScene(userId, scene, sceneService, forceEnterInstance || oldScene is SceneMainMenu);
     }
 
     public Scene GetLastScene(uint userId)
@@ -593,6 +596,53 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         _gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance);
         playerInfo.GameInstanceId = gameInstance.GameInstanceId;
         gameInstance.StartMatch([Databases.PlayerDatabase.GetDummyPlayerLobbyInfo(playerId, heroKey, team)]);
+        return true;
+    }
+
+    public bool StartTimeTrialGame(uint playerId)
+    {
+        if (!UserConnected(playerId, out var playerInfo)) return false;
+        if (playerInfo.GameInstanceId != null) return false;
+        return StartTimeTrialGame(playerId, playerInfo, false);
+    }
+
+    public bool RestartTimeTrialGame(uint playerId)
+    {
+        if (!UserConnected(playerId, out var playerInfo)) return false;
+        var instance = GetGameInstance(playerId);
+        if (instance == null || instance.GetGameMode() != CatalogueHelper.ModeTimeTrial.Key) return false;
+        // The client sends this for every frame the recall key is held, so a course that is still
+        // loading is a restart already in flight — dropping those is what keeps one keypress from
+        // spawning a zone per frame.
+        if (!instance.IsStarted) return false;
+
+        // Dropping the instance id first keeps the teardown from pushing the player back to the
+        // main menu: the restarted zone replaces the old one directly.
+        playerInfo.GameInstanceId = null;
+        instance.PlayerLeftInstance(playerId, KickReason.MatchQuit);
+
+        return StartTimeTrialGame(playerId, playerInfo, true);
+    }
+
+    private bool StartTimeTrialGame(uint playerId, ConnectionInfo playerInfo, bool restart)
+    {
+        var course = CatalogueHelper.GlobalLogic.TimeTrial?.Courses?.FirstOrDefault();
+        if (course == null) return false;
+        var map = Databases.MapDatabase.LoadMapData(course.Map);
+        if (map == null) return false;
+
+        var initiator = new DummyGameInitiator(CatalogueHelper.ModeTimeTrial, map, TeamType.Team1, false);
+        var gameInstance = new GameInstance(matchServer, server, Guid.NewGuid().ToString(), initiator);
+        initiator.GameInstanceId = gameInstance.GameInstanceId;
+        // Unlike the map editor the map key has to travel with the instance: the zone resolves the
+        // course, and with it the objectives, from the key it is started with.
+        gameInstance.SetMap(new MapInfoCard { MapKey = course.Map }, map);
+        gameInstance.SetMatchKey(initiator.MatchCard.Key);
+        if (!_gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance)) return false;
+        playerInfo.GameInstanceId = gameInstance.GameInstanceId;
+        gameInstance.StartMatch(
+            [Databases.PlayerDatabase.GetDummyPlayerLobbyInfo(playerId, course.Hero, TeamType.Team1,
+                CatalogueHelper.GetCourseDevices(course))], restart);
         return true;
     }
 

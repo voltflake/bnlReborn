@@ -56,6 +56,10 @@ public class GameInstance : IGameInstance
     
     private Timer? _startGameTimer;
 
+    // Set when this instance replaces one the player just restarted out of, so the client
+    // freezes the zone it is in instead of bouncing through a main menu load.
+    private bool _restartingZone;
+
     private readonly ConcurrentDictionary<uint, Timer> _disconnectTimers = new();
 
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
@@ -447,9 +451,10 @@ public class GameInstance : IGameInstance
         UploadZoneData(playerId, player);
     }
 
-    public void StartMatch(ICollection<PlayerLobbyState> playerList)
+    public void StartMatch(ICollection<PlayerLobbyState> playerList, bool restart = false)
     {
         if (MapData == null) return;
+        _restartingZone = restart;
         GameInitiator.StartIntoMatch();
 
         if (Lobby == null)
@@ -464,7 +469,8 @@ public class GameInstance : IGameInstance
         {
             SendUserToZone(playerId);
         }
-        
+        _restartingZone = false;
+
         var bufferedSender = new BufferSender();
         Key? mapKey = null;
         if (MapInfo is MapInfoCard mapInfoCard)
@@ -537,9 +543,9 @@ public class GameInstance : IGameInstance
             MyTeam = GameInitiator.GetTeamForPlayer(playerId),
             IsSpectator = GameInitiator.IsPlayerSpectator(playerId),
             IsMapEditor = GameInitiator.IsMapEditor(),
-            Restart = false
+            Restart = _restartingZone
         };
-        _serverDatabase.UpdateScene(playerId, scene);
+        _serverDatabase.UpdateScene(playerId, scene, _restartingZone);
     }
 
     private void UploadZoneData(uint playerId, MatchConnectionInfo player)

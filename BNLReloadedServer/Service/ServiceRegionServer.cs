@@ -34,7 +34,8 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
         MessageFriendSearch = 19,
         MessageFriendSearchSteam = 20,
         MessageGetLeaderboard = 21,
-        MessagePlayerCount = 22
+        MessagePlayerCount = 22,
+        MessageGetTimeTrialLeaderboard = 23
     }
 
     private ushort _currRpcId = 1;
@@ -335,7 +336,35 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
         var rpcId = reader.ReadUInt16();
         var results =
             reader.ReadList<LeagueLeaderboardRecord, List<LeagueLeaderboardRecord>>(LeagueLeaderboardRecord.ReadRecord);
-        
+
+        if (_tasks.TryRemove(rpcId, out var tcs))
+        {
+            tcs.SetResult(results);
+        }
+    }
+
+    public async Task<Dictionary<Key, List<TtLeaderboardRecord>>?> SendTimeTrialLeaderboardRequest()
+    {
+        await using var writer = CreateWriter();
+        writer.Write((byte) ServiceRegionId.MessageGetTimeTrialLeaderboard);
+
+        var rpcId = GetRpcId();
+        writer.Write(rpcId);
+
+        var tcs = new TaskCompletionSource<object>();
+        _tasks[rpcId] = tcs;
+
+        sender.Send(writer);
+        return await tcs.Task as Dictionary<Key, List<TtLeaderboardRecord>>;
+    }
+
+    public void ReceiveTimeTrialLeaderboard(BinaryReader reader)
+    {
+        var rpcId = reader.ReadUInt16();
+        var results = reader.ReadMap<Key, List<TtLeaderboardRecord>, Dictionary<Key, List<TtLeaderboardRecord>>>(
+            Key.ReadRecord, () => reader.ReadList<TtLeaderboardRecord, List<TtLeaderboardRecord>>(
+                TtLeaderboardRecord.ReadRecord));
+
         if (_tasks.TryRemove(rpcId, out var tcs))
         {
             tcs.SetResult(results);
@@ -398,6 +427,9 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
                 break;
             case ServiceRegionId.MessageGetLeaderboard:
                 ReceiveLeaderboard(reader);
+                break;
+            case ServiceRegionId.MessageGetTimeTrialLeaderboard:
+                ReceiveTimeTrialLeaderboard(reader);
                 break;
             default:
                 Log.Warn(LogCat.Net, $"Region service received unsupported serviceId: {Log.EnumName(regionEnum, serviceRegionId)}");
