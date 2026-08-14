@@ -46,6 +46,27 @@ public static class LeagueRanker
     // Shown under the badge and on the leaderboard, so both read it from here.
     public static int PointsFor(double ratingMean) => (int)Math.Round(ratingMean * 100);
 
+    // The leaderboard's last column is a plain string the client prints verbatim, so the badge
+    // wording has to be rebuilt here rather than read from the catalogue: these are the client's
+    // own tier_0..tier_3 entries, and GuiLeagueInfo numbers divisions backwards, 4 being the top.
+    private static readonly string[] TierNames = ["BRONZE", "SILVER", "GOLD", "Pro"];
+    private static readonly string[] DivisionNumerals = ["V", "IV", "III", "II", "I"];
+
+    // Empty rather than "UNRANKED" for a player without a live rank: the column is captioned
+    // "Region" by the bundles, so a word there reads as a value, and a blank reads as nothing.
+    public static string Label(League? league)
+    {
+        if (league == null || league.Tier < 0 || league.Tier >= TierNames.Length) return string.Empty;
+
+        var tier = TierNames[league.Tier];
+        if (league.Tier == TierPro)
+            return league.Status.HasValue ? $"{tier} ({league.Status.Value})" : tier;
+
+        return league.Division >= 0 && league.Division < DivisionNumerals.Length
+            ? $"{tier} {DivisionNumerals[league.Division]}"
+            : tier;
+    }
+
     // Who the percentages are cut from: a rating only moves off its default once a match has been
     // played, so accounts that have never played sit outside the ladder entirely.
     public static bool IsOnLadder(PlayerRecord record) =>

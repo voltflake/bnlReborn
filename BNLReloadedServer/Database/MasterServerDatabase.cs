@@ -771,17 +771,23 @@ public class MasterServerDatabase : IMasterServerDatabase
             .OrderByDescending(p => p.RatingMean).Take(100)
             .ToList();
 
-        return records.Select(PlayerData.FromPlayerRecord).Select((p, idx) => new LeagueLeaderboardRecord
+        return records.Select((record, idx) =>
         {
-            PlayerId = p.PlayerId,
-            SteamId = p.SteamId,
-            PlayerName = p.Nickname,
-            Points = LeagueRanker.PointsFor(p.Rating.Mean),
-            Status = idx + 1,
-            Wins = p.HeroStats.Sum(h => h.Wins),
-            TotalMatches = p.HeroStats.Sum(h => h.TotalMatches),
-            RegistrationTime = default,
-            Region = p.Region
+            var p = PlayerData.FromPlayerRecord(record);
+            return new LeagueLeaderboardRecord
+            {
+                PlayerId = p.PlayerId,
+                SteamId = p.SteamId,
+                PlayerName = p.Nickname,
+                Points = LeagueRanker.PointsFor(p.Rating.Mean),
+                Status = idx + 1,
+                Wins = p.HeroStats.Sum(h => h.Wins),
+                TotalMatches = p.HeroStats.Sum(h => h.TotalMatches),
+                RegistrationTime = default,
+                // Region is what the client's last column reads, but it never renders the value
+                // anywhere else, so the slot carries the player's rank badge instead.
+                Region = LeagueRanker.Label(LeagueRanker.Derive(record))
+            };
         }).ToList();
     }
 }
