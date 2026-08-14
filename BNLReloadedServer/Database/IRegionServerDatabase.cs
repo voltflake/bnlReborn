@@ -23,7 +23,7 @@ public interface IRegionServerDatabase
     public bool RemoveUser(uint userId);
     public bool UpdateChatName(uint userId, string newName);
     public Task NotifyFriends(uint playerId);
-    public Task NotifyRequests(uint receiverId, uint senderId);
+    public Task NotifyRequests(uint playerId, bool requestsForMe, bool requestsFromMe);
     public void NotifyLeague(uint playerId, League league);
     public List<CustomGameInfo> GetCustomGames();
     public ulong? AddCustomGame(string name, string password, uint playerId);

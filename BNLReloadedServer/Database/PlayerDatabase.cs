@@ -565,6 +565,11 @@ public class PlayerDatabase : IPlayerDatabase
         {
             player.RequestsFromMe = requestsFrom;
         }
+
+        if (requestsFor != null || requestsFrom != null)
+        {
+            Databases.RegionServerDatabase.NotifyRequests(playerId, requestsFor != null, requestsFrom != null);
+        }
     }
 
     public void SetSteamFriends(uint playerId, List<ulong> steamFriends)

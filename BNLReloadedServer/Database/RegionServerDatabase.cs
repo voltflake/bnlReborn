@@ -206,28 +206,16 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
     }
 
-    public async Task NotifyRequests(uint receiverId, uint senderId)
+    public async Task NotifyRequests(uint playerId, bool requestsForMe, bool requestsFromMe)
     {
-        var receiverInfo = await _playerDatabase.GetFriendRequestsFor(receiverId);
-        var senderInfo = await _playerDatabase.GetFriendRequestsFrom(senderId);
-        
-        if (UserConnected(receiverId, out var friendInfo) &&
-            GetService<IServicePlayer>(friendInfo.Guid, ServiceId.ServicePlayer, out var servicePlayer))
+        if (!UserConnected(playerId, out var playerInfo) ||
+            !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var servicePlayer)) return;
+
+        servicePlayer.SendPlayerUpdate(new PlayerUpdate
         {
-            servicePlayer.SendPlayerUpdate(new PlayerUpdate
-            {
-                RequestsFromFriends = receiverInfo
-            });
-        }
-        
-        if (UserConnected(senderId, out var friendInfo2) &&
-            GetService<IServicePlayer>(friendInfo2.Guid, ServiceId.ServicePlayer, out var servicePlayer2))
-        {
-            servicePlayer2.SendPlayerUpdate(new PlayerUpdate
-            {
-                RequestsFromMe = senderInfo
-            });
-        }
+            RequestsFromFriends = requestsForMe ? await _playerDatabase.GetFriendRequestsFor(playerId) : null,
+            RequestsFromMe = requestsFromMe ? await _playerDatabase.GetFriendRequestsFrom(playerId) : null
+        });
     }
 
     public void UserUiChanged(uint userId, UiId uiId, float duration)
