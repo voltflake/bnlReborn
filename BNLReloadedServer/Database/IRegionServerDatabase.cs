@@ -43,6 +43,8 @@ public interface IRegionServerDatabase
     public bool RestartTimeTrialGame(uint playerId);
     public bool StartGameFromMatchmaker(CardGameMode gameMode, List<PlayerQueueData> team1, List<PlayerQueueData> team2);
     public bool BackfillMatchmakerGame(PlayerQueueData player, TeamType team, string gameInstanceId);
+    public bool SetIgnored(uint playerId, uint targetId, bool ignore);
+    public void SendIgnoresTo(uint playerId);
     public bool SendMessage(uint playerId, RoomId roomId, string message);
     public PrivateMessageFailReason? SendMessage(uint playerId, uint receiver, string message);
     public IGameInstance? GetGameInstance(uint? playerId);

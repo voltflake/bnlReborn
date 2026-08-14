@@ -104,6 +104,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         
         var scene = _serverDatabase.GetLastScene(sender.AssociatedPlayerId.Value);
         _serverDatabase.UpdateScene(sender.AssociatedPlayerId.Value, scene, serviceScene, scene is not SceneMainMenu);
+        _serverDatabase.SendIgnoresTo(sender.AssociatedPlayerId.Value);
         var update = _playerDatabase.GetFullPlayerUpdate(sender.AssociatedPlayerId.Value);
         if (update == null) return;
         SendPlayerUpdate(update);

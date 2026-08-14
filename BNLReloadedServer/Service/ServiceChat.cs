@@ -44,6 +44,8 @@ public class ServiceChat(ISender sender) : IServiceChat
     {
         var playerId = reader.ReadUInt32();
         var ignore = reader.ReadBoolean();
+        if (sender.AssociatedPlayerId == null) return;
+        _serverDatabase.SetIgnored(sender.AssociatedPlayerId.Value, playerId, ignore);
     }
 
     public void SendRoomAdd(RoomId room)
@@ -93,14 +95,17 @@ public class ServiceChat(ISender sender) : IServiceChat
         sender.Send(writer);
     }
 
-    public void SendRoomMessage(RoomId roomId, ChatPlayer player, string message)
+    public void SendRoomMessage(RoomId roomId, ChatPlayer player, string message, List<Guid>? excluded = null)
     {
         using var writer = CreateWriter();
         writer.Write((byte) ServiceChatId.MessageSendRoomMessage);
         RoomId.WriteVariant(writer, roomId);
         ChatPlayer.WriteRecord(writer, player);
         writer.Write(message);
-        sender.Send(writer);
+        if (excluded is { Count: > 0 })
+            sender.SendExcept(writer, excluded);
+        else
+            sender.Send(writer);
     }
 
     private void ReceiveRoomMessage(BinaryReader reader)

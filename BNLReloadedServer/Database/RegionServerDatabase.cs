@@ -30,6 +30,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         public Key? GameModeForSquadInvite { get; set; }
         public bool Online { get; set; } = true;
         public bool IsAdmin { get; } = isAdmin;
+
+        // Chat mutes last for one match only, so they live here rather than in the player database.
+        // Set by the muter's session thread, read by whichever thread is relaying a chat message.
+        public ConcurrentDictionary<uint, byte> Ignored { get; } = new();
     }
     
     private readonly ConcurrentDictionary<uint, ConnectionInfo> _connectedUsers = new();
@@ -736,8 +740,41 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         var chatRoom = GetChatRoom(playerId, roomId);
         if (chatRoom == null || !UserConnected(playerId, out var playerInfo)) return false;
-        chatRoom.SendMessage(playerInfo.ChatInfo, message);
+        chatRoom.SendMessage(playerInfo.ChatInfo, message, IgnorersOf(playerId));
         return true;
+    }
+
+    // Sessions of everyone who has muted this speaker. A superset of any single room's members is
+    // fine: SendExcept only filters the recipients it was going to send to anyway.
+    private List<Guid> IgnorersOf(uint speakerId) =>
+        _connectedUsers.Values
+            .Where(info => info.Online && info.Ignored.ContainsKey(speakerId))
+            .Select(info => info.Guid)
+            .ToList();
+
+    public bool SetIgnored(uint playerId, uint targetId, bool ignore)
+    {
+        if (playerId == targetId || !UserConnected(playerId, out var playerInfo)) return false;
+        if (!(ignore ? playerInfo.Ignored.TryAdd(targetId, 0) : playerInfo.Ignored.TryRemove(targetId, out _)))
+            return false;
+        SendIgnores(playerInfo);
+        return true;
+    }
+
+    // A player who reconnects mid-match keeps their mutes here but starts with an empty client-side
+    // list, so it has to be pushed again once the new session's services are up.
+    public void SendIgnoresTo(uint playerId)
+    {
+        if (UserConnected(playerId, out var playerInfo) && playerInfo.Ignored.Count > 0)
+            SendIgnores(playerInfo);
+    }
+
+    private void SendIgnores(ConnectionInfo playerInfo)
+    {
+        if (!GetService<IServiceChat>(playerInfo.Guid, ServiceId.ServiceChat, out var chatService)) return;
+        chatService.SendIgnores(playerInfo.Ignored.Keys
+            .Select(id => new ChatPlayer { PlayerId = id, Nickname = _playerDatabase.GetPlayerName(id) })
+            .ToList());
     }
 
     public PrivateMessageFailReason? SendMessage(uint playerId, uint receiver, string message)
@@ -745,7 +782,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (!UserConnected(playerId, out var me) || !UserConnected(receiver, out var them))
             return PrivateMessageFailReason.Offline;
         if (them.GameInstanceId != null) return PrivateMessageFailReason.Match;
-        if (_playerDatabase.GetIgnoredUsers(receiver).Contains(playerId)) return PrivateMessageFailReason.Ignor;
+        if (them.Ignored.ContainsKey(playerId)) return PrivateMessageFailReason.Ignor;
         var chatPlayerMe = me.ChatInfo;
         var chatPlayerThem = them.ChatInfo;
         if (!GetService<IServiceChat>(me.Guid, ServiceId.ServiceChat, out var myChatService) || 
@@ -781,6 +818,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if(!UserConnected(playerId, out var playerInfo)) return false;
         if (playerInfo.GameInstanceId != gameInstanceId) return false;
         playerInfo.GameInstanceId = null;
+        if (playerInfo.Ignored.Count > 0)
+        {
+            playerInfo.Ignored.Clear();
+            SendIgnores(playerInfo);
+        }
         UpdateScene(playerId, new SceneMainMenu());
 
         return true;

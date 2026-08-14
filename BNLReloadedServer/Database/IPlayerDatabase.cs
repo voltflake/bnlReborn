@@ -24,7 +24,6 @@ public interface IPlayerDatabase
     public LobbyLoadout GetLoadoutForHero(uint playerId, Key heroKey, bool defaultLoadout = false);
     public PlayerLobbyState GetDummyPlayerLobbyInfo(uint playerId, Key heroKey, TeamType team, Dictionary<int, Key>? devices = null);
     public Dictionary<Key, int> GetDeviceLevels(uint playerId);
-    public List<uint> GetIgnoredUsers(uint playerId);
     public Dictionary<CurrencyType, float> GetCurrency(uint playerId);
     public Task<List<string>?> GetRegions();
     public Task<List<SearchResult>?> GetSearchResults(string pattern);

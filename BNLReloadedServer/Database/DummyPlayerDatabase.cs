@@ -409,8 +409,6 @@ public class DummyPlayerDatabase : IPlayerDatabase
         return deviceLevels;
     }
 
-    public List<uint> GetIgnoredUsers(uint playerId) => [];
-
     public Dictionary<CurrencyType, float> GetCurrency(uint playerId) => _testCurrencies;
     public async Task<List<string>?> GetRegions() => [];
 
