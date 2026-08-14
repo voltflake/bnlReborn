@@ -23,7 +23,7 @@ internal class RegionSession : ServerSession
     {
         if (Sender.AssociatedPlayerId != null)
         {
-            Databases.RegionServerDatabase.RemoveUser(Sender.AssociatedPlayerId.Value);
+            Databases.RegionServerDatabase.RemoveUser(Sender.AssociatedPlayerId.Value, Id);
             Databases.PlayerDatabase.RemovePlayer(Sender.AssociatedPlayerId.Value);
         }
 

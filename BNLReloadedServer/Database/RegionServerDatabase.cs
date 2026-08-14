@@ -34,6 +34,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         // Chat mutes last for one match only, so they live here rather than in the player database.
         // Set by the muter's session thread, read by whichever thread is relaying a chat message.
         public ConcurrentDictionary<uint, byte> Ignored { get; } = new();
+
+        // Players this session has an unanswered squad invite out to. Written by the inviter's
+        // session thread and read by whichever thread finds the invite has become void.
+        public ConcurrentDictionary<uint, byte> SentSquadInvites { get; } = new();
     }
     
     private readonly ConcurrentDictionary<uint, ConnectionInfo> _connectedUsers = new();
@@ -124,6 +128,20 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         return true;
     }
 
+    public Guid? GetSessionGuid(uint playerId) => UserConnected(playerId, out var playerInfo) ? playerInfo.Guid : null;
+
+    public IServicePlayer? GetPlayerService(uint playerId) =>
+        UserConnected(playerId, out var playerInfo) &&
+        GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var service)
+            ? service
+            : null;
+
+    public IServiceChat? GetChatService(uint playerId) =>
+        UserConnected(playerId, out var playerInfo) &&
+        GetService<IServiceChat>(playerInfo.Guid, ServiceId.ServiceChat, out var service)
+            ? service
+            : null;
+
     public bool AddUser(uint userId, Guid sessionId)
     {
         var result = true;
@@ -143,14 +161,24 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             playerInfo.Guid = sessionId;
             playerInfo.Online = true;
+            // The squad still holds the session this player had before they dropped, which is dead
+            // now. Without this they stay listed for everyone else but never hear from the squad again.
+            if (playerInfo.SquadId is { } squadId && _squads.TryGetValue(squadId, out var squad))
+            {
+                squad.RebindPlayer(userId, sessionId);
+            }
         }
-        
+
         return result;
     }
 
-    public bool RemoveUser(uint userId)
+    // sessionId is the session asking to be torn down. A player who reconnected before their old
+    // session finished dying is already back under a new one, and tearing that down would log out
+    // and unsquad someone who is online.
+    public bool RemoveUser(uint userId, Guid? sessionId = null)
     {
         if (!UserConnected(userId, out var playerInfo)) return false;
+        if (sessionId is not null && playerInfo.Guid != sessionId) return false;
 
         playerInfo.Online = false;
         _matchmaker.RemovePlayer(userId, null);
@@ -167,7 +195,26 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             gameInstance.PlayerLeftInstance(userId, KickReason.MatchQuit);
         }
 
-        return _connectedUsers.TryRemove(userId, out _);
+        // Read before the removal, because leaving the squad needs the connection info that is
+        // about to go. The paths above that bail out keep the seat on purpose: those players are
+        // still in a match and get their session rebound when they come back.
+        var playerSquadId = playerInfo.SquadId;
+        CancelAllSquadInvites(userId, playerInfo);
+        if (!_connectedUsers.TryRemove(userId, out _)) return false;
+
+        LeaveSquadOnDisconnect(userId, playerSquadId);
+        return true;
+    }
+
+    // A dropped player has to give up their squad seat: nothing can reach them any more, the
+    // leader cannot kick a member the server no longer knows, and they come back squadless while
+    // everyone else still sees them in the list.
+    private void LeaveSquadOnDisconnect(uint playerId, ulong? squadId)
+    {
+        if (squadId is null || !_squads.TryGetValue(squadId.Value, out var squad)) return;
+
+        RemoveSquadFromQueue(squadId.Value);
+        squad.RemovePlayer(playerId);
     }
 
     public bool UpdateChatName(uint userId, string newName)
@@ -285,6 +332,13 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         switch (scene.Type)
         {
             case SceneType.MainMenu:
+                // A client that has just reached the menu, after logging back in or leaving a
+                // match, may have missed the squad state pushed while it was still loading.
+                if (player.SquadId is { } squadId && _squads.TryGetValue(squadId, out var squad))
+                {
+                    squad.SendUpdateTo(userId);
+                }
+
                 break;
             case SceneType.Lobby:
                 break;
@@ -881,13 +935,22 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
         if (playerInfo.SquadId is not null && _squads.TryGetValue(playerInfo.SquadId.Value, out var squad))
         {
+            if (!squad.IsOwner(playerId) && !(CatalogueHelper.GlobalLogic.Squad?.MembersCanEnterQueue ?? false)) return;
+
+            // The squad's own mode, not the caller's: a member whose client is out of date must not
+            // drag everyone into a different queue.
+            if (squad.GameMode.GetCard<CardGameMode>() != null)
+            {
+                gameModeKey = squad.GameMode;
+            }
+
             foreach (var pId in squad.GetPlayers())
             {
                 if (!UserConnected(pId, out var pInfo) || _playerDatabase.GetPlayerDataNoWait(pId) is not { } pData ||
                     _playerDatabase.IsBanned(pId) ||
                     !GetService<IServiceMatchmaker>(pInfo.Guid, ServiceId.ServiceMatchmaker, out var matchmaker))
                     continue;
-                
+
                 _matchmaker.AddPlayer(gameModeKey, pId, pInfo.Guid, pData.Rating, pInfo.SquadId, matchmaker);
             }
         }
@@ -902,6 +965,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (UserConnected(playerId, out var playerInfo) && playerInfo.SquadId is not null &&
             _squads.TryGetValue(playerInfo.SquadId.Value, out var squad))
         {
+            if (!squad.IsOwner(playerId) && !(CatalogueHelper.GlobalLogic.Squad?.MembersCanLeaveQueue ?? false)) return;
+
             var matchServices = new List<IServiceMatchmaker>();
             foreach (var pId in squad.GetPlayers())
             {
@@ -944,46 +1009,58 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     public ulong? CreateSquad(uint ownerId, List<uint> players)
     {
         if (!UserConnected(ownerId, out var ownerInfo) || ownerInfo.GameModeForSquadInvite is null) return null;
-        var squadId = _nextSquadId++;
+        var gameMode = ownerInfo.GameModeForSquadInvite.Value;
+        var maxPlayers = CatalogueHelper.MaxPlayersInSquad(gameMode);
+
+        // Everyone who can actually be put in the squad, worked out before anything is created so
+        // a squad that would end up empty or solo is never left behind.
+        var realPlayers = new List<uint>();
+        foreach (var playerId in players)
+        {
+            if (realPlayers.Count >= maxPlayers) break;
+            if (realPlayers.Contains(playerId) || !UserConnected(playerId, out var info) ||
+                !GetService<IServiceChat>(info.Guid, ServiceId.ServiceChat, out _) ||
+                !GetService<IServicePlayer>(info.Guid, ServiceId.ServicePlayer, out _)) continue;
+
+            realPlayers.Add(playerId);
+        }
+
+        if (realPlayers.Count < 2) return null;
+
+        var squadId = Interlocked.Increment(ref _nextSquadId);
         var sender = new SessionSender(server);
         var squadUpdater = new ServicePlayer(sender, new ServiceScene(sender), new ServiceTime(sender));
-        
+
         var squadRoom = new RoomIdSquad
         {
             SquadId = squadId
         };
-        
-        var squad = new SquadData(squadId, ownerInfo.GameModeForSquadInvite.Value, sender, squadUpdater)
+
+        var squad = new SquadData(squadId, gameMode, sender, squadUpdater)
         {
             ChatRoom = new ChatRoom(squadRoom, new SessionSender(server))
         };
 
         ownerInfo.GameModeForSquadInvite = null;
-        
-        var realPlayers = new List<uint>();
-        var realGuids = new List<Guid>();
-        var realChatServices = new List<IServiceChat>();
-        var realPlayerServices = new List<IServicePlayer>();
-        foreach (var playerId in players)
+        _squads.TryAdd(squadId, squad);
+
+        foreach (var playerId in realPlayers)
         {
-            if (!UserConnected(playerId, out var playerInfo) ||
-                !GetService<IServiceChat>(playerInfo.Guid, ServiceId.ServiceChat, out var chatService) ||
-                !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var playerService)) continue;
-            
+            if (!UserConnected(playerId, out var playerInfo)) continue;
+
+            LeaveSquad(playerId);
             if (GetService<IServiceMatchmaker>(playerInfo.Guid, ServiceId.ServiceMatchmaker, out var serviceMatchmaker))
             {
                 _matchmaker.RemovePlayer(playerId, serviceMatchmaker);
             }
-            
-            realPlayers.Add(playerId);
-            realGuids.Add(playerInfo.Guid);
-            realChatServices.Add(chatService);
-            realPlayerServices.Add(playerService);
+
+            // Set before the squad is told about them: leaving the old squad happens on that
+            // squad's own thread and must not clear a membership that has already moved on.
             playerInfo.SquadId = squadId;
         }
-        
-        squad.AddPlayers(realPlayers, realGuids, realChatServices, realPlayerServices, ownerId);
-        _squads.TryAdd(squadId, squad);
+
+        squad.AddPlayers(realPlayers, ownerId);
+        CancelVoidedSquadInvites(squad, realPlayers);
         return squadId;
     }
 
@@ -1006,17 +1083,29 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     public bool JoinSquad(uint playerId, ulong squadId)
     {
         if (!UserConnected(playerId, out var playerInfo) || !_squads.TryGetValue(squadId, out var squad) ||
-            !GetService<IServiceChat>(playerInfo.Guid, ServiceId.ServiceChat, out var chatService) ||
-            !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var playerService)) return false;
+            !GetService<IServiceChat>(playerInfo.Guid, ServiceId.ServiceChat, out _) ||
+            !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out _)) return false;
+
+        if (playerInfo.SquadId == squadId) return true;
+        if (squad.PlayerCount >= CatalogueHelper.MaxPlayersInSquad(squad.GameMode)) return false;
+
+        // Whatever squad they were in before has to let go of them, or it keeps a member it can
+        // no longer reach and the player ends up subscribed to two squads at once.
+        LeaveSquad(playerId);
 
         if (GetService<IServiceMatchmaker>(playerInfo.Guid, ServiceId.ServiceMatchmaker, out var serviceMatchmaker))
         {
             _matchmaker.RemovePlayer(playerId, serviceMatchmaker);
         }
-        
+
         RemoveSquadFromQueue(squadId);
-        squad.AddPlayer(playerId, playerInfo.Guid, chatService, playerService, false);
         playerInfo.SquadId = squadId;
+        squad.AddPlayer(playerId, false);
+
+        // GetPlayers may or may not have the new member yet: the add runs on the squad's thread.
+        var members = squad.GetPlayers();
+        if (!members.Contains(playerId)) members.Add(playerId);
+        CancelVoidedSquadInvites(squad, members);
         return true;
     }
 
@@ -1024,7 +1113,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if (!UserConnected(playerId, out var playerInfo) || playerInfo.SquadId is null ||
             !_squads.TryGetValue(playerInfo.SquadId.Value, out var squad)) return false;
-        
+
         RemoveSquadFromQueue(playerInfo.SquadId.Value);
         squad.RemovePlayer(playerId);
 
@@ -1035,13 +1124,19 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         return true;
     }
 
+    // Keyed off the kicker rather than the target: the target may be a member who dropped, and the
+    // leader still has to be able to clear them out.
     public bool KickFromSquad(uint playerId, uint kickerId)
     {
-        if (!UserConnected(playerId, out var playerInfo) || playerInfo.SquadId is null ||
-            !_squads.TryGetValue(playerInfo.SquadId.Value, out var squad) || !squad.IsOwner(kickerId)) return false;
-        
-        RemoveSquadFromQueue(playerInfo.SquadId.Value);
+        if (playerId == kickerId || !UserConnected(kickerId, out var kickerInfo) || kickerInfo.SquadId is null ||
+            !_squads.TryGetValue(kickerInfo.SquadId.Value, out var squad) || !squad.IsOwner(kickerId) ||
+            !squad.Contains(playerId)) return false;
+
+        RemoveSquadFromQueue(kickerInfo.SquadId.Value);
         squad.RemovePlayer(playerId);
+
+        if (!UserConnected(playerId, out var playerInfo)) return true;
+
         if (GetService<IServiceMatchmaker>(playerInfo.Guid, ServiceId.ServiceMatchmaker, out var matchmakerService))
         {
             _matchmaker.RemovePlayer(playerId, matchmakerService);
@@ -1056,22 +1151,77 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool SendSquadInvite(uint playerId, uint senderId, Key gameModeKey)
     {
-        if (!UserConnected(playerId, out var playerInfo) || !UserConnected(senderId, out var senderInfo) ||
+        if (playerId == senderId || !UserConnected(playerId, out var playerInfo) ||
+            !UserConnected(senderId, out var senderInfo) ||
             !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var playerService)) return false;
-        
+
+        if (senderInfo.SquadId is { } senderSquadId && _squads.TryGetValue(senderSquadId, out var squad))
+        {
+            if (!squad.IsOwner(senderId) && !(CatalogueHelper.GlobalLogic.Squad?.MembersCanInvite ?? false)) return false;
+            if (squad.Contains(playerId) || squad.PlayerCount >= CatalogueHelper.MaxPlayersInSquad(squad.GameMode))
+                return false;
+
+            // The squad the invitee would be joining already has a mode; the client's is stale.
+            gameModeKey = squad.GameMode;
+        }
+
         senderInfo.GameModeForSquadInvite = gameModeKey;
+        senderInfo.SentSquadInvites[playerId] = 0;
         playerService.SendNotifySquadInvite(senderId, _playerDatabase.GetPlayerName(senderId));
         return true;
     }
 
+    // The client shows an invite until it is answered or withdrawn, so anything that makes an
+    // invite impossible to honour has to withdraw it rather than leave the popup sitting there.
+    private void CancelSquadInvite(uint senderId, ConnectionInfo senderInfo, uint receiverId)
+    {
+        if (!senderInfo.SentSquadInvites.TryRemove(receiverId, out _)) return;
+
+        GetPlayerService(receiverId)?.SendNotifySquadInviteCancel(senderId);
+    }
+
+    private void CancelAllSquadInvites(uint senderId, ConnectionInfo senderInfo)
+    {
+        foreach (var receiverId in senderInfo.SentSquadInvites.Keys)
+        {
+            CancelSquadInvite(senderId, senderInfo, receiverId);
+        }
+    }
+
+    // memberIds is the squad as it stands after the change, including anyone whose addition is
+    // still queued, so nothing is decided on a stale roster.
+    private void CancelVoidedSquadInvites(SquadData squad, List<uint> memberIds)
+    {
+        var full = memberIds.Count >= CatalogueHelper.MaxPlayersInSquad(squad.GameMode);
+
+        foreach (var memberId in memberIds)
+        {
+            if (!UserConnected(memberId, out var memberInfo)) continue;
+
+            foreach (var receiverId in memberInfo.SentSquadInvites.Keys)
+            {
+                // A full squad has nothing left to offer, and an invite to someone who is already
+                // in the squad has nowhere to take them.
+                if (full || memberIds.Contains(receiverId))
+                {
+                    CancelSquadInvite(memberId, memberInfo, receiverId);
+                }
+            }
+        }
+    }
+
+    // playerId is the player who sent the invite, senderId the one answering it.
     public bool SendSquadInviteReply(uint playerId, uint senderId, SquadInviteReplyType reply)
     {
         if (!UserConnected(playerId, out var playerInfo) ||
             !GetService<IServicePlayer>(playerInfo.Guid, ServiceId.ServicePlayer, out var playerService)) return false;
-        playerService.SendNotifySquadInviteReply(playerId, reply, _playerDatabase.GetPlayerName(senderId));
+        playerService.SendNotifySquadInviteReply(senderId, reply, _playerDatabase.GetPlayerName(senderId));
+
+        // Answered, so it no longer needs withdrawing: the client dropped it when it replied.
+        playerInfo.SentSquadInvites.TryRemove(senderId, out _);
 
         if (reply is not SquadInviteReplyType.Accepted) return true;
-        
+
         if (playerInfo.SquadId is null)
         {
             CreateSquad(playerId, [senderId, playerId]);
@@ -1087,20 +1237,28 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if (!UserConnected(playerId, out var playerInfo) || playerInfo.SquadId is null ||
             !_squads.TryGetValue(playerInfo.SquadId.Value, out var squad) || !squad.IsOwner(playerId)) return false;
-        
+
+        // A mode the squad is already too big for would leave it unable to queue at all.
+        if (squad.PlayerCount > CatalogueHelper.MaxPlayersInSquad(gameModeKey)) return false;
+
         squad.ChangeGameMode(gameModeKey);
         return true;
     }
 
-    public void ClearSquadId(uint playerId)
+    // Returns whether the player was still in that squad: one that is being torn down must not
+    // clear a membership the player has already moved on to.
+    public bool ClearSquadId(uint playerId, ulong squadId)
     {
-        if (!UserConnected(playerId, out var playerInfo)) return;
+        if (!UserConnected(playerId, out var playerInfo) || playerInfo.SquadId != squadId) return false;
         playerInfo.SquadId = null;
+        return true;
     }
 
     public void CloseSquad(ulong squadId) => _squads.Remove(squadId, out _);
     
     public ulong? GetSquadId(uint playerId) => UserConnected(playerId, out var playerInfo) ? playerInfo.SquadId : null;
+
+    public bool IsSquadLeader(uint playerId) => GetSquad(playerId, out var squad) && squad.IsOwner(playerId);
     
     public void SendAfkWarning(uint playerId, string gameInstanceId)
     {
@@ -1114,7 +1272,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if (!UserConnected(playerId, out var playerInfo) || playerInfo.Online) return;
         RemoveFromCustomGame(playerId);
-        _connectedUsers.TryRemove(playerId, out _);
+        var playerSquadId = playerInfo.SquadId;
+        CancelAllSquadInvites(playerId, playerInfo);
+        if (!_connectedUsers.TryRemove(playerId, out _)) return;
+
+        LeaveSquadOnDisconnect(playerId, playerSquadId);
     }
 
     public void FreeMatchmakerSlot(uint playerId, string gameInstanceId)

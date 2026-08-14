@@ -184,7 +184,9 @@ public class ServiceLobby(ISender sender) : IServiceLobby
         if (sender.AssociatedPlayerId.HasValue)
         {
             var squad = _serverDatabase.GetSquadId(sender.AssociatedPlayerId.Value);
-            if (squad != null)
+            // Taking the whole squad out of a match is the leader's call: any member could
+            // otherwise end the match for everyone they are queued with.
+            if (squad != null && _serverDatabase.IsSquadLeader(sender.AssociatedPlayerId.Value))
             {
                 await Task.Delay(5000);
                 GameInstance?.RemoveAllFromSquad(squad.Value);

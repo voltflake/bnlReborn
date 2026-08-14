@@ -20,7 +20,7 @@ public interface IRegionServerDatabase
     public void RemoveMatchServices(Guid sessionId);
     public bool LinkMatchSessionGuidToUser(uint userId, Guid sessionId);
     public bool AddUser(uint userId, Guid sessionId);
-    public bool RemoveUser(uint userId);
+    public bool RemoveUser(uint userId, Guid? sessionId = null);
     public bool UpdateChatName(uint userId, string newName);
     public Task NotifyFriends(uint playerId);
     public Task NotifyRequests(uint playerId, bool requestsForMe, bool requestsFromMe);
@@ -66,9 +66,13 @@ public interface IRegionServerDatabase
     public bool SendSquadInvite(uint playerId, uint senderId, Key gameModeKey);
     public bool SendSquadInviteReply(uint playerId, uint senderId, SquadInviteReplyType reply);
     public bool SetSquadGamemode(uint playerId, Key gameModeKey);
-    public void ClearSquadId(uint playerId);
+    public bool ClearSquadId(uint playerId, ulong squadId);
+    public Guid? GetSessionGuid(uint playerId);
+    public IServicePlayer? GetPlayerService(uint playerId);
+    public IServiceChat? GetChatService(uint playerId);
     public void CloseSquad(ulong squadId);
     public ulong? GetSquadId(uint playerId);
+    public bool IsSquadLeader(uint playerId);
     public void SendAfkWarning(uint playerId, string gameInstanceId);
     public void KickForAfk(uint playerId, string gameInstanceId);
     public void FreeMatchmakerSlot(uint playerId, string gameInstanceId);

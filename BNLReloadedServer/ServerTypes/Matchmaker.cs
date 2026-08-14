@@ -521,7 +521,10 @@ public class Matchmaker(AsyncTaskTcpServer server)
             {
                 var flippedPlayers = nonGuaranteedPlayers.ToList();
                 flippedPlayers.Reverse();
-                var topMatching = flippedPlayers.Aggregate(guaranteedPlayers,
+                // Each candidate line-up starts from its own copy of the guaranteed players: the
+                // aggregate below fills the list it is seeded with, so sharing one would make every
+                // candidate the same list and leave nothing to compare.
+                var topMatching = flippedPlayers.Aggregate(guaranteedPlayers.ToList(),
                     (queuePlayers, nextSquad) =>
                     {
                         if (nextSquad.Players.Count <= playersForQueue - queuePlayers.Sum(p => p.Players.Count))
@@ -534,7 +537,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                     res => res);
                 topMatching.Sort((x, y) => x.RatingMean.CompareTo(y.RatingMean));
                 
-                var bottomMatching = nonGuaranteedPlayers.Aggregate(guaranteedPlayers,
+                var bottomMatching = nonGuaranteedPlayers.Aggregate(guaranteedPlayers.ToList(),
                     (queuePlayers, nextSquad) =>
                     {
                         if (nextSquad.Players.Count <= playersForQueue - queuePlayers.Sum(p => p.Players.Count))
@@ -550,7 +553,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 playerPool = [topMatching, bottomMatching];
                 for (var i = 0; i < NumBalChecks; i++)
                 {
-                    var randPlayers = nonGuaranteedPlayers.Shuffle().Aggregate(guaranteedPlayers,
+                    var randPlayers = nonGuaranteedPlayers.Shuffle().Aggregate(guaranteedPlayers.ToList(),
                         (queuePlayers, nextSquad) =>
                         {
                             if (nextSquad.Players.Count <= playersForQueue - queuePlayers.Sum(p => p.Players.Count))

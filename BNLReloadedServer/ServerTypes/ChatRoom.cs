@@ -9,16 +9,27 @@ public class ChatRoom(RoomId roomId, ISender sender)
     private readonly ServiceChat _chatService = new(sender);
     public readonly RoomId RoomId = roomId;
 
-    public void AddToRoom(Guid sessionId, IServiceChat notifyPlayer)
+    // The notify service is optional: a session that has already gone away still has to be
+    // unsubscribed, but there is nobody left to tell about it.
+    public void AddToRoom(Guid sessionId, IServiceChat? notifyPlayer)
     {
         sender.Subscribe(sessionId);
-        notifyPlayer.SendRoomAdd(RoomId);
+        notifyPlayer?.SendRoomAdd(RoomId);
     }
 
-    public void RemoveFromRoom(Guid sessionId, IServiceChat notifyPlayer)
+    public void RemoveFromRoom(Guid sessionId, IServiceChat? notifyPlayer)
     {
         sender.Unsubscribe(sessionId);
-        notifyPlayer.SendRoomRemove(RoomId);
+        notifyPlayer?.SendRoomRemove(RoomId);
+    }
+
+    // Re-announces the room to a session that may already have it. The client keys its rooms in a
+    // dictionary it adds to blindly, so a room it still remembers has to be dropped first.
+    public void ResendRoom(Guid sessionId, IServiceChat? notifyPlayer)
+    {
+        sender.Subscribe(sessionId);
+        notifyPlayer?.SendRoomRemove(RoomId);
+        notifyPlayer?.SendRoomAdd(RoomId);
     }
 
     public void SendMessage(ChatPlayer player, string message, List<Guid>? excluded = null) =>

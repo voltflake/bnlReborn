@@ -28,6 +28,17 @@ public static class CatalogueHelper
     
     public static TimeTrialLogic TimeTrialLogic => GlobalLogic.TimeTrial!;
 
+    // The client sizes squads by the game mode's own cap and only falls back to the global one,
+    // so the server has to read the limit the same way to agree with it.
+    public static int MaxPlayersInSquad(Key gameModeKey)
+    {
+        var modeMax = gameModeKey.GetCard<CardGameMode>()?.MaxPlayersInSquad ?? 0;
+        if (modeMax > 0) return modeMax;
+
+        var globalMax = GlobalLogic.Squad?.MaxPlayersInSquad ?? 0;
+        return globalMax > 0 ? globalMax : int.MaxValue;
+    }
+
     public static List<T> GetCards<T>(CardCategory category) where T : Card
     {
         return Databases.Catalogue.All.Where(x => x.Category == category).Select(x => (T) x).ToList();
