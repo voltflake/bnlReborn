@@ -233,7 +233,13 @@ public class GameInstance : IGameInstance
     public void PlayerLeftInstance(uint userId, KickReason reason)
     {
         CancelDisconnectTimer(userId);
-        _connectedUsers.TryRemove(userId, out var player);
+        if (!_connectedUsers.TryRemove(userId, out var player))
+        {
+            // Already left: after the match ends the zone keeps player info for the result
+            // screen, so a repeat call would announce the leave a second time.
+            _serverDatabase.RemoveFromGameInstance(userId, GameInstanceId);
+            return;
+        }
         RemoveFromChat(player);
         
         IServiceLobby? serviceLobby = null;
