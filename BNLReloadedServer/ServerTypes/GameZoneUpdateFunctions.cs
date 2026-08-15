@@ -1943,7 +1943,8 @@ public partial class GameZone
     {
         if (unit.PlayerId is null)
         {
-            RemoveUnit(unit.Id); 
+            RemoveUnit(unit.Id,
+                $"unit-dropped: dead={unit.IsDead}, expired={unit.IsExpired}, active={unit.IsActive}");
         }
         
         _unbufferedZone.SendUnitDrop(unit.Id);
@@ -1954,6 +1955,14 @@ public partial class GameZone
     {
         var newId = NewUnitId();
         var oldId = unit.Id;
+        _removedUnitDiagnostics[oldId] = new RemovedUnitDiagnostic(
+            unit.Key,
+            unit.UnitCard?.Data?.GetType().Name ?? "unknown",
+            unit.PlayerId,
+            unit.OwnerPlayerId,
+            unit.Transform.Position,
+            _tickNumber,
+            $"unit-id-changed: oldId={oldId}, newId={newId}");
         _units.Remove(oldId);
         if (unit.PlayerId is not null)
         {

@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Service;
 
@@ -399,6 +400,23 @@ public partial class GameZone
         if (player.CurrentGear?.Tools[channelData.ToolIndex] is { } toolLogic && toolLogic.IsEnoughAmmoToUse() &&
             toolLogic.Tool is ToolChannel channel)
         {
+            if (channelData.TargetUnit is { } targetId && !_units.TryGetValue(targetId, out var target))
+            {
+                var targetHistory = _removedUnitDiagnostics.TryGetValue(targetId, out var removed)
+                    ? $"key={removed.Key}, type={removed.UnitType}, playerId={removed.PlayerId}, " +
+                      $"ownerPlayerId={removed.OwnerPlayerId}, position={removed.Position}, " +
+                      $"removedAtTick={removed.RemovedAtTick}, reason={removed.Reason}"
+                    : "no removal record; the client supplied an unknown target ID";
+
+                Log.Warn(LogCat.Server,
+                    $"Rejected channel with invalid target {targetId}: casterUnit={player.Id}, " +
+                    $"casterPlayer={playerId}, casterKey={player.Key}, gear={player.CurrentGear.Key}, " +
+                    $"toolIndex={channelData.ToolIndex}, currentTick={_tickNumber}; " +
+                    $"targetHistory=[{targetHistory}]");
+                channelService.SendStartChannel(rpcId, false);
+                return;
+            }
+
             player.CurrentChannelData = channelData;
             player.TicksPerChannel = (ulong)MathF.Max(float.Round(channel.Interval / SecondsPerTick), 0.0f);
             if (player.IsRecall)

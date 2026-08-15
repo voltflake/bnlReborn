@@ -42,6 +42,16 @@ public partial class GameZone : Updater
     private readonly Dictionary<uint, Unit> _units = new();
     private readonly Dictionary<uint, Unit> _playerUnits = new();
     private readonly Dictionary<uint, uint> _playerIdToUnitId = new();
+    private readonly Dictionary<uint, RemovedUnitDiagnostic> _removedUnitDiagnostics = new();
+
+    private sealed record RemovedUnitDiagnostic(
+        Key Key,
+        string UnitType,
+        uint? PlayerId,
+        uint? OwnerPlayerId,
+        Vector3 Position,
+        ulong RemovedAtTick,
+        string Reason);
 
     private readonly BoundsOctreeEx<Unit> _unitOctree;
 
@@ -1057,7 +1067,7 @@ public partial class GameZone : Updater
         }
         
         _playerUnits.Remove(unitId);
-        RemoveUnit(unitId);
+        RemoveUnit(unitId, $"player-left: playerId={playerId}, reason={reason}");
         _playerIdToUnitId.Remove(playerId);
         _zoneData.PlayerSpawnPoints.Remove(playerId);
         _zoneData.RespawnInfo.Remove(playerId);
@@ -1122,8 +1132,29 @@ public partial class GameZone : Updater
         }
     }
 
-    private void RemoveUnit(uint unitId)
+    private void RemoveUnit(uint unitId, string reason)
     {
+        if (_units.TryGetValue(unitId, out var unit))
+        {
+            _removedUnitDiagnostics[unitId] = new RemovedUnitDiagnostic(
+                unit.Key,
+                unit.UnitCard?.Data?.GetType().Name ?? "unknown",
+                unit.PlayerId,
+                unit.OwnerPlayerId,
+                unit.Transform.Position,
+                _tickNumber,
+                reason);
+
+            var channelingPlayerIds = _playerUnits.Values
+                .Where(player => player.PlayerId.HasValue &&
+                                 player.CurrentChannelData?.TargetUnit == unitId)
+                .Select(player => player.PlayerId!.Value)
+                .ToList();
+
+            foreach (var playerId in channelingPlayerIds)
+                ReceivedEndChannelRequest(playerId);
+        }
+
         RemoveUnitFromOctree(unitId);
         _units.Remove(unitId);
     }
@@ -1755,10 +1786,33 @@ public partial class GameZone : Updater
                             if (channel.IntervalEffects is { Count: > 0 })
                             {
                                 var channelImpact = unit.CreateImpactData(insidePoint: channelData.HitPos, sourceKey: unit.CurrentGear.Key);
-                                channel.IntervalEffects.ForEach(inst => 
-                                    ApplyInstEffect(unitSource,
-                                        channelData.TargetUnit.HasValue ? [_units[channelData.TargetUnit.Value]] : [],
-                                        inst, channelImpact));
+                                Unit[] targets = [];
+                                if (channelData.TargetUnit is { } targetId)
+                                {
+                                    if (!_units.TryGetValue(targetId, out var target))
+                                    {
+                                        var targetHistory = _removedUnitDiagnostics.TryGetValue(targetId, out var removed)
+                                            ? $"key={removed.Key}, type={removed.UnitType}, playerId={removed.PlayerId}, " +
+                                              $"ownerPlayerId={removed.OwnerPlayerId}, position={removed.Position}, " +
+                                              $"removedAtTick={removed.RemovedAtTick}, reason={removed.Reason}"
+                                            : "no removal record; the target ID may never have been valid";
+
+                                        Log.Error(LogCat.Server,
+                                            $"Channel references missing target {targetId}: casterUnit={unit.Id}, " +
+                                            $"casterPlayer={unit.PlayerId}, casterKey={unit.Key}, " +
+                                            $"gear={unit.CurrentGear.Key}, toolIndex={channelData.ToolIndex}, " +
+                                            $"currentTick={_tickNumber}; targetHistory=[{targetHistory}]");
+
+                                        if (unit.PlayerId is { } playerId)
+                                            ReceivedEndChannelRequest(playerId);
+                                        continue;
+                                    }
+
+                                    targets = [target];
+                                }
+
+                                channel.IntervalEffects.ForEach(inst =>
+                                    ApplyInstEffect(unitSource, targets, inst, channelImpact));
                             }
 
                             var ammoUpdate = currToolLogic.TakeAmmoUpdate();
