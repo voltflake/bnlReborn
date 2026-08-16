@@ -107,11 +107,14 @@ public class GameInstance : IGameInstance
 
     public bool IsOver() => HasEnded is true;
 
+    public MapInfo? GetMapInfo() => MapInfo;
+
     public void LinkGuidToPlayer(uint userId, Guid guid, Guid regionGuid)
     {
         CancelDisconnectTimer(userId);
         var playerTeam = GameInitiator.GetTeamForPlayer(userId);
         var squadId = _serverDatabase.GetSquadId(userId);
+        var isNewConnection = false;
         if (_connectedUsers.TryGetValue(userId, out var connectedUser))
         {
             connectedUser.Guid = guid;
@@ -121,6 +124,7 @@ public class GameInstance : IGameInstance
         else
         {
             _connectedUsers[userId] = new MatchConnectionInfo(guid, regionGuid, playerTeam, squadId);
+            isNewConnection = true;
         }
         if (!_services.TryGetValue(regionGuid, out var svc) ||
             !svc.TryGetValue(ServiceId.ServiceChat, out var service) || service is not IServiceChat chatService) return;
@@ -136,6 +140,15 @@ public class GameInstance : IGameInstance
             case TeamType.Neutral:
             default:
                 break;
+        }
+
+        if (isNewConnection && GameInitiator.IsPlayerSpectator(userId))
+        {
+            ChatRooms.BothTeamsRoom.SendServiceMessage(CatalogueStringHelper.OnSpectatorEnterChat, false,
+                new Dictionary<string, string>
+                {
+                    { "{spectator}", Databases.PlayerDatabase.GetPlayerName(userId) }
+                });
         }
     }
     
@@ -237,13 +250,11 @@ public class GameInstance : IGameInstance
     public void PlayerLeftInstance(uint userId, KickReason reason)
     {
         CancelDisconnectTimer(userId);
-        if (!_connectedUsers.TryRemove(userId, out var player))
-        {
-            // Already left: after the match ends the zone keeps player info for the result
-            // screen, so a repeat call would announce the leave a second time.
-            _serverDatabase.RemoveFromGameInstance(userId, GameInstanceId);
-            return;
-        }
+        _connectedUsers.TryRemove(userId, out var player);
+        // GameZone removes matchmaking spectators from the initiator as part of its cleanup, so
+        // preserve the role before that queued work runs and use it for the departure message.
+        var wasSpectator = GameInitiator.IsPlayerSpectator(userId);
+        var spectatorName = wasSpectator ? Databases.PlayerDatabase.GetPlayerName(userId) : null;
         RemoveFromChat(player);
         
         IServiceLobby? serviceLobby = null;
@@ -264,21 +275,31 @@ public class GameInstance : IGameInstance
         {
             if (player?.Guid is not null)
                 _zoneSender.Unsubscribe(player.Guid);
-            
-            if (Zone?.PlayerLeft(userId, reason) is true)
+
+            var removedPlayer = Zone?.PlayerLeft(userId, reason) is true;
+            if (wasSpectator)
             {
+                ChatRooms.BothTeamsRoom.SendServiceMessage(CatalogueStringHelper.OnSpectatorLeaveChat, false,
+                    new Dictionary<string, string> { { "{spectator}", spectatorName ?? string.Empty } });
+                return;
+            }
+
+            if (removedPlayer)
+            {
+                var messageArgs = new Dictionary<string, string> { { "player_id", userId.ToString() } };
+
+                // GuiPlayersStatus announces the Online -> Offline lobby transition itself. A
+                // server message here would show the same localized departure twice after the
+                // result screen has appeared.
+                if (Zone?.HasEnded is true) return;
+
                 ChatRooms.BothTeamsRoom.SendServiceMessage(
                     reason is KickReason.MatchInactivity 
                         ? CatalogueStringHelper.OnInactivity
                         : reason is KickReason.Cheating or KickReason.Admin 
                             ? CatalogueStringHelper.OnKicked 
-                            : Zone?.HasEnded is true 
-                                ? CatalogueStringHelper.OnLeaveMatch 
-                                : CatalogueStringHelper.OnQuit, 
-                        true, new Dictionary<string, string>
-                        { 
-                            { "player_id", userId.ToString() }
-                        });
+                            : CatalogueStringHelper.OnQuit,
+                        true, messageArgs);
             }
         });
 

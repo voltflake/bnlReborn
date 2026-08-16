@@ -952,6 +952,14 @@ public partial class GameZone : Updater
 
     public bool PlayerLeft(uint playerId, KickReason reason)
     {
+        // Spectators have no player unit, so they take the early-return path below. Release their
+        // matchmaking spectator slot here instead of waiting for the whole instance to close.
+        if (_gameInitiator is MatchmakerInitiator matchmakerInitiator &&
+            matchmakerInitiator.IsPlayerSpectator(playerId))
+        {
+            matchmakerInitiator.RemovePlayer(playerId);
+        }
+
         if (!_playerIdToUnitId.TryGetValue(playerId, out var unitId) ||
             !_playerUnits.TryGetValue(unitId, out var player))
         {

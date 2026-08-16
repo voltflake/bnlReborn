@@ -59,6 +59,13 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     private readonly ConcurrentDictionary<string, IGameInstance> _gameInstances = new();
     private readonly ConcurrentDictionary<string, MatchmakerInitiator> _matchmakerGames = new();
 
+    // Matchmaking games use the custom browser protocol for discovery, but are not custom games.
+    // Keep their opaque browser ids in the upper half of ulong so they cannot collide with the
+    // monotonically increasing ids assigned by CatalogueFactory to real custom games.
+    private readonly ConcurrentDictionary<ulong, string> _spectatableMatchIds = new();
+    private readonly ConcurrentDictionary<string, ulong> _spectatableMatches = new();
+    private long _nextSpectatableMatchId = long.MinValue;
+
     private readonly ChatRoom _globalChatRoom = new(new RoomIdGlobal(), new SessionSender(server));
     
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
@@ -373,7 +380,53 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public List<CustomGameInfo> GetCustomGames()
     {
-        lock (_customGamesLock) return _customGamePlayerLists.Values.Select(x => x.custom.GameInfo).ToList();
+        List<CustomGameInfo> games;
+        lock (_customGamesLock)
+            games = _customGamePlayerLists.Values.Select(x => x.custom.GameInfo).ToList();
+
+        foreach (var (instanceId, initiator) in _matchmakerGames)
+        {
+            if (!_gameInstances.TryGetValue(instanceId, out var instance) || !instance.IsStarted || instance.IsOver())
+                continue;
+
+            var gameMode = initiator.GetGameMode().GetCard<CardGameMode>();
+            if (gameMode?.Ranking is not (GameRankingType.Friendly or GameRankingType.Ranked)) continue;
+            var mapInfo = instance.GetMapInfo();
+            if (mapInfo == null) continue;
+
+            var browserId = _spectatableMatches.GetOrAdd(instanceId,
+                _ => unchecked((ulong)Interlocked.Increment(ref _nextSpectatableMatchId)));
+            _spectatableMatchIds[browserId] = instanceId;
+            var match = gameMode.MatchMode.GetCard<CardMatch>();
+            var modeName = gameMode.Ranking == GameRankingType.Ranked
+                ? CatalogueHelper.ModeNameRanked
+                : CatalogueHelper.ModeNameFriendly;
+            games.Add(new CustomGameInfo
+            {
+                Id = browserId,
+                GameName = $"{modeName} (spectate only)",
+                StarterNickname = "Matchmaking",
+                Players = initiator.PlayerCount,
+                MaxPlayers = initiator.MaxPlayers,
+                Private = false,
+                MapInfo = mapInfo,
+                BuildTime = match?.Data switch
+                {
+                    MatchDataShieldCapture data => data.Build1Time,
+                    MatchDataShieldRush2 data => data.Build1Time,
+                    _ => 0
+                },
+                RespawnTimeMod = 0,
+                HeroSwitch = false,
+                SuperSupply = false,
+                AllowBackfilling = false,
+                ResourceCap = match?.ResourceCap ?? 7500,
+                InitResource = match?.InitResource ?? 2000,
+                Status = CustomGameStatus.Match
+            });
+        }
+
+        return games;
     }
 
     private bool GetCustomGame(uint playerId, [MaybeNullWhen(false)] out CustomGamePlayerGroup custom)
@@ -437,6 +490,9 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public CustomGameJoinResult AddToCustomGame(uint playerId, ulong gameId, string password)
     {
+        // The client can invoke Join by double-clicking a disabled browser row. Matchmaking
+        // browser entries are deliberately spectate-only, so reject that path explicitly.
+        if (_spectatableMatchIds.ContainsKey(gameId)) return CustomGameJoinResult.GameStarted;
         if (!UserConnected(playerId, out var playerInfo) || !TryGetCustomGame(gameId, out var customGame)) return CustomGameJoinResult.NoSuchGame;
         var playerGuid = playerInfo.Guid;
         if (password != customGame.custom.Password && !playerInfo.IsAdmin) return CustomGameJoinResult.WrongPassword;
@@ -481,6 +537,17 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public CustomGameSpectateResult CheckSpectateCustomGame(uint playerId, ulong gameId, string password)
     {
+        if (_spectatableMatchIds.TryGetValue(gameId, out var instanceId))
+        {
+            if (!UserConnected(playerId, out _) ||
+                !_matchmakerGames.TryGetValue(instanceId, out var initiator) ||
+                !_gameInstances.TryGetValue(instanceId, out var instance) || !instance.IsStarted || instance.IsOver())
+                return CustomGameSpectateResult.NoSuchGame;
+            return initiator.IsMaxSpectators()
+                ? CustomGameSpectateResult.TooManySpectators
+                : CustomGameSpectateResult.Accepted;
+        }
+
         if (!UserConnected(playerId, out var playerInfo) || !TryGetCustomGame(gameId, out var customGame))
             return CustomGameSpectateResult.NoSuchGame;
         
@@ -497,6 +564,19 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool SpectateCustomGame(uint playerId, ulong gameId)
     {
+        if (_spectatableMatchIds.TryGetValue(gameId, out var instanceId))
+        {
+            if (!UserConnected(playerId, out var info) ||
+                !_matchmakerGames.TryGetValue(instanceId, out var initiator) ||
+                !_gameInstances.TryGetValue(instanceId, out var match) || !match.IsStarted || match.IsOver() ||
+                !initiator.AddSpectator(playerId)) return false;
+
+            info.CustomGameId = null;
+            info.GameInstanceId = instanceId;
+            match.SendUserToZone(playerId);
+            return true;
+        }
+
         if (!UserConnected(playerId, out var playerInfo) || !TryGetCustomGame(gameId, out var customGame) ||
             customGame.custom.GameInstanceId is null ||
             !_gameInstances.TryGetValue(customGame.custom.GameInstanceId, out var instance)) return false;
@@ -852,6 +932,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             RemoveFromGameInstance(playerId, gameInstanceId);
         }
+        if (_spectatableMatches.TryRemove(gameInstanceId, out var browserId))
+            _spectatableMatchIds.TryRemove(browserId, out _);
         return _gameInstances.TryRemove(gameInstanceId, out _);
     }
 

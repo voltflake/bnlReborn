@@ -11,6 +11,7 @@ public interface IGameInstance
     public bool HasLobby();
     public bool IsStarted { get; }
     public bool IsOver();
+    public MapInfo? GetMapInfo();
     public void LinkGuidToPlayer(uint userId, Guid guid, Guid regionGuid);
     public void UserEnteredLobby(uint userId);
     // For when players leave via alt+f4

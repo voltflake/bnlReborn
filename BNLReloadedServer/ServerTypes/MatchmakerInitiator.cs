@@ -12,6 +12,10 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
     private readonly List<PlayerQueueData> _team1 = team1.ToList();
     private readonly List<PlayerQueueData> _team2 = team2.ToList();
 
+    private readonly HashSet<uint> _spectators = [];
+
+    private readonly Lock _spectatorsLock = new();
+
     private bool _backfillReady;
 
     private DateTimeOffset? _firstSlotFreed;
@@ -59,6 +63,7 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
 
     public void RemovePlayer(uint playerId)
     {
+        lock (_spectatorsLock) _spectators.Remove(playerId);
         if (_team1.RemoveAll(p => p.PlayerId == playerId) + _team2.RemoveAll(p => p.PlayerId == playerId) > 0)
         {
             _firstSlotFreed ??= DateTimeOffset.Now;
@@ -72,7 +77,30 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
                 ? TeamType.Team2 
                 : TeamType.Neutral;
 
-    public bool IsPlayerSpectator(uint playerId) => false;
+    public bool IsPlayerSpectator(uint playerId)
+    {
+        lock (_spectatorsLock) return _spectators.Contains(playerId);
+    }
+
+    public bool IsMaxSpectators()
+    {
+        lock (_spectatorsLock)
+            return _spectators.Count >= CatalogueHelper.GlobalLogic.CustomGame!.MaxSpectatorsPerMatch;
+    }
+
+    public bool AddSpectator(uint playerId)
+    {
+        lock (_spectatorsLock)
+        {
+            if (_spectators.Contains(playerId)) return true;
+            if (_spectators.Count >= CatalogueHelper.GlobalLogic.CustomGame!.MaxSpectatorsPerMatch) return false;
+            return _spectators.Add(playerId);
+        }
+    }
+
+    public int PlayerCount => _team1.Count + _team2.Count;
+
+    public int MaxPlayers => gameMode.PlayersPerTeam * 2;
 
     public bool IsPlayerBackfill(uint playerId) =>
         !(team1.Any(p => p.PlayerId == playerId) || team2.Any(p => p.PlayerId == playerId));
