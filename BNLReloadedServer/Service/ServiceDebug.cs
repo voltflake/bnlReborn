@@ -109,8 +109,10 @@ public class ServiceDebug(ISender sender) : IServiceDebug
 
             case "exit_match":
                 SendExecute(rpcId, "success");
-                Databases.RegionServerDatabase.RemoveFromCustomGame(sender.AssociatedPlayerId.Value);
-                GameInstance?.PlayerLeftInstance(sender.AssociatedPlayerId.Value, KickReason.MatchQuit);
+                var playerId = sender.AssociatedPlayerId.Value;
+                var gameInstance = GameInstance;
+                gameInstance?.PlayerLeftInstance(playerId, KickReason.MatchQuit);
+                Databases.RegionServerDatabase.RemoveFromCustomGame(playerId);
                 break;
         }
     }

@@ -142,8 +142,10 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         if (sender.AssociatedPlayerId.HasValue)
         {
-            _serverDatabase.RemoveFromCustomGame(sender.AssociatedPlayerId.Value);
-            GameInstance?.PlayerLeftInstance(sender.AssociatedPlayerId.Value, KickReason.MatchQuit);    
+            var playerId = sender.AssociatedPlayerId.Value;
+            var gameInstance = GameInstance;
+            gameInstance?.PlayerLeftInstance(playerId, KickReason.MatchQuit);
+            _serverDatabase.RemoveFromCustomGame(playerId);
         }
     }
 
@@ -167,8 +169,10 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         if (sender.AssociatedPlayerId.HasValue)
         {
-            _serverDatabase.RemoveFromCustomGame(sender.AssociatedPlayerId.Value);
-            GameInstance?.PlayerLeftInstance(sender.AssociatedPlayerId.Value, KickReason.MatchQuit);    
+            var playerId = sender.AssociatedPlayerId.Value;
+            var gameInstance = GameInstance;
+            gameInstance?.PlayerLeftInstance(playerId, KickReason.MatchQuit);
+            _serverDatabase.RemoveFromCustomGame(playerId);
         }
     }
 
