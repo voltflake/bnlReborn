@@ -6,7 +6,9 @@ using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Database;
 
-public class CouchChangesWatcher(string endpoint, string dbName, BasicCredentials credentials, Action onChanged)
+public readonly record struct CouchChange(string DocumentId, bool Deleted);
+
+public class CouchChangesWatcher(string endpoint, string dbName, BasicCredentials credentials, Action<CouchChange> onChanged)
 {
     private static readonly HttpClient HttpClient = new()
     {
@@ -62,28 +64,39 @@ public class CouchChangesWatcher(string endpoint, string dbName, BasicCredential
             if (line == null) return;
             if (string.IsNullOrWhiteSpace(line)) continue;
 
-            var docId = TryGetChangedDocId(line);
-            Log.Info(LogCat.Catalogue, docId != null
-                ? $"Card changed: {docId}, reloading catalogue..."
-                : "Change detected, reloading catalogue...");
+            var change = TryGetChange(line);
+            if (change == null)
+            {
+                Log.Warn(LogCat.Catalogue, "Ignoring a CouchDB change with no document id");
+                continue;
+            }
+
+            Log.Info(LogCat.Catalogue, change.Value.Deleted
+                ? $"Card deleted: {change.Value.DocumentId}"
+                : $"Card changed: {change.Value.DocumentId}");
 
             try
             {
-                onChanged();
+                onChanged(change.Value);
             }
             catch (Exception ex)
             {
-                Log.Error(LogCat.Catalogue, "Reload failed, keeping the current catalogue", ex);
+                Log.Error(LogCat.Catalogue, "Catalogue change failed, keeping the current catalogue", ex);
             }
         }
     }
 
-    private static string? TryGetChangedDocId(string changeLine)
+    private static CouchChange? TryGetChange(string changeLine)
     {
         try
         {
             using var doc = JsonDocument.Parse(changeLine);
-            return doc.RootElement.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+            if (!doc.RootElement.TryGetProperty("id", out var idProp) || idProp.GetString() is not { } id)
+                return null;
+
+            var deleted = doc.RootElement.TryGetProperty("deleted", out var deletedProp) &&
+                          deletedProp.ValueKind == JsonValueKind.True;
+            return new CouchChange(id, deleted);
         }
         catch (JsonException)
         {

@@ -88,12 +88,30 @@ if (runServer)
         configs.CouchDbEndpoint(),
         configs.CouchDbDatabaseName(),
         configs.CouchDbCredentials(),
-        () =>
+        change =>
         {
-            var newCardList = catalogueStore.Load();
             if (Databases.Catalogue is not ServerCatalogue serverCatalogue) return;
-            serverCatalogue.Replicate(newCardList);
-            new ServiceCatalogue(new ServerSender(regionServer)).SendReplicate(newCardList);
+            var catalogueService = new ServiceCatalogue(new ServerSender(regionServer));
+
+            if (change.Deleted)
+            {
+                if (serverCatalogue.RemoveCard(change.DocumentId))
+                    catalogueService.SendRemoveCard(change.DocumentId);
+                return;
+            }
+
+            var card = catalogueStore.LoadCard(change.DocumentId);
+            if (card == null)
+            {
+                // CouchDB can contain design/configuration documents which are not cards.
+                // If this id used to be a card, removing it is also the correct client update.
+                if (serverCatalogue.RemoveCard(change.DocumentId))
+                    catalogueService.SendRemoveCard(change.DocumentId);
+                return;
+            }
+
+            serverCatalogue.UpdateCard(card);
+            catalogueService.SendUpdateCard(card);
         }).Start(watcherCts.Token);
 
     ControlPanelServer? controlPanel = null;

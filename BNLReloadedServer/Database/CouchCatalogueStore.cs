@@ -70,4 +70,28 @@ public class CouchCatalogueStore(
 
         return cards;
     }
+
+    public Card? LoadCard(string documentId)
+    {
+        var escapedId = Uri.EscapeDataString(documentId);
+        var url = $"{fromDb.Endpoint.OriginalString.TrimEnd('/')}/{dbName}/{escapedId}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        var creds = Databases.ConfigDatabase.CouchDbCredentials();
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(Encoding.ASCII.GetBytes($"{creds.Username}:{creds.Password}")));
+
+        using var response = _httpClient.SendAsync(request).Result;
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+
+        using var stream = response.Content.ReadAsStream();
+        using var document = JsonDocument.Parse(stream);
+        if (!document.RootElement.TryGetProperty("category", out _)) return null;
+
+        var card = JsonSerializer.Deserialize<Card>(document.RootElement.GetRawText(), serializerOptions);
+        if (card == null) return null;
+        card.Key = Catalogue.Key(card.Id ?? string.Empty);
+        return card;
+    }
 }
