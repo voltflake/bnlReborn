@@ -800,6 +800,9 @@ public partial class Unit
         }
         
         _disabledTime = DateTimeOffset.Now;
+        if (_bombTimeoutEnd is not null)
+            _updater.OnUnitUpdate(this, new UnitUpdate { BombTimeoutEnd = 0UL });
+
         _wasDisabled = true;
     }
 
@@ -821,7 +824,8 @@ public partial class Unit
         {
             UpdateData(new UnitUpdate
             {
-                BombTimeoutEnd = (ulong)(_bombTimeoutEnd.Value + (_disabledTime.Value - DateTimeOffset.Now)).ToUnixTimeMilliseconds()
+                BombTimeoutEnd = (ulong)(_bombTimeoutEnd.Value + (DateTimeOffset.Now - _disabledTime.Value))
+                    .ToUnixTimeMilliseconds()
             });
             _disabledTime = null;
         }
