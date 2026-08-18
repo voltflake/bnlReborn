@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
+using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
@@ -234,6 +235,25 @@ public sealed class ControlPanelServer : IDisposable
             if (method == "GET" && path.StartsWith("/api/cards/"))
             {
                 await ServeCard(ctx, Uri.UnescapeDataString(path["/api/cards/".Length..]));
+                return;
+            }
+
+            if (method == "GET" && path == "/api/maps")
+            {
+                await ServeMaps(ctx);
+                return;
+            }
+
+            if (method == "GET" && path.StartsWith("/api/maps/") && path.EndsWith("/download"))
+            {
+                var key = Uri.UnescapeDataString(path["/api/maps/".Length..^"/download".Length]);
+                await ServeMapDownload(ctx, key);
+                return;
+            }
+
+            if (method == "POST" && path.StartsWith("/api/map-pools/"))
+            {
+                await HandleMapPoolUpdate(ctx, path["/api/map-pools/".Length..]);
                 return;
             }
 
@@ -685,6 +705,105 @@ public sealed class ControlPanelServer : IDisposable
         ctx.Response.ContentLength64 = buf.Length;
         await ctx.Response.OutputStream.WriteAsync(buf);
         ctx.Response.OutputStream.Close();
+    }
+
+    private static async Task ServeMaps(HttpListenerContext ctx)
+    {
+        var mapList = CatalogueHelper.MapList;
+        var pools = new Dictionary<string, List<string>>
+        {
+            ["friendly"] = ResolveMapIds(mapList.Friendly),
+            ["ranked"] = ResolveMapIds(mapList.Ranked),
+            ["custom"] = ResolveMapIds(mapList.Custom)
+        };
+        var membership = pools.SelectMany(p => p.Value.Select(id => (id, p.Key)))
+            .GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.Key).ToArray());
+        var installed = Databases.MapDatabase.GetMapIds().Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var maps = installed.Select(id =>
+        {
+            var card = Catalogue.Key(id).GetCard<CardMap>();
+            var data = Databases.MapDatabase.LoadMapData(Catalogue.Key(id));
+            var unitIds = data?.Units.Select(unit => unit.UnitKey.GetCard<CardUnit>()?.Id ?? string.Empty).ToList() ?? [];
+            return new
+            {
+                key = id,
+                name = card?.Name?.Text ?? id,
+                description = card?.Description?.Text ?? string.Empty,
+                match = data?.Match.ToString(),
+                size = data?.Size,
+                cubes = unitIds.Where(unitId => unitId.StartsWith("unit_shield_line_", StringComparison.Ordinal))
+                    .Distinct(StringComparer.Ordinal).Count(),
+                bases = unitIds.Count(unitId => unitId.StartsWith("unit_base_", StringComparison.Ordinal)),
+                image = card?.Image,
+                large_image = card?.LargeImage,
+                pools = membership.GetValueOrDefault(id) ?? []
+            };
+        });
+        await WriteJson(ctx, new { maps, pools });
+    }
+
+    private static List<string> ResolveMapIds(IEnumerable<Key>? keys)
+    {
+        if (keys == null) return [];
+        var installed = Databases.MapDatabase.GetMapIds();
+        var names = installed.ToDictionary(Catalogue.Key, id => id, KeyEqualityComparer.Instance);
+        return keys.Select(key => names.GetValueOrDefault(key) ?? $"#{key.Hash}").ToList();
+    }
+
+    private static async Task ServeMapDownload(HttpListenerContext ctx, string key)
+    {
+        var safe = Databases.MapDatabase.GetMapIds().FirstOrDefault(id => id == key);
+        if (safe == null)
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Map not found" });
+            return;
+        }
+        var path = Path.Combine(Databases.BaseFolderPath, "Maps", safe + ".bnlbin");
+        ctx.Response.ContentType = "application/octet-stream";
+        ctx.Response.AddHeader("Content-Disposition", $"attachment; filename=\"{safe}.bnlbin\"");
+        var bytes = await File.ReadAllBytesAsync(path);
+        ctx.Response.ContentLength64 = bytes.Length;
+        await ctx.Response.OutputStream.WriteAsync(bytes);
+        ctx.Response.OutputStream.Close();
+    }
+
+    private sealed class MapPoolUpdateRequest
+    {
+        public List<string>? Maps { get; set; }
+    }
+
+    private async Task HandleMapPoolUpdate(HttpListenerContext ctx, string pool)
+    {
+        if (pool is not ("friendly" or "ranked" or "custom"))
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Map pool not found" });
+            return;
+        }
+        var request = await JsonSerializer.DeserializeAsync<MapPoolUpdateRequest>(ctx.Request.InputStream, JsonOptions);
+        var ids = request?.Maps;
+        if (ids == null || ids.Count != ids.Distinct(StringComparer.Ordinal).Count())
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = "Maps must be a duplicate-free list" });
+            return;
+        }
+        var installed = Databases.MapDatabase.GetMapIds().ToHashSet(StringComparer.Ordinal);
+        var invalid = ids.Where(id => !installed.Contains(id) || Catalogue.Key(id).GetCard<CardMap>() == null).ToList();
+        if (invalid.Count > 0)
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = $"Unknown or unplayable maps: {string.Join(", ", invalid)}" });
+            return;
+        }
+
+        await _catalogueStore.UpdateMapPoolAsync(pool, ids);
+        var cards = _catalogueStore.Load();
+        _serverCatalogue.Replicate(cards);
+        new Service.ServiceCatalogue(new ServerSender(_regionServer)).SendReplicate(cards);
+        Log.Info(LogCat.Panel, $"Updated {pool} map pool ({ids.Count} maps) and replicated catalogue");
+        await WriteJson(ctx, new { pool, maps = ids });
     }
 
     private static object DescribeLoadout(BaseTypes.LobbyLoadout loadout)

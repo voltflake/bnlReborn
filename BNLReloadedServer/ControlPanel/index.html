@@ -39,6 +39,9 @@
       Players <span class="rail-count" id="railPlayers"></span>
     </button>
     <button class="rail-item" data-pane="ladder" onclick="showPane('ladder')">Ladder</button>
+    <button class="rail-item" data-pane="maps" onclick="showPane('maps')">
+      Maps <span class="rail-count" id="railMaps"></span>
+    </button>
     <button class="rail-item" data-pane="bans" onclick="showPane('bans')">
       Bans <span class="rail-count" id="railBans"></span>
     </button>
@@ -160,6 +163,35 @@
         </table>
       </div>
     </div>
+  </section>
+
+  <!-- ================= bans ================= -->
+  <section class="view-pane" id="pane-maps">
+    <div class="pane-head">
+      <div>
+        <h2>Maps</h2>
+        <p>Browse and download maps. Select a game mode to adjust its map pool.</p>
+      </div>
+    </div>
+    <div class="pool-edit-bar" id="poolEditBar">
+      <div class="pool-edit-title" id="poolEditTitle" aria-live="polite"></div>
+      <div class="pool-edit-actions">
+        <button id="poolDoneEditBtn" onclick="endPoolEdit()">Done editing</button>
+        <button id="poolCancelBtn" onclick="cancelPoolEdit()" hidden>Discard changes</button>
+        <button class="save-btn" id="poolSubmitBtn" onclick="submitPoolEdit()" hidden>Submit changes</button>
+      </div>
+    </div>
+    <div class="map-toolbar" id="mapToolbar">
+      <div class="chip-row" id="mapPoolChips" aria-label="Filter maps by pool">
+        <button class="chip on" data-pool="" onclick="selectMapPoolFilter(this)">All maps</button>
+        <button class="chip" data-pool="friendly" onclick="selectMapPoolFilter(this)">Casual</button>
+        <button class="chip" data-pool="ranked" onclick="selectMapPoolFilter(this)">Ranked</button>
+        <button class="chip" data-pool="custom" onclick="selectMapPoolFilter(this)">Customs</button>
+        <button class="chip" data-pool="unused" onclick="selectMapPoolFilter(this)">Unused</button>
+      </div>
+      <div class="pool-controls" id="poolControls"></div>
+    </div>
+    <div class="map-grid" id="mapGrid"></div>
   </section>
 
   <!-- ================= bans ================= -->

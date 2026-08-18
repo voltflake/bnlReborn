@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using BNLReloadedServer.BaseTypes;
 using CouchDB.Driver;
 
@@ -93,5 +94,35 @@ public class CouchCatalogueStore(
         if (card == null) return null;
         card.Key = Catalogue.Key(card.Id ?? string.Empty);
         return card;
+    }
+
+    public async Task UpdateMapPoolAsync(string pool, IReadOnlyList<string> mapIds)
+    {
+        if (pool is not ("friendly" or "ranked" or "custom"))
+            throw new ArgumentException($"Map pool '{pool}' is not editable", nameof(pool));
+
+        var url = $"{fromDb.Endpoint.OriginalString.TrimEnd('/')}/{dbName}/map_list";
+        using var get = CreateRequest(HttpMethod.Get, url);
+        using var current = await _httpClient.SendAsync(get);
+        current.EnsureSuccessStatusCode();
+
+        var document = JsonNode.Parse(await current.Content.ReadAsStringAsync())?.AsObject()
+            ?? throw new InvalidOperationException("CouchDB returned an invalid map_list document");
+        document[pool] = new JsonArray(mapIds.Select(id => (JsonNode?)id).ToArray());
+
+        using var put = CreateRequest(HttpMethod.Put, url);
+        put.Content = new StringContent(document.ToJsonString(serializerOptions), Encoding.UTF8, "application/json");
+        using var response = await _httpClient.SendAsync(put);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string url)
+    {
+        var request = new HttpRequestMessage(method, url);
+        var creds = Databases.ConfigDatabase.CouchDbCredentials();
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(Encoding.ASCII.GetBytes($"{creds.Username}:{creds.Password}")));
+        return request;
     }
 }
