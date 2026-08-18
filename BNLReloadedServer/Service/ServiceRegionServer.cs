@@ -35,7 +35,8 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
         MessageFriendSearchSteam = 20,
         MessageGetLeaderboard = 21,
         MessagePlayerCount = 22,
-        MessageGetTimeTrialLeaderboard = 23
+        MessageGetTimeTrialLeaderboard = 23,
+        MessageCompletedMatch = 24
     }
 
     private ushort _currRpcId = 1;
@@ -186,6 +187,14 @@ public class ServiceRegionServer(ISender sender) : IServiceRegionServer
         using var writer = CreateWriter();
         writer.Write((byte) ServiceRegionId.MessageMatchEnded);
         EndMatchResults.WriteRecord(writer, endMatchResults);
+        sender.Send(writer);
+    }
+
+    public void SendCompletedMatch(CompletedMatchRecord match)
+    {
+        using var writer = CreateWriter();
+        writer.Write((byte)ServiceRegionId.MessageCompletedMatch);
+        match.Write(writer);
         sender.Send(writer);
     }
 

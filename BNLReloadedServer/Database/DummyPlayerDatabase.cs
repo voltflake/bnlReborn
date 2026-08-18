@@ -486,6 +486,8 @@ public class DummyPlayerDatabase : IPlayerDatabase
     {
     }
 
+    public void StoreCompletedMatch(CompletedMatchRecord match) { }
+
     public void UpdateFriends(uint receiverId, uint senderId, bool accepted)
     {
     }

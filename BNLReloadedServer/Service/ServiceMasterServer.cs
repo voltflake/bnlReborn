@@ -34,7 +34,8 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         MessageFriendSearchSteam = 20,
         MessageGetLeaderboard = 21,
         MessagePlayerCount = 22,
-        MessageGetTimeTrialLeaderboard = 23
+        MessageGetTimeTrialLeaderboard = 23,
+        MessageCompletedMatch = 24
     }
     
     private readonly IMasterServerDatabase _masterServerDatabase = Databases.MasterServerDatabase;
@@ -311,6 +312,25 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
         _masterServerDatabase.SetRegionPlayerCount(sessionId.ToString(), playerCount);
     }
 
+    public void ReceiveCompletedMatch(BinaryReader reader)
+    {
+        var match = CompletedMatchRecord.ReadRecord(reader);
+        _ = StoreCompletedMatchLogged(match);
+    }
+
+    private async Task StoreCompletedMatchLogged(CompletedMatchRecord match)
+    {
+        try
+        {
+            await _masterServerDatabase.StoreCompletedMatch(match);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(LogCat.Server,
+                $"Failed to store completed match {match.MatchId}; match history was not recorded", ex);
+        }
+    }
+
     public bool Receive(BinaryReader reader)
     {
         var serviceMasterId = reader.ReadByte();
@@ -350,6 +370,9 @@ public class ServiceMasterServer(ISender sender, Guid sessionId) : IServiceMaste
                 break;
             case ServiceMasterId.MessageMatchEnded:
                 ReceiveMatchEndedForPlayer(reader);
+                break;
+            case ServiceMasterId.MessageCompletedMatch:
+                ReceiveCompletedMatch(reader);
                 break;
             case ServiceMasterId.MessageRatingUpdate:
                 ReceiveRatingsUpdate(reader);

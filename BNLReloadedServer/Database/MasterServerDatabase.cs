@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.ProtocolHelpers;
 using Moserware.Skills;
 using SQLite;
 
@@ -26,7 +27,100 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb = new SQLiteAsyncConnection(Databases.PlayerDatabaseFile);
         _playerDb.CreateTableAsync<PlayerRecord>().Wait();
         _playerDb.CreateTableAsync<PlayerIpRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchTeamRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchPlayerRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchPresenceRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchDeviceRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchPerkRecord>().Wait();
         BackfillRankEligibility().Wait();
+    }
+
+    public Task StoreCompletedMatch(CompletedMatchRecord match) => _playerDb.RunInTransactionAsync(db =>
+    {
+        // A region can retransmit after losing its master connection. Replacing the complete
+        // aggregate makes the operation idempotent without leaving stale child rows behind.
+        var oldPresenceIds = db.Table<ArchivedMatchPresenceRecord>()
+            .Where(p => p.MatchId == match.MatchId).Select(p => p.Id).ToList();
+        foreach (var presenceId in oldPresenceIds)
+        {
+            db.Execute("DELETE FROM MatchPresenceDevices WHERE presence_id = ?", presenceId);
+            db.Execute("DELETE FROM MatchPresencePerks WHERE presence_id = ?", presenceId);
+        }
+        db.Execute("DELETE FROM MatchPresences WHERE match_id = ?", match.MatchId);
+        db.Execute("DELETE FROM MatchPlayers WHERE match_id = ?", match.MatchId);
+        db.Execute("DELETE FROM MatchTeams WHERE match_id = ?", match.MatchId);
+
+        db.InsertOrReplace(new ArchivedMatchRecord
+        {
+            Id = match.MatchId, MapKey = match.MapKey.Hash, GameModeKey = match.GameModeKey.Hash,
+            StartedAt = (long)match.StartedAt, EndedAt = (long)match.EndedAt, Winner = (int)match.Winner
+        });
+        foreach (var team in match.Teams) db.Insert(new ArchivedMatchTeamRecord
+        {
+            MatchId = match.MatchId, Team = (int)team.Team, IsWinner = team.IsWinner,
+            CubesAtStart = team.CubesAtStart, CubesRemaining = team.CubesRemaining,
+            BaseDestroyed = team.BaseDestroyed
+        });
+        foreach (var player in match.Players)
+        {
+            using var statStream = new MemoryStream();
+            using (var writer = new BinaryWriter(statStream, System.Text.Encoding.UTF8, true))
+                writer.WriteMap(player.Stats, writer.WriteByteEnum, writer.Write);
+            db.Insert(new ArchivedMatchPlayerRecord
+            {
+                MatchId = match.MatchId, PlayerId = player.PlayerId, Nickname = player.Nickname,
+                SquadId = player.SquadId?.ToString(), WasInitial = player.WasInitial,
+                WasBackfiller = player.WasBackfiller, IsWinner = player.IsWinner,
+                TotalScore = player.TotalScore, Stats = statStream.ToArray()
+            });
+            foreach (var presence in player.Presences)
+            {
+                var row = new ArchivedMatchPresenceRecord
+                {
+                    MatchId = match.MatchId, PlayerId = player.PlayerId, Sequence = presence.Sequence,
+                    JoinedAt = (long)presence.JoinedAt, LeftAt = (long?)presence.LeftAt,
+                    JoinKind = (int)presence.JoinKind, LeaveKind = (int?)presence.LeaveKind,
+                    Team = (int)presence.Team, HeroKey = presence.HeroKey.Hash, SkinKey = presence.SkinKey.Hash
+                };
+                db.Insert(row);
+                foreach (var device in presence.Devices) db.Insert(new ArchivedMatchDeviceRecord
+                {
+                    PresenceId = row.Id, Slot = device.Key, DeviceKey = device.Value.Hash,
+                    DeviceLevel = presence.DeviceLevels.GetValueOrDefault(device.Value)
+                });
+                for (var slot = 0; slot < presence.Perks.Count; slot++) db.Insert(new ArchivedMatchPerkRecord
+                {
+                    PresenceId = row.Id, Slot = slot, PerkKey = presence.Perks[slot].Hash
+                });
+            }
+        }
+    });
+
+    public async Task<List<ArchivedMatchRecord>> GetCompletedMatches(int limit, long? before)
+    {
+        var query = _playerDb.Table<ArchivedMatchRecord>();
+        if (before.HasValue) query = query.Where(match => match.EndedAt < before.Value);
+        return await query.OrderByDescending(match => match.EndedAt).Take(Math.Clamp(limit, 1, 100)).ToListAsync();
+    }
+
+    public async Task<ArchivedMatchDetail?> GetCompletedMatch(string matchId)
+    {
+        var match = await _playerDb.FindAsync<ArchivedMatchRecord>(matchId);
+        if (match == null) return null;
+        var teams = await _playerDb.Table<ArchivedMatchTeamRecord>().Where(row => row.MatchId == matchId).ToListAsync();
+        var players = await _playerDb.Table<ArchivedMatchPlayerRecord>().Where(row => row.MatchId == matchId).ToListAsync();
+        var presences = await _playerDb.Table<ArchivedMatchPresenceRecord>().Where(row => row.MatchId == matchId).ToListAsync();
+        var devices = new List<ArchivedMatchDeviceRecord>();
+        var perks = new List<ArchivedMatchPerkRecord>();
+        foreach (var presence in presences)
+        {
+            devices.AddRange(await _playerDb.Table<ArchivedMatchDeviceRecord>()
+                .Where(row => row.PresenceId == presence.Id).ToListAsync());
+            perks.AddRange(await _playerDb.Table<ArchivedMatchPerkRecord>()
+                .Where(row => row.PresenceId == presence.Id).ToListAsync());
+        }
+        return new ArchivedMatchDetail(match, teams, players, presences, devices, perks);
     }
 
     // Ranks are relative, so the ladder is rebuilt whenever a rating or a match count could have

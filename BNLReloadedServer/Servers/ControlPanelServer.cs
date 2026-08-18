@@ -212,6 +212,18 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
+            if (method == "GET" && path == "/api/matches")
+            {
+                await ServeMatchHistory(ctx);
+                return;
+            }
+
+            if (method == "GET" && path.StartsWith("/api/matches/"))
+            {
+                await ServeMatchDetail(ctx, Uri.UnescapeDataString(path["/api/matches/".Length..]));
+                return;
+            }
+
             if (method == "GET" && path == "/api/players")
             {
                 await ServePlayerList(ctx);
@@ -271,6 +283,112 @@ public sealed class ControlPanelServer : IDisposable
             ctx.Response.StatusCode = 500;
             await WriteJson(ctx, new { error = ex.Message });
         }
+    }
+
+    private static object DescribeArchiveKey(long hash)
+    {
+        var card = Databases.Catalogue.All.FirstOrDefault(card => card.Key.Hash == (uint)hash);
+        return new
+        {
+            key = card?.Id ?? hash.ToString(),
+            name = card switch
+            {
+                CardMap map => map.Name?.Text ?? map.Id,
+                CardUnit unit => unit.Name?.Text ?? unit.Id,
+                CardDevice device => device.Name?.Text ?? device.Id,
+                CardPerk perk => perk.Name?.Text ?? perk.Id,
+                CardSkin skin => skin.Name?.Text ?? skin.Id,
+                CardGameMode mode => mode.Name ?? mode.Id,
+                _ => card?.Id ?? hash.ToString()
+            }
+        };
+    }
+
+    private async Task ServeMatchHistory(HttpListenerContext ctx)
+    {
+        var limit = int.TryParse(ctx.Request.QueryString["limit"], out var requested) ? requested : 50;
+        long? before = long.TryParse(ctx.Request.QueryString["before"], out var cursor) ? cursor : null;
+        var matches = await Databases.MasterServerDatabase.GetCompletedMatches(limit, before);
+        await WriteJson(ctx, new
+        {
+            items = matches.Select(match => new
+            {
+                id = match.Id,
+                map = DescribeArchiveKey(match.MapKey),
+                mode = DescribeArchiveKey(match.GameModeKey),
+                started_at = match.StartedAt,
+                ended_at = match.EndedAt,
+                duration_seconds = Math.Max(0, match.EndedAt - match.StartedAt) / 1000,
+                winner = ((TeamType)match.Winner).ToString()
+            }),
+            next_before = matches.Count == Math.Clamp(limit, 1, 100) ? matches[^1].EndedAt : (long?)null
+        });
+    }
+
+    private async Task ServeMatchDetail(HttpListenerContext ctx, string matchId)
+    {
+        var detail = await Databases.MasterServerDatabase.GetCompletedMatch(matchId);
+        if (detail == null)
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Match not found" });
+            return;
+        }
+
+        Dictionary<PlayerMatchStatType, int> ReadStats(byte[] bytes)
+        {
+            using var stream = new MemoryStream(bytes);
+            using var reader = new BinaryReader(stream);
+            return reader.ReadMap<PlayerMatchStatType, int, Dictionary<PlayerMatchStatType, int>>(
+                reader.ReadByteEnum<PlayerMatchStatType>, reader.ReadInt32);
+        }
+
+        var presencesByPlayer = detail.Presences.GroupBy(row => row.PlayerId)
+            .ToDictionary(group => group.Key, group => group.OrderBy(row => row.Sequence).ToList());
+        await WriteJson(ctx, new
+        {
+            id = detail.Match.Id,
+            map = DescribeArchiveKey(detail.Match.MapKey),
+            mode = DescribeArchiveKey(detail.Match.GameModeKey),
+            started_at = detail.Match.StartedAt,
+            ended_at = detail.Match.EndedAt,
+            winner = ((TeamType)detail.Match.Winner).ToString(),
+            teams = detail.Teams.Select(team => new
+            {
+                team = ((TeamType)team.Team).ToString(),
+                is_winner = team.IsWinner,
+                cubes_at_start = team.CubesAtStart,
+                cubes_remaining = team.CubesRemaining,
+                cubes_destroyed = team.CubesAtStart - team.CubesRemaining,
+                base_destroyed = team.BaseDestroyed
+            }),
+            players = detail.Players.Select(player => new
+            {
+                player_id = player.PlayerId,
+                nickname = player.Nickname,
+                squad_id = player.SquadId,
+                was_initial = player.WasInitial,
+                was_backfiller = player.WasBackfiller,
+                is_winner = player.IsWinner,
+                total_score = player.TotalScore,
+                stats = ReadStats(player.Stats).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
+                presences = presencesByPlayer.GetValueOrDefault(player.PlayerId, []).Select(presence => new
+                {
+                    sequence = presence.Sequence,
+                    joined_at = presence.JoinedAt,
+                    left_at = presence.LeftAt,
+                    join_kind = ((MatchJoinKind)presence.JoinKind).ToString(),
+                    leave_kind = presence.LeaveKind.HasValue ? ((MatchLeaveKind)presence.LeaveKind.Value).ToString() : null,
+                    team = ((TeamType)presence.Team).ToString(),
+                    hero = DescribeArchiveKey(presence.HeroKey),
+                    skin = DescribeArchiveKey(presence.SkinKey),
+                    devices = detail.Devices.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
+                        .Select(row => new { slot = row.Slot, device = DescribeArchiveKey(row.DeviceKey), level = row.DeviceLevel }),
+                    perks = detail.Perks.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
+                        .Select(row => new { slot = row.Slot, perk = DescribeArchiveKey(row.PerkKey) })
+                })
+            })
+        });
     }
 
     private static string ClientIp(HttpListenerContext ctx)

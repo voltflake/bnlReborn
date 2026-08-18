@@ -27,6 +27,9 @@ public interface IMasterServerDatabase
     public Task<bool> SetBadgesForPlayer(uint playerId, Dictionary<BadgeType, List<Key>> badges);
     public Task<bool> SetLoadoutForPlayer(uint playerId, Key hero, LobbyLoadout loadout);
     public Task<bool> SetNewMatchDataForPlayer(EndMatchResults endMatchResults);
+    public Task StoreCompletedMatch(CompletedMatchRecord match);
+    public Task<List<ArchivedMatchRecord>> GetCompletedMatches(int limit, long? before);
+    public Task<ArchivedMatchDetail?> GetCompletedMatch(string matchId);
     public Task<bool> SetNewRatings(List<uint> winners, List<uint> losers, HashSet<uint> excluded);
     public Task<bool> SetFriends(uint receiverId, uint senderId, bool accepted);
     public Task<bool> SetFriendRequest(uint receiverId, uint senderId);

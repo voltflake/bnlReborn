@@ -11,6 +11,7 @@ public interface IServiceRegionServer : IService
     public Task<ProfileData?> SendProfileDataRequest(uint playerId);
     public void SendBadges(uint playerId, Dictionary<BadgeType, List<Key>> badges);
     public void SendMatchEndedForPlayer(EndMatchResults endMatchResults);
+    public void SendCompletedMatch(CompletedMatchRecord match);
     public void SendRegionInfo(string host, RegionGuiInfo regionGuiInfo);
     public Task<List<string>?> SendRegionRequest();
     public void SendUpdateRatings(List<uint> winners, List<uint> losers, HashSet<uint> excluded);

@@ -49,6 +49,7 @@ public interface IPlayerDatabase
     public void UpdateCurrency(uint playerId, Dictionary<CurrencyType, float> currencies);
     public void UpdateRatings(List<uint> winners, List<uint> losers, HashSet<uint> excluded);
     public void UpdateMatchStats(EndMatchResults endMatchResults);
+    public void StoreCompletedMatch(CompletedMatchRecord match);
     public void UpdateFriends(uint receiverId, uint senderId, bool accepted);
     public void UpdateFriendRequest(uint receiverId, uint senderId);
 }

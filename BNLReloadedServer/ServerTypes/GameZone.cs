@@ -62,6 +62,8 @@ public partial class GameZone : Updater
     private readonly Dictionary<uint, Unit> _playerSpawnPoints = new();
     private readonly uint[] _defaultSpawnId = new uint[Enum.GetValues<TeamType>().Length];
     private readonly Queue<UnitLabel>[] _objectiveConquest = new Queue<UnitLabel>[Enum.GetValues<TeamType>().Length];
+    private readonly int[] _initialCubeCounts = new int[Enum.GetValues<TeamType>().Length];
+    private readonly MatchParticipationTracker _matchParticipation = new();
     private readonly DateTimeOffset?[] _lastSurrenderTime = new DateTimeOffset?[Enum.GetValues<TeamType>().Length];
     private TeamType _winningTeam = TeamType.Neutral;
     private readonly List<(uint, UnitInit, Func<IServiceZone?>)> _createOnStart = [];
@@ -226,6 +228,12 @@ public partial class GameZone : Updater
 
     public void SendLoadZone(IServiceZone zoneService, IServiceZone savedService, uint playerId)
     {
+        if (_matchParticipation.StartedAt.HasValue && _playerLobbyInfo.TryGetValue(playerId, out var joiningPlayer))
+        {
+            var kind = _matchParticipation.HasParticipant(playerId) ? MatchJoinKind.Reconnect : MatchJoinKind.Backfill;
+            _matchParticipation.Join(joiningPlayer, DateTimeOffset.Now, kind,
+                _gameInitiator.IsPlayerBackfill(playerId));
+        }
         zoneService.SendUpdateZone(GetInitialZoneUpdate());
         zoneService.SendUpdateBarriers(GetBarriersForPhase(_zoneData.Phase.PhaseType));
         foreach (var unit in _units.Where(u => u.Value.PlayerId is null && !u.Value.IsDead))
@@ -583,8 +591,16 @@ public partial class GameZone : Updater
     public void BeginBuildPhase()
     {
         if (_zoneData.Phase.PhaseType is not (ZonePhaseType.Waiting or ZonePhaseType.TutorialInit)) return;
+        var startedAt = DateTimeOffset.Now;
+        _matchParticipation.Start(startedAt,
+            _playerLobbyInfo.Values.Where(player => !_gameInitiator.IsPlayerSpectator(player.PlayerId)));
+        foreach (var team in Enum.GetValues<TeamType>())
+            _initialCubeCounts[(int)team] = CountCubes(_objectiveConquest[(int)team]);
         UpdatePhase();
     }
+
+    private static int CountCubes(IEnumerable<UnitLabel> objectives) =>
+        objectives.Count(label => label != UnitLabel.LineBase);
 
     private static Timer StartTimer(double intervalMs, ElapsedEventHandler handler)
     {
@@ -930,6 +946,7 @@ public partial class GameZone : Updater
 
     public void PlayerDisconnected(uint playerId)
     {
+        _matchParticipation.Leave(playerId, DateTimeOffset.Now, MatchLeaveKind.Disconnect);
         if (!_playerIdToUnitId.TryGetValue(playerId, out var unitId) ||
             !_playerUnits.TryGetValue(unitId, out var player))
         {
@@ -952,6 +969,12 @@ public partial class GameZone : Updater
 
     public bool PlayerLeft(uint playerId, KickReason reason)
     {
+        _matchParticipation.Leave(playerId, DateTimeOffset.Now, reason switch
+        {
+            KickReason.MatchInactivity => MatchLeaveKind.Inactivity,
+            KickReason.MatchQuit => MatchLeaveKind.Quit,
+            _ => MatchLeaveKind.Kicked
+        });
         // Spectators have no player unit, so they take the early-return path below. Release their
         // matchmaking spectator slot here instead of waiting for the whole instance to close.
         if (_gameInitiator is MatchmakerInitiator matchmakerInitiator &&
@@ -994,6 +1017,18 @@ public partial class GameZone : Updater
         
         _serviceZone.SendKickPlayer(playerId, reason);
 
+        Dictionary<PlayerMatchStatType, int>? archivedStatInfo = null;
+        var archivedTotal = 0;
+        if (player.Stats != null)
+        {
+            archivedStatInfo = _zoneData.MatchCard.Stats?.Stats?.ToDictionary(k => k.Key,
+                v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
+            var archivedTotalInfo = _zoneData.MatchCard.Stats?.Total;
+            archivedTotal = (int)(archivedTotalInfo?.Sum(
+                score => archivedStatInfo?[score.Key] * score.Value) ?? 0);
+            _matchParticipation.SetResult(playerId, false, archivedStatInfo, archivedTotal);
+        }
+
         if (!_zoneData.MatchEnded && !_gameInitiator.IsMapEditor() && _zoneData.GameModeCard.ExitMatchBehaviour is ExitMatchBehaviourType.Demerit or ExitMatchBehaviourType.Restricted)
         {
             var winners = _playerUnits.Values.Where(p => p.Team != player.Team).Select(p => p.PlayerId).OfType<uint>()
@@ -1004,11 +1039,8 @@ public partial class GameZone : Updater
                 .ToHashSet();
             Databases.PlayerDatabase.UpdateRatings(winners, losers, exclude);
 
-            if (player.Stats != null)
+            if (archivedStatInfo != null)
             {
-                var statInfo = _zoneData.MatchCard.Stats?.Stats?.ToDictionary(k => k.Key,
-                    v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
-                var totalInfo = _zoneData.MatchCard.Stats?.Total;
                 Databases.PlayerDatabase.UpdateMatchStats(new EndMatchResults
                 {
                     PlayerId = playerId,
@@ -1027,8 +1059,8 @@ public partial class GameZone : Updater
                                 Noob = false,
                                 Stats = new EndMatchPlayerStats
                                 {
-                                    Stats = statInfo,
-                                    Total = (int)(totalInfo?.Sum(score => statInfo?[score.Key] * score.Value) ?? 0)
+                                    Stats = archivedStatInfo,
+                                    Total = archivedTotal
                                 },
                                 MedalPositive = default,
                                 MedalNegative = default
@@ -1379,6 +1411,8 @@ public partial class GameZone : Updater
             var statInfo = zoneDataMatchCard.Stats?.Stats?.ToDictionary(k => k.Key,
                 v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
             var totalInfo = zoneDataMatchCard.Stats?.Total;
+            _matchParticipation.SetResult(player.PlayerId.Value, player.Team == winner, statInfo,
+                (int)(totalInfo?.Sum(score => statInfo?[score.Key] * score.Value) ?? 0));
             
             var playerInfo = _playerLobbyInfo.GetValueOrDefault(player.PlayerId.Value);
             matchStats.Add(new EndMatchPlayerData
@@ -1562,6 +1596,31 @@ public partial class GameZone : Updater
         if (!_gameInitiator.IsMapEditor() && zoneDataGameModeCard.Ranking is GameRankingType.Friendly or GameRankingType.Ranked)
         {
             Databases.PlayerDatabase.UpdateRatings(winners, losers, exclude);
+            var startedAt = _matchParticipation.StartedAt ?? gameEnd;
+            var matchId = $"{_instanceId ?? "unknown"}:{startedAt.ToUnixTimeMilliseconds()}";
+            var teams = new[] { TeamType.Team1, TeamType.Team2 }.Select(team =>
+            {
+                var remaining = _objectiveConquest[(int)team].ToList();
+                return new CompletedMatchTeam
+                {
+                    Team = team,
+                    IsWinner = team == winner,
+                    CubesAtStart = _initialCubeCounts[(int)team],
+                    CubesRemaining = CountCubes(remaining),
+                    BaseDestroyed = !remaining.Contains(UnitLabel.LineBase)
+                };
+            }).ToList();
+            Databases.PlayerDatabase.StoreCompletedMatch(new CompletedMatchRecord
+            {
+                MatchId = matchId,
+                MapKey = _zoneData.MapKey ?? Key.None,
+                GameModeKey = _zoneData.GameModeKey,
+                StartedAt = (ulong)startedAt.ToUnixTimeMilliseconds(),
+                EndedAt = (ulong)gameEnd.ToUnixTimeMilliseconds(),
+                Winner = winner,
+                Teams = teams,
+                Players = _matchParticipation.Complete(gameEnd)
+            });
         }
         
         var unitsToClean = _units.Values.Where(u => u.UnitCard?.Labels?.Contains(UnitLabel.DestroyOnMatchEnd) is true).ToList();

@@ -685,6 +685,9 @@ public class PlayerDatabase : IPlayerDatabase
     public void UpdateMatchStats(EndMatchResults endMatchResults) =>
         _serviceRegionServer.SendMatchEndedForPlayer(endMatchResults);
 
+    public void StoreCompletedMatch(CompletedMatchRecord match) =>
+        _serviceRegionServer.SendCompletedMatch(match);
+
     public void UpdateFriends(uint receiverId, uint senderId, bool accepted) =>
         _serviceRegionServer.SendFriendUpdate(receiverId, senderId, accepted);
 
