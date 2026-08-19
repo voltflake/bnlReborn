@@ -70,6 +70,8 @@ public interface IRegionServerDatabase
     public Guid? GetSessionGuid(uint playerId);
     public IServicePlayer? GetPlayerService(uint playerId);
     public IServiceChat? GetChatService(uint playerId);
+    public bool SchedulePlayerNotification(uint playerId, string message);
+    public int BroadcastPlayerNotification(string message);
     public void CloseSquad(ulong squadId);
     public ulong? GetSquadId(uint playerId);
     public bool IsSquadLeader(uint playerId);

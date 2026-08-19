@@ -753,9 +753,79 @@ tbody tr:hover td { background: var(--panel-2); }
    nickname — explicit, and it leaves every other cell as selectable text. */
 .row-action { text-align: right; }
 .edit-btn { padding: 5px 14px; font-size: 13px; }
+.message-btn { padding: 5px 14px; font-size: 13px; }
 .empty-row td { color: var(--ink-3); font-style: italic; }
 /* A failed fetch is not an empty list, and must not read like one. */
 .empty-row.error-row td { color: var(--alarm-ink); font-style: normal; }
+
+/* ---------- announcement editor ---------- */
+.message-modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(5, 8, 12, .72);
+}
+.message-modal-backdrop.active { display: block; }
+.message-modal {
+  display: none;
+  position: fixed;
+  z-index: 41;
+  top: 50%;
+  left: 50%;
+  width: min(680px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+}
+.message-modal.active { display: block; }
+.message-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.message-modal-head h2 { margin: 0; }
+.message-modal-head p { margin: 5px 0 0; color: var(--ink-3); }
+.message-modal-body { padding: 18px 22px 22px; }
+.message-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.format-btn { min-width: 32px; padding: 5px 9px; }
+.message-toolbar label { display: inline-flex; align-items: center; gap: 6px; }
+.message-toolbar input[type="color"] { width: 30px; height: 28px; padding: 2px; }
+.message-toolbar select { padding: 5px 8px; }
+#messageText {
+  display: block;
+  width: 100%;
+  min-height: 130px;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 12px;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font: inherit;
+}
+.message-preview-label { margin: 16px 0 6px; color: var(--ink-3); font-size: 12px; text-transform: uppercase; }
+.message-preview {
+  min-height: 54px;
+  padding: 12px;
+  color: var(--ink);
+  background: #10161d;
+  border: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.message-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* The nickname doubles as the link out, using the same compact Steam profile chrome. */
 .steam-btn {

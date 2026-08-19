@@ -297,6 +297,13 @@
     <div class="action-list">
       <div class="action-row">
         <div class="action-text">
+          <h3>Broadcast announcement</h3>
+          <p>Send a formatted popup to every player currently online.</p>
+        </div>
+        <button onclick="openBroadcastMessage()">Broadcast</button>
+      </div>
+      <div class="action-row">
+        <div class="action-text">
           <h3>Refresh CDB</h3>
           <p>Reloads the catalogue from the database and pushes it to connected clients.</p>
         </div>
@@ -429,6 +436,42 @@
    </div>
   </div>
 </aside>
+
+<div class="message-modal-backdrop" id="messageModalBackdrop" onclick="closeMessageModal()"></div>
+<section class="message-modal" id="messageModal" role="dialog" aria-modal="true"
+         aria-labelledby="messageModalTitle">
+  <div class="message-modal-head">
+    <div>
+      <h2 id="messageModalTitle">Send announcement</h2>
+      <p id="messageModalTarget"></p>
+    </div>
+    <button class="close-btn" onclick="closeMessageModal()">Cancel</button>
+  </div>
+  <div class="message-modal-body">
+    <div class="message-toolbar" aria-label="Formatting">
+      <button type="button" class="format-btn format-bold" onclick="wrapMessageSelection('b')"><b>B</b></button>
+      <button type="button" class="format-btn format-italic" onclick="wrapMessageSelection('i')"><i>I</i></button>
+      <label>Color <input id="messageColor" type="color" value="#FFD700" onmousedown="rememberMessageSelection()" onchange="wrapMessageSelection('color', this.value)"></label>
+      <label>Size
+        <select id="messageSize" onmousedown="rememberMessageSelection()" onchange="wrapMessageSelection('size', this.value)">
+          <option value="">Normal</option>
+          <option value="18">18</option>
+          <option value="24">24</option>
+          <option value="32">32</option>
+        </select>
+      </label>
+    </div>
+    <textarea id="messageText" rows="6" maxlength="2000"
+              placeholder="Type the announcement here..." oninput="updateMessagePreview()"
+              onselect="rememberMessageSelection()" onkeyup="rememberMessageSelection()"></textarea>
+    <div class="message-preview-label">Preview</div>
+    <div class="message-preview" id="messagePreview"></div>
+    <div class="message-modal-actions">
+      <button class="ghost-btn" onclick="closeMessageModal()">Cancel</button>
+      <button class="save-btn" onclick="submitPlayerMessage()">Send announcement</button>
+    </div>
+  </div>
+</section>
 
 <div class="toast" id="toast"><pre id="toastMsg"></pre></div>
 <script src="/sprites.js"></script>

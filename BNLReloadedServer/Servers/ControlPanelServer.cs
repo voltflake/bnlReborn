@@ -247,6 +247,30 @@ public sealed class ControlPanelServer : IDisposable
                 }
             }
 
+            if (path.StartsWith("/api/players/") &&
+                path.EndsWith("/notification", StringComparison.OrdinalIgnoreCase) &&
+                uint.TryParse(path["/api/players/".Length..^"/notification".Length], out var notificationPlayerId) &&
+                method == "POST")
+            {
+                await HandlePlayerNotification(ctx, notificationPlayerId);
+                return;
+            }
+
+            if (path.StartsWith("/api/players/") &&
+                path.EndsWith("/notification/schedule", StringComparison.OrdinalIgnoreCase) &&
+                uint.TryParse(path["/api/players/".Length..^"/notification/schedule".Length], out var scheduledPlayerId) &&
+                method == "POST")
+            {
+                await HandleScheduledPlayerNotification(ctx, scheduledPlayerId);
+                return;
+            }
+
+            if (method == "POST" && path == "/api/notification/broadcast")
+            {
+                await HandleNotificationBroadcast(ctx);
+                return;
+            }
+
             if (method == "GET" && path.StartsWith("/api/cards/"))
             {
                 await ServeCard(ctx, Uri.UnescapeDataString(path["/api/cards/".Length..]));
@@ -1098,6 +1122,125 @@ public sealed class ControlPanelServer : IDisposable
             }
 
             await WriteJson(ctx, new { message = "Player updated" });
+        }
+        catch (Exception ex)
+        {
+            ctx.Response.StatusCode = 500;
+            await WriteJson(ctx, new { error = ex.Message });
+        }
+    }
+
+    private async Task HandlePlayerNotification(HttpListenerContext ctx, uint playerId)
+    {
+        try
+        {
+            using var reader = new StreamReader(ctx.Request.InputStream);
+            using var doc = JsonDocument.Parse(await reader.ReadToEndAsync());
+            var message = doc.RootElement.TryGetProperty("message", out var messageProp)
+                ? messageProp.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                ctx.Response.StatusCode = 400;
+                await WriteJson(ctx, new { error = "Message is required" });
+                return;
+            }
+
+            var service = Databases.RegionServerDatabase.GetPlayerService(playerId);
+            if (service == null)
+            {
+                ctx.Response.StatusCode = 409;
+                await WriteJson(ctx, new { error = "Player is no longer online" });
+                return;
+            }
+
+            service.SendNotification(new NotificationZeus { Text = message.Trim() });
+            await WriteJson(ctx, new { message = "Notification sent" });
+        }
+        catch (JsonException)
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = "Invalid JSON" });
+        }
+        catch (Exception ex)
+        {
+            ctx.Response.StatusCode = 500;
+            await WriteJson(ctx, new { error = ex.Message });
+        }
+    }
+
+    private async Task HandleScheduledPlayerNotification(HttpListenerContext ctx, uint playerId)
+    {
+        try
+        {
+            var player = Databases.PlayerDatabase.GetPlayerDataNoWait(playerId) ??
+                await Databases.MasterServerDatabase.GetPlayer(playerId);
+            if (player == null)
+            {
+                ctx.Response.StatusCode = 404;
+                await WriteJson(ctx, new { error = "Player not found" });
+                return;
+            }
+
+            using var reader = new StreamReader(ctx.Request.InputStream);
+            using var doc = JsonDocument.Parse(await reader.ReadToEndAsync());
+            var message = doc.RootElement.TryGetProperty("message", out var messageProp)
+                ? messageProp.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                ctx.Response.StatusCode = 400;
+                await WriteJson(ctx, new { error = "Message is required" });
+                return;
+            }
+
+            if (!Databases.RegionServerDatabase.SchedulePlayerNotification(playerId, message.Trim()))
+            {
+                ctx.Response.StatusCode = 409;
+                await WriteJson(ctx, new { error = "Player is already online; use Message instead" });
+                return;
+            }
+
+            await WriteJson(ctx, new { message = "Notification scheduled" });
+        }
+        catch (JsonException)
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = "Invalid JSON" });
+        }
+        catch (Exception ex)
+        {
+            ctx.Response.StatusCode = 500;
+            await WriteJson(ctx, new { error = ex.Message });
+        }
+    }
+
+    private async Task HandleNotificationBroadcast(HttpListenerContext ctx)
+    {
+        try
+        {
+            using var reader = new StreamReader(ctx.Request.InputStream);
+            using var doc = JsonDocument.Parse(await reader.ReadToEndAsync());
+            var message = doc.RootElement.TryGetProperty("message", out var messageProp)
+                ? messageProp.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                ctx.Response.StatusCode = 400;
+                await WriteJson(ctx, new { error = "Message is required" });
+                return;
+            }
+
+            var sent = Databases.RegionServerDatabase.BroadcastPlayerNotification(message.Trim());
+            await WriteJson(ctx, new { message = "Broadcast sent", sent });
+        }
+        catch (JsonException)
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = "Invalid JSON" });
         }
         catch (Exception ex)
         {

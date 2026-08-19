@@ -520,8 +520,153 @@ function renderPlayers(list) {
     '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
     '<td><span class="status-dot ' + (p.online ? 'online' : '') + '">' +
       (p.online ? 'Online' : 'Offline') + '</span></td>' +
-    '<td class="row-action"><button class="edit-btn" onclick="showPlayerEdit(' + p.id + ')">Edit</button></td>' +
+    '<td class="row-action">' +
+      (p.online
+        ? '<button class="message-btn" onclick="sendPlayerMessage(' + p.id + ')">Message</button> '
+        : '<button class="message-btn" onclick="schedulePlayerMessage(' + p.id + ')">Schedule message</button> ') +
+      '<button class="edit-btn" onclick="showPlayerEdit(' + p.id + ')">Edit</button>' +
+      '</td>' +
     '</tr>').join('');
+}
+
+async function sendPlayerMessage(id) {
+  openMessageModal(id, false);
+}
+
+async function schedulePlayerMessage(id) {
+  openMessageModal(id, true);
+}
+
+function openBroadcastMessage() {
+  currentMessagePlayerId = null;
+  currentMessageNickname = '';
+  currentMessageScheduled = false;
+  currentMessageBroadcast = true;
+  messageSelection = { start: 0, end: 0 };
+  document.getElementById('messageModalTitle').textContent = 'Broadcast announcement';
+  document.getElementById('messageModalTarget').textContent = 'To all currently online players';
+  document.getElementById('messageText').value = '';
+  updateMessagePreview();
+  document.getElementById('messageModalBackdrop').classList.add('active');
+  document.getElementById('messageModal').classList.add('active');
+  document.getElementById('messageText').focus();
+}
+
+function openMessageModal(id, scheduled) {
+  const player = allPlayers.find(p => p.id === id);
+  const nickname = player ? player.nickname : 'player #' + id;
+  currentMessagePlayerId = id;
+  currentMessageNickname = nickname;
+  currentMessageScheduled = scheduled;
+  currentMessageBroadcast = false;
+  messageSelection = { start: 0, end: 0 };
+  document.getElementById('messageModalTitle').textContent =
+    scheduled ? 'Schedule announcement' : 'Send announcement';
+  document.getElementById('messageModalTarget').textContent =
+    scheduled
+      ? 'Will be delivered when ' + nickname + ' comes online.'
+      : 'To ' + nickname + ' (#' + id + ')';
+  document.getElementById('messageText').value = '';
+  updateMessagePreview();
+  document.getElementById('messageModalBackdrop').classList.add('active');
+  document.getElementById('messageModal').classList.add('active');
+  document.getElementById('messageText').focus();
+}
+
+let currentMessagePlayerId = null;
+let currentMessageNickname = '';
+let currentMessageScheduled = false;
+let currentMessageBroadcast = false;
+let messageSelection = { start: 0, end: 0 };
+
+function closeMessageModal() {
+  currentMessagePlayerId = null;
+  currentMessageNickname = '';
+  currentMessageScheduled = false;
+  currentMessageBroadcast = false;
+  document.getElementById('messageModalBackdrop').classList.remove('active');
+  document.getElementById('messageModal').classList.remove('active');
+}
+
+function rememberMessageSelection() {
+  const input = document.getElementById('messageText');
+  messageSelection = { start: input.selectionStart, end: input.selectionEnd };
+}
+
+function wrapMessageSelection(tag, value) {
+  const input = document.getElementById('messageText');
+  const hasCurrentSelection = input.selectionStart !== input.selectionEnd;
+  const start = hasCurrentSelection ? input.selectionStart : messageSelection.start;
+  const end = hasCurrentSelection ? input.selectionEnd : messageSelection.end;
+  if (start === end) return;
+  const selected = input.value.slice(start, end);
+  const attribute = value ? '=' + value : '';
+  input.setRangeText('<' + tag + attribute + '>' + selected + '</' + tag + '>', start, end, 'select');
+  input.focus();
+  messageSelection = { start, end: start + ('<' + tag + attribute + '>' + selected + '</' + tag + '>').length };
+  updateMessagePreview();
+  if (tag === 'size') document.getElementById('messageSize').value = '';
+}
+
+function sanitizeMessageMarkup(raw) {
+  const escaped = raw.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+  return escaped
+    .replace(/&lt;b&gt;/gi, '<b>')
+    .replace(/&lt;\/b&gt;/gi, '</b>')
+    .replace(/&lt;i&gt;/gi, '<i>')
+    .replace(/&lt;\/i&gt;/gi, '</i>')
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+    .replace(/&lt;color=(#[0-9a-f]{6,8})&gt;/gi, '<span style="color:$1">')
+    .replace(/&lt;\/color&gt;/gi, '</span>')
+    .replace(/&lt;size=(1[0-9]|2[0-9]|3[0-9])&gt;/gi, '<span style="font-size:$1px">')
+    .replace(/&lt;\/size&gt;/gi, '</span>');
+}
+
+function updateMessagePreview() {
+  const text = document.getElementById('messageText').value;
+  document.getElementById('messagePreview').innerHTML = sanitizeMessageMarkup(text)
+    .replace(/\n/g, '<br>');
+}
+
+async function submitPlayerMessage() {
+  if (currentMessagePlayerId == null && !currentMessageBroadcast) return;
+  const message = document.getElementById('messageText').value.trim();
+  if (!message) {
+    showToast('error', 'Enter a message first.');
+    return;
+  }
+
+  try {
+    const endpoint = currentMessageBroadcast
+      ? '/api/notification/broadcast'
+      : currentMessageScheduled
+        ? '/api/players/' + currentMessagePlayerId + '/notification/schedule'
+        : '/api/players/' + currentMessagePlayerId + '/notification';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast('error', data.error || 'Could not send message');
+      loadPlayers();
+      return;
+    }
+    const nickname = currentMessageNickname;
+    const scheduled = currentMessageScheduled;
+    const broadcast = currentMessageBroadcast;
+    closeMessageModal();
+    showToast('success', broadcast
+      ? 'Broadcast sent to ' + (data.sent || 0) + ' online players.'
+      : scheduled
+      ? 'Message scheduled for ' + nickname + '.'
+      : 'Message sent to ' + nickname + '.');
+  } catch (e) {
+    showToast('error', e.message);
+  }
 }
 
 function filterPlayers() {

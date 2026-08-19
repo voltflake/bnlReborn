@@ -6,6 +6,7 @@ using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using BNLReloadedServer.ServerTypes;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Moserware.Skills;
@@ -15,6 +16,8 @@ namespace BNLReloadedServer.Database;
 
 public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer matchServer) : IRegionServerDatabase
 {
+    private const int ScheduledNotificationDelayMs = 300;
+
     private class ConnectionInfo(Guid guid, ChatPlayer chatInfo, bool isAdmin)
     {
         public Guid Guid { get; set; } = guid;
@@ -41,6 +44,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     }
     
     private readonly ConcurrentDictionary<uint, ConnectionInfo> _connectedUsers = new();
+    private readonly ConcurrentDictionary<uint, ConcurrentQueue<string>> _scheduledNotifications = new();
     
     // Session teardown removes from these on arbitrary threads while request threads read them,
     // so the outer map is concurrent. The inner one stays a plain Dictionary: it is filled by the
@@ -149,6 +153,56 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             ? service
             : null;
 
+    public bool SchedulePlayerNotification(uint playerId, string message)
+    {
+        if (GetPlayerService(playerId) != null) return false;
+
+        _scheduledNotifications.GetOrAdd(playerId, _ => new ConcurrentQueue<string>()).Enqueue(message);
+        QueueScheduledNotificationDelivery(playerId);
+        return true;
+    }
+
+    public int BroadcastPlayerNotification(string message)
+    {
+        var sent = 0;
+        foreach (var playerId in _connectedUsers.Keys)
+        {
+            if (GetPlayerService(playerId) is not { } service) continue;
+            service.SendNotification(new NotificationZeus { Text = message });
+            sent++;
+        }
+
+        return sent;
+    }
+
+    private void QueueScheduledNotificationDelivery(uint playerId) =>
+        _ = DeliverScheduledNotificationsAfterDelay(playerId);
+
+    private async Task DeliverScheduledNotificationsAfterDelay(uint playerId)
+    {
+        try
+        {
+            await Task.Delay(ScheduledNotificationDelayMs);
+            DeliverScheduledNotifications(playerId);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(LogCat.Net,
+                $"Failed to deliver scheduled notification for player {playerId}", ex);
+        }
+    }
+
+    private void DeliverScheduledNotifications(uint playerId)
+    {
+        var service = GetPlayerService(playerId);
+        if (service == null || !_scheduledNotifications.TryGetValue(playerId, out var messages)) return;
+
+        while (messages.TryDequeue(out var message))
+            service.SendNotification(new NotificationZeus { Text = message });
+
+        _scheduledNotifications.TryRemove(new KeyValuePair<uint, ConcurrentQueue<string>>(playerId, messages));
+    }
+
     public bool AddUser(uint userId, Guid sessionId)
     {
         var result = true;
@@ -176,6 +230,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             }
         }
 
+        QueueScheduledNotificationDelivery(userId);
         return result;
     }
 
