@@ -337,7 +337,8 @@ public partial class GameZone : Updater
             if (existingUnits.Count > unit.CountLimit.Limit)
             {
                 existingUnits.Sort((u1, u2) => u1.CreationTime.CompareTo(u2.CreationTime));
-                existingUnits[unit.CountLimit.Limit - 1].Killed(existingUnits[unit.CountLimit.Limit - 1].CreateBlankImpactData());
+                var oldestUnit = existingUnits[0];
+                oldestUnit.Killed(oldestUnit.CreateBlankImpactData());
             }
         }
 
@@ -2072,6 +2073,13 @@ public partial class GameZone : Updater
                             if (unitsForTeleport.FirstOrDefault() is {} unitToTeleport)
                             {
                                 if (!unit.CanTeleport || !otherPortal.CanTeleport) break;
+
+                                Log.Info(LogCat.Match,
+                                    $"Portal teleport: target={unitToTeleport.Id}, from={unit.Id}, to={otherPortal.Id}, " +
+                                    $"fromDisabled={unit.IsBuff(BuffType.Disabled)}, toDisabled={otherPortal.IsBuff(BuffType.Disabled)}, " +
+                                    $"fromLinked={unit.PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
+                                    $"toLinked={otherPortal.PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
+                                    $"fromJustTeleported={unit.JustTeleported}, toJustTeleported={otherPortal.JustTeleported}");
                                 
                                 _serviceZone.SendPortalTeleport(unitToTeleport.Id, unit.Id, otherPortal.Id);
                                 var telePos = otherPortal.GetMidpoint();

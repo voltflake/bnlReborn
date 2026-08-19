@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using BNLReloadedServer.Database;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.ServerTypes;
 
@@ -787,6 +788,14 @@ public partial class Unit
 
     private void OnDisabled()
     {
+        if (UnitCard?.Data is UnitDataPortal)
+        {
+            Log.Info(LogCat.Match,
+                $"Portal disabled: id={Id}, key={Key}, owner={OwnerPlayerId?.ToString() ?? "null"}, " +
+                $"linked={PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
+                $"justTeleported={JustTeleported}, lastTeleport={LastTeleport?.ToString("O") ?? "null"}");
+        }
+
         var enabledEffects = UnitCard?.EnabledEffects;
 
         if (enabledEffects is { Count: > 0 })
@@ -803,11 +812,18 @@ public partial class Unit
         if (_bombTimeoutEnd is not null)
             _updater.OnUnitUpdate(this, new UnitUpdate { BombTimeoutEnd = 0UL });
 
-        _wasDisabled = true;
     }
 
     private void OnReEnabled()
     {
+        if (UnitCard?.Data is UnitDataPortal)
+        {
+            Log.Info(LogCat.Match,
+                $"Portal re-enabled: id={Id}, key={Key}, owner={OwnerPlayerId?.ToString() ?? "null"}, " +
+                $"linkedBefore={PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
+                $"justTeleported={JustTeleported}, lastTeleport={LastTeleport?.ToString("O") ?? "null"}");
+        }
+
         var enabledEffects = UnitCard?.EnabledEffects;
 
         if (enabledEffects is { Count: > 0 })
@@ -830,7 +846,6 @@ public partial class Unit
             _disabledTime = null;
         }
         
-        _wasDisabled = false;
     }
 
     private void OnConfused(Unit confuser)

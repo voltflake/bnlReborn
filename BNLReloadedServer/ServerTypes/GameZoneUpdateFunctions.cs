@@ -4,6 +4,7 @@ using BNLReloadedServer.Database;
 using BNLReloadedServer.Octree_Extensions;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Service;
+using BNLReloadedServer.Logging;
 using MatchType = BNLReloadedServer.BaseTypes.MatchType;
 
 namespace BNLReloadedServer.ServerTypes;
@@ -1979,22 +1980,39 @@ public partial class GameZone
     {
         if (unlink)
         {
-            if (unit.PortalLinked.LinkedPortalUnitId is null) return;
-            var linkedPortal = _units.GetValueOrDefault(unit.PortalLinked.LinkedPortalUnitId.Value);
-            if (linkedPortal is null) return;
-            var blankLink = new PortalLink
+            var linkedPortalId = unit.PortalLinked.LinkedPortalUnitId;
+            Log.Info(LogCat.Match,
+                $"Portal unlink requested: id={unit.Id}, key={unit.Key}, owner={unit.OwnerPlayerId?.ToString() ?? "null"}, " +
+                $"linked={linkedPortalId?.ToString() ?? "null"}, disabled={unit.IsBuff(BuffType.Disabled)}, " +
+                $"justTeleported={unit.JustTeleported}, lastTeleport={unit.LastTeleport?.ToString("O") ?? "null"}");
+
+            if (linkedPortalId is null) return;
+            var linkedPortal = _units.GetValueOrDefault(linkedPortalId.Value);
+            if (linkedPortal is null)
             {
-                LinkedPortalUnitId = null
-            };
-            
+                Log.Warn(LogCat.Match,
+                    $"Portal unlink target missing: id={unit.Id}, linked={linkedPortalId.Value}, key={unit.Key}, " +
+                    $"owner={unit.OwnerPlayerId?.ToString() ?? "null"}");
+                return;
+            }
             unit.UpdateData(new UnitUpdate
             {
-                PortalLink = blankLink
+                PortalLink = new PortalLink
+                {
+                    LinkedPortalUnitId = null
+                }
             });
             linkedPortal.UpdateData(new UnitUpdate
             {
-                PortalLink = blankLink
+                PortalLink = new PortalLink
+                {
+                    LinkedPortalUnitId = null
+                }
             });
+
+            Log.Info(LogCat.Match,
+                $"Portals unlinked: first={unit.Id}, second={linkedPortal.Id}, key={unit.Key}, " +
+                    $"owner={unit.OwnerPlayerId?.ToString() ?? "null"}");
         }
         else
         {
@@ -2003,20 +2021,40 @@ public partial class GameZone
                 u.PortalLinked.LinkedPortalUnitId is null && u.OwnerPlayerId == unit.OwnerPlayerId &&
                 !u.IsBuff(BuffType.Disabled));
         
-            if (portalCandidate is null) return;
+            if (portalCandidate is null)
+            {
+                var sameKeyPortals = _units.Values
+                    .Where(u => u.UnitCard?.Data is UnitDataPortal && u.Key == unit.Key && u.Id != unit.Id)
+                    .Select(u =>
+                        $"id={u.Id},owner={u.OwnerPlayerId?.ToString() ?? "null"},linked={u.PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}," +
+                        $"disabled={u.IsBuff(BuffType.Disabled)}")
+                    .ToList();
+                Log.Warn(LogCat.Match,
+                    $"Portal link candidate missing: id={unit.Id}, key={unit.Key}, " +
+                    $"owner={unit.OwnerPlayerId?.ToString() ?? "null"}, disabled={unit.IsBuff(BuffType.Disabled)}, " +
+                    $"sameKey=[{string.Join(";", sameKeyPortals)}]");
+                return;
+            }
         
-            var thisPortalLink = unit.PortalLinked;
-            thisPortalLink.LinkedPortalUnitId = portalCandidate.Id;
-            var thatPortalLink = portalCandidate.PortalLinked;
-            thatPortalLink.LinkedPortalUnitId = unit.Id;
             unit.UpdateData(new UnitUpdate
             {
-                PortalLink = thisPortalLink
+                PortalLink = new PortalLink
+                {
+                    LinkedPortalUnitId = portalCandidate.Id
+                }
             });
             portalCandidate.UpdateData(new UnitUpdate
             {
-                PortalLink = thatPortalLink
+                PortalLink = new PortalLink
+                {
+                    LinkedPortalUnitId = unit.Id
+                }
             });
+
+            Log.Info(LogCat.Match,
+                $"Portals linked: first={unit.Id}, second={portalCandidate.Id}, key={unit.Key}, " +
+                $"owner={unit.OwnerPlayerId?.ToString() ?? "null"}, firstDisabled={unit.IsBuff(BuffType.Disabled)}, " +
+                $"secondDisabled={portalCandidate.IsBuff(BuffType.Disabled)}");
         }
     }
 

@@ -1294,17 +1294,32 @@ public partial class Unit
 
     private void OnEffectsChanged(in NotifyCollectionChangedEventArgs<ImmutableList<ConstEffectInfo>> e)
     {
-        if (!e.IsSingleItem) return;
+        // ActiveEffects replaces the one immutable list stored at _constEffects[0]. A range/reset
+        // notification would violate that invariant and cannot be processed through NewItem/OldItem.
+        if (!e.IsSingleItem)
+        {
+            Log.Error(LogCat.Match,
+                $"Unexpected effect collection notification: unit={Id}, key={Key}, action={e.Action}");
+            return;
+        }
+
         var addedItems = e.NewItem.Except(e.OldItem);
         var removedItems = e.OldItem.Except(e.NewItem);
         var removed = removedItems.Select(info => (info.Key.GetCard<CardEffect>(), info)).ToList();
         var added = addedItems.Select(info => (info.Key.GetCard<CardEffect>(), info)).ToList();
         if (added.Count == 0 && removed.Count == 0) return;
-        
-        if (!_skipBuffSet && removed.Exists(eff => eff.Item1?.Effect is ConstEffectBuff) ||
-                              added.Exists(eff => eff.Item1?.Effect is ConstEffectBuff))
+
+        var buffEffectsChanged = removed.Exists(eff => eff.Item1?.Effect is ConstEffectBuff) ||
+                                 added.Exists(eff => eff.Item1?.Effect is ConstEffectBuff);
+        if (buffEffectsChanged)
         {
-            _buffs = ExtractBuffs(e.NewItem.Select(info => info.Key).Distinct());
+            // UpdateData may supply the authoritative Buffs map together with Effects. In that
+            // case keep the supplied map, but still run lifecycle transitions below.
+            if (!_skipBuffSet)
+            {
+                _buffs = ExtractBuffs(e.NewItem.Select(info => info.Key).Distinct());
+            }
+
             if (UnitCard?.IsObjective is true && !_updater.DoesObjBuffApply(Team, UnitCard?.Labels ?? []))
             {
                 ActiveEffects = ActiveEffects.RemoveAll(e => CatalogueHelper.ObjectiveShieldKeys.Contains(e.Key));
@@ -1312,10 +1327,15 @@ public partial class Unit
 
             if (IsBuff(BuffType.Disabled) && !_wasDisabled)
             {
+                // Set the transition state before callbacks: OnDisabled can remove enabled
+                // effects, which synchronously raises another effect-change notification.
+                _wasDisabled = true;
                 OnDisabled();
             }
             else if (_wasDisabled && !IsBuff(BuffType.Disabled))
             {
+                // OnReEnabled can add enabled effects and re-enter this handler as well.
+                _wasDisabled = false;
                 OnReEnabled();
             }
 
