@@ -134,6 +134,12 @@ function mapObjectiveLabel(map) {
   return cubes + (cubes === 1 ? ' cube' : ' cubes');
 }
 
+function mapImageSrc(map) {
+  const remote = [map.image, map.large_image].find(value =>
+    typeof value === 'string' && /^https?:\/\//i.test(value.trim()));
+  return remote ? remote.trim() : '/assets/maps/' + encodeURIComponent(map.image_asset || (map.key + '.jpg'));
+}
+
 function selectMapPoolFilter(btn) {
   mapFilter = btn.dataset.pool || '';
   document.querySelectorAll('#mapPoolChips .chip').forEach(c => c.classList.toggle('on', c === btn));
@@ -281,7 +287,7 @@ function renderMaps() {
     }
     const selectedKeys = mapEditing ? selectedMapKeys() : [];
     const pos = mapEditing && selected ? selectedKeys.indexOf(m.key) : -1;
-    const art = '/assets/maps/' + encodeURIComponent(m.image_asset || (m.key + '.jpg'));
+    const art = mapImageSrc(m);
     const activePools = (m.pools || []).filter(pool => ['friendly', 'ranked', 'custom'].includes(pool));
     const tags = mapEditing ? '' :
       '<div class="map-pool-hint">Used in</div><div class="map-tags">' +
@@ -297,7 +303,7 @@ function renderMaps() {
           '<button class="map-membership-action" onclick="toggleMapMembership(\'' + esc(m.key) + '\')">' + (selected ? 'Remove' : 'Add to pool') + '</button></div>'
       : '';
     return divider + '<article class="map-tile ' + (mapEditing ? 'map-editing ' + (selected ? 'pool-included' : 'pool-excluded') : '') + '">' +
-      '<img class="map-shot" src="' + art + '" alt="" onerror="this.outerHTML=\'<div class=&quot;map-shot none&quot;>No preview</div>\'">' +
+      '<img class="map-shot" src="' + esc(art) + '" alt="" onerror="this.outerHTML=\'<div class=&quot;map-shot none&quot;>No preview</div>\'">' +
       '<div class="map-body"><div class="map-title"><div class="map-name">' + esc(m.name) + '</div>' +
       '<div class="map-meta">' + mapObjectiveLabel(m) + ' &middot; ' + esc(mapModeLabel(m.match)) + '</div></div>' +
       (tags ? tags : '') +
