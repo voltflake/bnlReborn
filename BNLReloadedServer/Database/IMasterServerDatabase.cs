@@ -17,6 +17,8 @@ public interface IMasterServerDatabase
     public Task<PlayerData?> GetPlayer(ulong steamId);
     public Task<PlayerData?> GetPlayer(uint playerId);
     public Task RecordPlayerIp(uint playerId, IPAddress? address);
+    public Task<DateTimeOffset?> GetLastOnline(uint playerId);
+    public Task SaveLastOnline(uint playerId, DateTimeOffset lastOnline);
     public Task<List<PlayerIpRecord>> GetIpsForPlayer(uint playerId);
     public Task<List<PlayerIpRecord>> GetPlayersForIp(string ip);
     public Task<List<string>> GetNicknamesForIp(string ip, int limit);

@@ -231,6 +231,8 @@ public class DummyPlayerDatabase : IPlayerDatabase
 
     public bool RemovePlayer(uint playerId) => true;
 
+    public (DateTimeOffset? OnlineSince, DateTimeOffset? LastOnline) GetPresence(uint playerId) => (null, null);
+
     public uint? GetPlayerId(ulong steamId)
     {
         if (_players.TryGetValue(steamId, out var value)) return value;

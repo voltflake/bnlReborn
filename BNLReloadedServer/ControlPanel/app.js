@@ -481,6 +481,33 @@ const COMPARE = {
   status:   (a, b) => (a.online ? 1 : 0) - (b.online ? 1 : 0)
 };
 
+function formatElapsed(milliseconds) {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  if (seconds < 60) return 'less than a minute';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + ' minute' + (minutes === 1 ? '' : 's');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + ' hour' + (hours === 1 ? '' : 's');
+  const days = Math.floor(hours / 24);
+  return days + ' day' + (days === 1 ? '' : 's');
+}
+
+function presenceLabel(p) {
+  if (p.online && p.online_since) return 'Online for ' + formatElapsed(Date.now() - p.online_since);
+  if (!p.online && p.last_online) return 'Last online ' + formatElapsed(Date.now() - p.last_online) + ' ago';
+  return p.online ? 'Online' : 'Offline';
+}
+
+function updatePresenceLabels() {
+  document.querySelectorAll('[data-presence-online-since]').forEach(element => {
+    element.textContent = presenceLabel({
+      online: element.dataset.presenceOnline === 'true',
+      online_since: Number(element.dataset.presenceOnlineSince) || null,
+      last_online: Number(element.dataset.presenceLastOnline) || null
+    });
+  });
+}
+
 function setSort(key) {
   if (sortKey === key) sortDir = -sortDir;
   else { sortKey = key; sortDir = SORT_OPENS_ASC[key] ? 1 : -1; }
@@ -519,8 +546,11 @@ function renderPlayers(list) {
       encodeURIComponent(p.steam_id) + '" target="_blank" rel="noopener noreferrer"' +
       ' title="Open Steam profile">' + esc(p.nickname) + '</a></td>' +
     '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
-    '<td><span class="status-dot ' + (p.online ? 'online' : '') + '">' +
-      (p.online ? 'Online' : 'Offline') + '</span></td>' +
+    '<td><span class="status-dot ' + (p.online ? 'online' : '') +
+      '" data-presence-online="' + p.online +
+      '" data-presence-online-since="' + (p.online_since || '') +
+      '" data-presence-last-online="' + (p.last_online || '') + '">' +
+      esc(presenceLabel(p)) + '</span></td>' +
     '<td class="row-action">' +
       (p.online
         ? '<button class="message-btn" onclick="sendPlayerMessage(' + p.id + ')">Message</button> '
@@ -528,6 +558,7 @@ function renderPlayers(list) {
       '<button class="edit-btn" onclick="showPlayerEdit(' + p.id + ')">Edit</button>' +
       '</td>' +
     '</tr>').join('');
+  updatePresenceLabels();
 }
 
 async function sendPlayerMessage(id) {
@@ -723,8 +754,12 @@ async function loadPlayer(id) {
     document.getElementById('playerRole').innerHTML =
       '<span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span>';
     document.getElementById('playerSub').innerHTML =
-      '<span class="status-dot ' + (p.online ? 'online' : '') + '">' +
-        (p.online ? 'Online' : 'Offline') + '</span>';
+      '<span class="status-dot ' + (p.online ? 'online' : '') +
+        '" data-presence-online="' + p.online +
+        '" data-presence-online-since="' + (p.online_since || '') +
+        '" data-presence-last-online="' + (p.last_online || '') + '">' +
+        esc(presenceLabel(p)) + '</span>';
+    updatePresenceLabels();
     document.getElementById('f-id').value = p.id;
     document.getElementById('f-steam').value = p.steam_id;
     document.getElementById('f-nickname').value = p.nickname;
@@ -1262,6 +1297,8 @@ setInterval(() => {
   if (document.getElementById('pane-bans').classList.contains('active')) renderModeration();
   else document.getElementById('railBans').textContent = activeBans().length || '';
 }, 15000);
+
+setInterval(updatePresenceLabels, 1000);
 
 /* ---------- tools ---------- */
 

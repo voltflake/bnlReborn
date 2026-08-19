@@ -27,6 +27,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb = new SQLiteAsyncConnection(Databases.PlayerDatabaseFile);
         _playerDb.CreateTableAsync<PlayerRecord>().Wait();
         _playerDb.CreateTableAsync<PlayerIpRecord>().Wait();
+        _playerDb.CreateTableAsync<PlayerPresenceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchTeamRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchPlayerRecord>().Wait();
@@ -307,6 +308,29 @@ public class MasterServerDatabase : IMasterServerDatabase
                 record.Hits += 1;
                 await _playerDb.UpdateAsync(record);
             }
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
+    }
+
+    public async Task<DateTimeOffset?> GetLastOnline(uint playerId)
+    {
+        var record = await _playerDb.FindAsync<PlayerPresenceRecord>(playerId);
+        return record?.LastOnline;
+    }
+
+    public async Task SaveLastOnline(uint playerId, DateTimeOffset lastOnline)
+    {
+        await _asyncLock.WaitAsync();
+        try
+        {
+            await _playerDb.InsertOrReplaceAsync(new PlayerPresenceRecord
+            {
+                PlayerId = playerId,
+                LastOnline = lastOnline
+            });
         }
         finally
         {

@@ -742,7 +742,9 @@ public sealed class ControlPanelServer : IDisposable
             rating_deviation = p.Rating.StandardDeviation,
             matchmaker_ban_end = p.MatchmakerBanEnd,
             graveyard_permanent = p.GraveyardPermanent,
-            graveyard_leave_time = p.GraveyardLeaveTime
+            graveyard_leave_time = p.GraveyardLeaveTime,
+            online_since = Databases.PlayerDatabase.GetPresence(p.PlayerId).OnlineSince?.ToUnixTimeMilliseconds(),
+            last_online = Databases.PlayerDatabase.GetPresence(p.PlayerId).LastOnline?.ToUnixTimeMilliseconds()
         });
 
         await WriteJson(ctx, new { players });
@@ -759,6 +761,7 @@ public sealed class ControlPanelServer : IDisposable
             return;
         }
 
+        var presence = Databases.PlayerDatabase.GetPresence(playerId);
         var data = new
         {
             id = player.PlayerId,
@@ -782,6 +785,8 @@ public sealed class ControlPanelServer : IDisposable
             matchmaker_ban_end = player.MatchmakerBanEnd,
             graveyard_permanent = player.GraveyardPermanent,
             graveyard_leave_time = player.GraveyardLeaveTime,
+            online_since = presence.OnlineSince?.ToUnixTimeMilliseconds(),
+            last_online = presence.LastOnline?.ToUnixTimeMilliseconds(),
             friends = player.Friends,
             friend_requests_incoming = player.RequestsFromFriends,
             friend_requests_outgoing = player.RequestsFromMe,

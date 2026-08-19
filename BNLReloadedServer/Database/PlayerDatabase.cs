@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Logging;
 using BNLReloadedServer.Service;
 using Moserware.Skills;
 
@@ -13,6 +14,7 @@ public class PlayerDatabase : IPlayerDatabase
     private record PlayerToken(uint PlayerId, DateTimeOffset Timestamp);
     
     private readonly ConcurrentDictionary<uint, PlayerData> _players = new();
+    private readonly ConcurrentDictionary<uint, (DateTimeOffset OnlineSince, DateTimeOffset? LastOnline)> _presence = new();
     private readonly ConcurrentDictionary<uint, List<ulong>> _steamFriends = new();
     
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<PlayerData>> _playerTasks = new();
@@ -95,6 +97,7 @@ public class PlayerDatabase : IPlayerDatabase
     public bool AddPlayer(PlayerData player)
     {
         _players[player.PlayerId] = player;
+        _presence[player.PlayerId] = (DateTimeOffset.UtcNow, null);
         if (_playerTasks.Remove(player.PlayerId, out var task))
         {
             task.SetResult(player);
@@ -109,8 +112,40 @@ public class PlayerDatabase : IPlayerDatabase
         _steamFriends.Remove(playerId, out _);
         var removed = _players.Remove(playerId, out _);
         if (removed)
+        {
+            var now = DateTimeOffset.UtcNow;
+            _presence.AddOrUpdate(playerId, _ => (now, now),
+                (_, current) => (current.OnlineSince, now));
+            try
+            {
+                Databases.MasterServerDatabase.SaveLastOnline(playerId, now).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(LogCat.Player, $"Failed to persist last-online time for player {playerId}", ex);
+            }
             _serviceRegionServer?.SendPlayerCount(_players.Count);
+        }
         return removed;
+    }
+
+    public (DateTimeOffset? OnlineSince, DateTimeOffset? LastOnline) GetPresence(uint playerId)
+    {
+        if (!_presence.TryGetValue(playerId, out var presence))
+        {
+            try
+            {
+                var lastOnline = Databases.MasterServerDatabase.GetLastOnline(playerId).GetAwaiter().GetResult();
+                _presence[playerId] = (DateTimeOffset.MinValue, lastOnline);
+                return (null, lastOnline);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(LogCat.Player, $"Failed to load last-online time for player {playerId}", ex);
+                return (null, null);
+            }
+        }
+        return (_players.ContainsKey(playerId) ? presence.OnlineSince : null, presence.LastOnline);
     }
 
     public uint? GetPlayerId(ulong steamId) => _players.Values.FirstOrDefault(p => p.SteamId == steamId)?.PlayerId;
