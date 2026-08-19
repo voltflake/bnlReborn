@@ -126,7 +126,6 @@
             <th class="sortable" aria-sort="none">
               <button class="th-sort" data-key="nickname" data-dir="none" onclick="setSort('nickname')">Nickname<span class="sort-ind"></span></button>
             </th>
-            <th>Steam ID</th>
             <th class="sortable" aria-sort="none">
               <button class="th-sort" data-key="role" data-dir="none" onclick="setSort('role')">Role<span class="sort-ind"></span></button>
             </th>
@@ -159,7 +158,7 @@
       </div>
       <div class="table-wrap mmr-wrap">
         <table class="mmr-table">
-          <thead><tr><th>Nickname</th><th>MMR</th><th>Volatility</th><th>ID</th><th>Profile</th><th class="grip-col"></th></tr></thead>
+          <thead><tr><th>Position</th><th>Nickname</th><th>MMR</th><th>Volatility</th><th>Player ID</th><th class="grip-col"></th></tr></thead>
           <tbody id="mmrBody"></tbody>
         </table>
       </div>
@@ -189,6 +188,8 @@
         <button class="chip" data-pool="ranked" onclick="selectMapPoolFilter(this)">Ranked</button>
         <button class="chip" data-pool="custom" onclick="selectMapPoolFilter(this)">Customs</button>
         <button class="chip" data-pool="unused" onclick="selectMapPoolFilter(this)">Unused</button>
+        <button class="chip" data-pool="time-trial" onclick="selectMapPoolFilter(this)">Time trials</button>
+        <button class="chip" data-pool="tutorial" onclick="selectMapPoolFilter(this)">Tutorial</button>
       </div>
       <div class="pool-controls" id="poolControls"></div>
     </div>
@@ -204,13 +205,6 @@
           these itself &mdash; a dodged confirm, ranked AFK, merits below the graveyard
           threshold &mdash; so this is mostly where you review and lift them.</p>
       </div>
-    </div>
-
-    <div class="table-wrap mod-wrap">
-      <table class="mod-table">
-        <thead><tr><th>Player</th><th>Penalty</th><th>Expires</th><th></th></tr></thead>
-        <tbody id="banBody"></tbody>
-      </table>
     </div>
 
     <section class="mod-form">
@@ -263,6 +257,13 @@
         record of its own, which is also what a history rather than a live list needs.
         Merits are not stored per player at all, so the list cannot show them.</p>
     </section>
+
+    <div class="table-wrap mod-wrap">
+      <table class="mod-table">
+        <thead><tr><th>Player</th><th>Penalty</th><th>Expires</th><th></th></tr></thead>
+        <tbody id="banBody"></tbody>
+      </table>
+    </div>
   </section>
 
   <!-- ================= tools ================= -->
@@ -283,6 +284,10 @@
                onkeydown="if(event.key==='Enter') lookupCard()">
       </div>
       <button class="save-btn" onclick="lookupCard()">Look up</button>
+      <div class="card-result-actions" id="cardResultActions" hidden>
+        <button onclick="downloadCardResult()">Download card</button>
+        <button onclick="copyCardResult()">Copy JSON</button>
+      </div>
     </div>
     <pre id="cardResult" class="card-result"></pre>
 

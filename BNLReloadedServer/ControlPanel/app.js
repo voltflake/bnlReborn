@@ -106,10 +106,29 @@ function mapLabel(pool) {
 }
 
 function mapModeLabel(match) {
-  return ({ ShieldRush2: 'Shield Rush', ShieldCapture: 'Shield Capture', Tutorial: 'Tutorial' })[match] || match || 'Unknown';
+  return ({ ShieldRush2: 'Shield Rush', ShieldCapture: 'Shield Capture', Tutorial: 'Tutorial', TimeTrial: 'Time Trial' })[match] || match || 'Unknown';
 }
 
+const TIME_TRIAL_HERO_NAMES = {
+  unit_hero_abe: 'Yeti',
+  unit_hero_astro: 'Astraella',
+  unit_hero_boxer: 'Sweet Science',
+  unit_hero_cogwheel: 'Cogwheel',
+  unit_hero_djinn: 'Dream Genie',
+  unit_hero_doc_eliza: 'Doc Eliza',
+  unit_hero_engineer: 'Tony',
+  unit_hero_hunter: 'Nigel',
+  unit_hero_kira: 'Kira',
+  unit_hero_kreepy: 'Kreepy',
+  unit_hero_magnus: 'Vander',
+  unit_hero_ninja: 'Ninja',
+  unit_hero_roly: 'Roly',
+  unit_hero_sarge_stone: 'Sarge',
+  unit_hero_trondson: 'Trondson'
+};
+
 function mapObjectiveLabel(map) {
+  if (map.match === 'TimeTrial') return TIME_TRIAL_HERO_NAMES[map.time_trial_hero_key] || map.time_trial_hero || 'Time Trial';
   const cubes = (map.cubes || 0) + 1;
   return cubes + (cubes === 1 ? ' cube' : ' cubes');
 }
@@ -247,6 +266,8 @@ function renderMaps() {
   if (!mapsLoaded) return;
   let rows = mapEditing ? mapDraft.map(k => mapRows.find(m => m.key === k)) : mapRows.slice();
   if (!mapEditing && mapFilter === 'unused') rows = rows.filter(m => !(m.pools || []).length);
+  else if (!mapEditing && mapFilter === 'time-trial') rows = rows.filter(m => m.match === 'TimeTrial');
+  else if (!mapEditing && mapFilter === 'tutorial') rows = rows.filter(m => m.match === 'Tutorial');
   else if (!mapEditing && mapFilter) rows = rows.filter(m => (m.pools || []).includes(mapFilter));
   rows.sort(mapEditing ? () => 0 : (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   let dividerState = null;
@@ -259,9 +280,14 @@ function renderMaps() {
     }
     const selectedKeys = mapEditing ? selectedMapKeys() : [];
     const pos = mapEditing && selected ? selectedKeys.indexOf(m.key) : -1;
-    const art = '/assets/maps/' + encodeURIComponent(m.key) + '.jpg';
-    const tags = mapEditing ? '' : ['friendly', 'ranked', 'custom'].map(pool =>
-      '<span class="map-tag ' + ((m.pools || []).includes(pool) ? 'active' : 'inactive') + '">' + esc(mapLabel(pool)) + '</span>').join('');
+    const art = '/assets/maps/' + encodeURIComponent(m.image_asset || (m.key + '.jpg'));
+    const activePools = (m.pools || []).filter(pool => ['friendly', 'ranked', 'custom'].includes(pool));
+    const tags = mapEditing ? '' :
+      '<div class="map-pool-hint">Used in</div><div class="map-tags">' +
+      (activePools.length
+        ? activePools.map(pool => '<span class="map-tag active">' + esc(mapLabel(pool)) + '</span>').join('')
+        : '<span class="map-tag none">Nowhere</span>') +
+      '</div>';
     const footer = mapEditing
       ? '<div class="map-state-footer ' + (selected ? 'included' : 'excluded') + '">' +
           (selected ? '<span class="map-order-controls"><button class="map-order-step" onclick="moveMap(\'' + esc(m.key) + '\',-1)" ' + (pos === 0 ? 'disabled' : '') + '>&#9664;</button>' +
@@ -273,7 +299,7 @@ function renderMaps() {
       '<img class="map-shot" src="' + art + '" alt="" onerror="this.outerHTML=\'<div class=&quot;map-shot none&quot;>No preview</div>\'">' +
       '<div class="map-body"><div class="map-title"><div class="map-name">' + esc(m.name) + '</div>' +
       '<div class="map-meta">' + mapObjectiveLabel(m) + ' &middot; ' + esc(mapModeLabel(m.match)) + '</div></div>' +
-      (tags ? '<div class="map-tags">' + tags + '</div>' : '') +
+      (tags ? tags : '') +
       (!mapEditing ? '<div class="map-downloads"><span class="map-download-hint">Downloads</span>' +
         '<a class="map-download" href="/api/cards/' + encodeURIComponent(m.key) + '" download="' + esc(m.key) + '-card.json">Card info</a>' +
         '<a class="map-download" href="/api/maps/' + encodeURIComponent(m.key) + '/download">BNLBIN</a></div>' : '') +
@@ -424,7 +450,7 @@ function formatUptime(totalSeconds) {
 
 async function loadPlayers() {
   const body = document.getElementById('playersBody');
-  if (!allPlayers.length) body.innerHTML = '<tr class="empty-row"><td colspan="6">Loading…</td></tr>';
+  if (!allPlayers.length) body.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
   try {
     const res = await fetch('/api/players');
     if (!res.ok) throw new Error('request failed');
@@ -437,7 +463,7 @@ async function loadPlayers() {
     if (!mmrEditing) { buildMmrRows(); renderMmr(); }
     renderModeration();
   } catch {
-    body.innerHTML = '<tr class="empty-row error-row"><td colspan="6">Failed to load players.</td></tr>';
+    body.innerHTML = '<tr class="empty-row error-row"><td colspan="5">Failed to load players.</td></tr>';
   }
 }
 
@@ -482,16 +508,15 @@ function renderPlayers(list) {
   const players = sortPlayers(list);
   const body = document.getElementById('playersBody');
   if (!players.length) {
-    body.innerHTML = '<tr class="empty-row"><td colspan="6">No players match that filter.</td></tr>';
+    body.innerHTML = '<tr class="empty-row"><td colspan="5">No players match that filter.</td></tr>';
     return;
   }
   body.innerHTML = players.map(p =>
     '<tr>' +
     '<td>' + p.id + '</td>' +
-    '<td>' + esc(p.nickname) + '</td>' +
     '<td><a class="steam-btn" href="https://steamcommunity.com/profiles/' +
       encodeURIComponent(p.steam_id) + '" target="_blank" rel="noopener noreferrer"' +
-      ' title="Open Steam profile">' + esc(String(p.steam_id)) + '</a></td>' +
+      ' title="Open Steam profile">' + esc(p.nickname) + '</a></td>' +
     '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
     '<td><span class="status-dot ' + (p.online ? 'online' : '') + '">' +
       (p.online ? 'Online' : 'Offline') + '</span></td>' +
@@ -757,14 +782,15 @@ let mmrSnapshot = [];    // what Cancel restores
 function buildMmrRows() {
   mmrRows = allPlayers
     .map(p => ({ id: p.id, nickname: p.nickname, steam_id: p.steam_id,
-                 dev: p.rating_deviation ?? 0, mmr: p.rating_mean ?? 0, was: null }))
+                 dev: p.rating_deviation ?? 0, mmr: p.rating_mean ?? 0, was: null, wasDev: null }))
     .sort((a, b) => b.mmr - a.mmr || a.id - b.id);
   mmrSnapshot = mmrRows.map(r => ({ ...r }));
 }
 
-/* Ratings are TrueSkill means (~25), not points, so two decimals is the resolution the
-   ladder actually has. */
-const fmtMmr = v => Number(v).toFixed(2);
+/* Ratings are stored as TrueSkill means (~25), but the panel edits their hundredths as
+   an integer (2500 means 25.00). */
+const fmtMmr = v => String(Math.round(Number(v) * 100));
+const fmtMmrDeviation = v => Number(v).toFixed(2);
 
 /* The ladder is ordered by rating, so a move is only meaningful if the rating follows
    it. Moving a player up past someone means they must now rate at least as high as the
@@ -783,13 +809,13 @@ function clampAt(i) {
   }
 }
 
-function mmrPending() { return mmrRows.filter(r => r.was !== null).length; }
+function mmrPending() { return mmrRows.filter(r => r.was !== null || r.wasDev !== null).length; }
 
 /* Typing a rating is the other half of dragging: set the number and the row moves to
    wherever that number belongs, rather than the position dictating the number. */
 function setMmrValue(i, raw) {
   const row = mmrRows[i];
-  const v = parseFloat(raw);
+  const v = parseInt(raw, 10) / 100;
   if (!isFinite(v)) { renderMmr(); return; }
   if (row.was === null) row.was = row.mmr;
   row.mmr = v;
@@ -798,22 +824,34 @@ function setMmrValue(i, raw) {
   renderMmr();
 }
 
+function setMmrDeviation(i, raw) {
+  const row = mmrRows[i];
+  const v = parseFloat(raw);
+  if (!isFinite(v)) { renderMmr(); return; }
+  if (row.wasDev === null) row.wasDev = row.dev;
+  row.dev = v;
+  if (row.wasDev === row.dev) row.wasDev = null;
+  renderMmr();
+}
+
 function renderMmr() {
   document.getElementById('mmrBody').innerHTML = mmrRows.length
     ? mmrRows.map((r, i) =>
       '<tr data-i="' + i + '"' + (mmrEditing ? ' draggable="true"' : '') + '>' +
-      '<td>' + esc(r.nickname) + '</td>' +
+      '<td class="mmr-position">' + (i + 1) + '</td>' +
+      '<td><a class="steam-btn compact" href="https://steamcommunity.com/profiles/' +
+        encodeURIComponent(r.steam_id) + '" target="_blank" rel="noopener noreferrer"' +
+        ' title="Open Steam profile">' + esc(r.nickname) + '</a></td>' +
       '<td>' +
-        '<input class="mmr-input" type="number" step="0.01" value="' + fmtMmr(r.mmr) + '"' +
+        '<input class="mmr-input" type="number" step="1" value="' + fmtMmr(r.mmr) + '"' +
           (mmrEditing ? '' : ' readonly tabindex="-1"') +
           ' onchange="setMmrValue(' + i + ', this.value)">' +
         '<span class="mmr-was">' + (r.was !== null ? fmtMmr(r.was) : '') + '</span>' +
       '</td>' +
-      '<td>' + fmtMmr(r.dev) + '</td>' +
+      '<td>' + (mmrEditing
+        ? '<input class="mmr-input" type="number" step="0.01" value="' + fmtMmrDeviation(r.dev) + '" onchange="setMmrDeviation(' + i + ', this.value)">'
+        : fmtMmrDeviation(r.dev)) + '</td>' +
       '<td>' + r.id + '</td>' +
-      '<td><a class="steam-btn compact" href="https://steamcommunity.com/profiles/' +
-        encodeURIComponent(r.steam_id) + '" target="_blank" rel="noopener noreferrer"' +
-        ' title="Open Steam profile">Profile</a></td>' +
       '<td class="grip-col"><span class="grip" title="Drag to move">&#9776;</span></td>' +
       '</tr>').join('')
     : '<tr class="empty-row"><td colspan="6">No players yet.</td></tr>';
@@ -851,7 +889,11 @@ async function applyMmrEdits() {
   apply.disabled = true;
   let saved = 0;
   for (const r of changed) {
-    if (await postPlayer(r.id, { rating_mean: r.mmr }, null)) { r.was = null; saved++; }
+    if (await postPlayer(r.id, { rating_mean: r.mmr, rating_deviation: r.dev }, null)) {
+      r.was = null;
+      r.wasDev = null;
+      saved++;
+    }
   }
   apply.disabled = false;
   mmrEditing = false;
@@ -1104,10 +1146,16 @@ async function resetServer() {
   setTimeout(() => { btn.disabled = false; }, 3000);
 }
 
+let lookedUpCardJson = null;
+let lookedUpCardName = 'card';
+
 async function lookupCard() {
   const query = document.getElementById('f-card-query').value.trim();
   const result = document.getElementById('cardResult');
+  const actions = document.getElementById('cardResultActions');
   if (!query) { showToast('error', 'Enter a card key or key hash.'); return; }
+  lookedUpCardJson = null;
+  actions.hidden = true;
   result.textContent = 'Loading…';
   try {
     const res = await fetch('/api/cards/' + encodeURIComponent(query));
@@ -1117,10 +1165,43 @@ async function lookupCard() {
       showToast('error', data.error || 'Card not found');
       return;
     }
-    result.textContent = JSON.stringify(data, null, 2);
+    lookedUpCardJson = JSON.stringify(data, null, 2);
+    lookedUpCardName = String(data._id || data.id || query).replace(/[^a-z0-9._-]+/gi, '_');
+    result.textContent = lookedUpCardJson;
+    actions.hidden = false;
   } catch (e) {
     result.textContent = '';
     showToast('error', e.message);
+  }
+}
+
+function downloadCardResult() {
+  if (!lookedUpCardJson) return;
+  const blob = new Blob([lookedUpCardJson + '\n'], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = lookedUpCardName + '.json';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyCardResult() {
+  if (!lookedUpCardJson) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(lookedUpCardJson);
+    } else {
+      const area = document.createElement('textarea');
+      area.value = lookedUpCardJson;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    showToast('success', 'Card JSON copied.');
+  } catch (e) {
+    showToast('error', 'Could not copy card JSON.');
   }
 }
 

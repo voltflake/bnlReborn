@@ -868,12 +868,21 @@ public sealed class ControlPanelServer : IDisposable
         };
         var membership = pools.SelectMany(p => p.Value.Select(id => (id, p.Key)))
             .GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.Select(x => x.Key).ToArray());
-        var installed = Databases.MapDatabase.GetMapIds().Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var installed = Databases.MapDatabase.GetMapIds()
+            .Where(id => Catalogue.Key(id).GetCard<CardMap>() != null)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         var maps = installed.Select(id =>
         {
             var card = Catalogue.Key(id).GetCard<CardMap>();
             var data = Databases.MapDatabase.LoadMapData(Catalogue.Key(id));
             var unitIds = data?.Units.Select(unit => unit.UnitKey.GetCard<CardUnit>()?.Id ?? string.Empty).ToList() ?? [];
+            var imageAsset = card?.Image?.Replace('\\', '/').Split('/').LastOrDefault();
+            if (!string.IsNullOrEmpty(imageAsset) && string.IsNullOrEmpty(Path.GetExtension(imageAsset)))
+                imageAsset += ".png";
+            var timeTrialCourse = CatalogueHelper.GlobalLogic.TimeTrial?.Courses?
+                .FirstOrDefault(course => course.Map == Catalogue.Key(id));
+            var timeTrialHeroCard = timeTrialCourse?.Hero.GetCard<CardUnit>();
             return new
             {
                 key = id,
@@ -884,8 +893,11 @@ public sealed class ControlPanelServer : IDisposable
                 cubes = unitIds.Where(unitId => unitId.StartsWith("unit_shield_line_", StringComparison.Ordinal))
                     .Distinct(StringComparer.Ordinal).Count(),
                 bases = unitIds.Count(unitId => unitId.StartsWith("unit_base_", StringComparison.Ordinal)),
+                time_trial_hero_key = timeTrialHeroCard?.Id,
+                time_trial_hero = timeTrialHeroCard?.Name?.Text,
                 image = card?.Image,
                 large_image = card?.LargeImage,
+                image_asset = imageAsset,
                 pools = membership.GetValueOrDefault(id) ?? []
             };
         });
