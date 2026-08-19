@@ -400,6 +400,22 @@ public sealed class ControlPanelServer : IDisposable
         return ctx.Request.RemoteEndPoint?.Address.ToString() ?? "unknown";
     }
 
+    private static bool IsSecureRequest(HttpListenerContext ctx)
+    {
+        if (ctx.Request.IsSecureConnection)
+            return true;
+
+        var forwardedProto = ctx.Request.Headers["X-Forwarded-Proto"];
+        return string.Equals(forwardedProto?.Split(',')[0].Trim(), "https",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string SessionCookieOptions(HttpListenerContext ctx, int maxAge)
+    {
+        var secure = IsSecureRequest(ctx) ? " Secure" : string.Empty;
+        return $"Path=/; HttpOnly;{secure} SameSite=Strict; Max-Age={maxAge}";
+    }
+
     private bool IsAuthenticated(HttpListenerContext ctx)
     {
         var cookie = ctx.Request.Cookies[SessionCookieName];
@@ -486,7 +502,7 @@ public sealed class ControlPanelServer : IDisposable
         Log.Info(LogCat.Panel, $"Successful login from {ip}");
 
         ctx.Response.Headers.Add("Set-Cookie",
-            $"{SessionCookieName}={token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={(int)SessionDuration.TotalSeconds}");
+            $"{SessionCookieName}={token}; {SessionCookieOptions(ctx, (int)SessionDuration.TotalSeconds)}");
         await WriteJson(ctx, new { message = "OK" });
     }
 
@@ -496,7 +512,8 @@ public sealed class ControlPanelServer : IDisposable
         if (cookie != null && !string.IsNullOrEmpty(cookie.Value))
             _sessions.TryRemove(cookie.Value, out _);
 
-        ctx.Response.Headers.Add("Set-Cookie", $"{SessionCookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
+        ctx.Response.Headers.Add("Set-Cookie",
+            $"{SessionCookieName}=; {SessionCookieOptions(ctx, 0)}");
     }
 
     private static readonly string ControlPanelFolderPath = Path.Combine(AppContext.BaseDirectory, "ControlPanel");
