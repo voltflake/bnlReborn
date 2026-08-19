@@ -17,6 +17,7 @@ namespace BNLReloadedServer.Database;
 public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer matchServer) : IRegionServerDatabase
 {
     private const int ScheduledNotificationDelayMs = 300;
+    private volatile bool _matchmakingEnabled = true;
 
     private class ConnectionInfo(Guid guid, ChatPlayer chatInfo, bool isAdmin)
     {
@@ -75,6 +76,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
 
     private readonly Matchmaker _matchmaker = new(server);
+
+    public bool MatchmakingEnabled => _matchmakingEnabled;
 
     private readonly ConcurrentDictionary<ulong, SquadData> _squads = new();
     
@@ -173,6 +176,32 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
 
         return sent;
+    }
+
+    public void SetMatchmakingEnabled(bool enabled)
+    {
+        _matchmakingEnabled = enabled;
+
+        foreach (var playerId in _connectedUsers.Keys)
+        {
+            if (!UserConnected(playerId, out var playerInfo)) continue;
+
+            if (!enabled &&
+                GetService<IServiceMatchmaker>(playerInfo.Guid, ServiceId.ServiceMatchmaker, out var matchmaker))
+            {
+                _matchmaker.RemovePlayer(playerId, matchmaker);
+            }
+
+            if (GetService<IServiceScene>(playerInfo.Guid, ServiceId.ServiceScene, out var scene))
+            {
+                scene.SendServerUpdate(new ServerUpdate
+                {
+                    PlayButtonEnabled = enabled,
+                    FriendlyEnabled = enabled,
+                    RankedEnabled = enabled
+                });
+            }
+        }
     }
 
     private void QueueScheduledNotificationDelivery(uint playerId) =>
@@ -1067,6 +1096,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public void JoinQueue(uint playerId, Key gameModeKey, IServiceMatchmaker serviceMatchmaker)
     {
+        if (!MatchmakingEnabled) return;
+
         if (!UserConnected(playerId, out var playerInfo) || _playerDatabase.GetPlayerDataNoWait(playerId) is not { } playerData ||
             _playerDatabase.IsBanned(playerId)) return;
 

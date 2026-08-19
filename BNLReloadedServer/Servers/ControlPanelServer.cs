@@ -271,6 +271,18 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
+            if (path == "/api/matchmaking" && method == "GET")
+            {
+                await WriteJson(ctx, new { enabled = Databases.RegionServerDatabase.MatchmakingEnabled });
+                return;
+            }
+
+            if (path == "/api/matchmaking" && method == "POST")
+            {
+                await HandleMatchmakingToggle(ctx);
+                return;
+            }
+
             if (method == "GET" && path.StartsWith("/api/cards/"))
             {
                 await ServeCard(ctx, Uri.UnescapeDataString(path["/api/cards/".Length..]));
@@ -1236,6 +1248,36 @@ public sealed class ControlPanelServer : IDisposable
 
             var sent = Databases.RegionServerDatabase.BroadcastPlayerNotification(message.Trim());
             await WriteJson(ctx, new { message = "Broadcast sent", sent });
+        }
+        catch (JsonException)
+        {
+            ctx.Response.StatusCode = 400;
+            await WriteJson(ctx, new { error = "Invalid JSON" });
+        }
+        catch (Exception ex)
+        {
+            ctx.Response.StatusCode = 500;
+            await WriteJson(ctx, new { error = ex.Message });
+        }
+    }
+
+    private async Task HandleMatchmakingToggle(HttpListenerContext ctx)
+    {
+        try
+        {
+            using var reader = new StreamReader(ctx.Request.InputStream);
+            using var doc = JsonDocument.Parse(await reader.ReadToEndAsync());
+            if (!doc.RootElement.TryGetProperty("enabled", out var enabledProp) ||
+                enabledProp.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                ctx.Response.StatusCode = 400;
+                await WriteJson(ctx, new { error = "enabled must be a boolean" });
+                return;
+            }
+
+            var enabled = enabledProp.GetBoolean();
+            Databases.RegionServerDatabase.SetMatchmakingEnabled(enabled);
+            await WriteJson(ctx, new { enabled });
         }
         catch (JsonException)
         {

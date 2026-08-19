@@ -67,6 +67,7 @@ function showPane(name) {
   document.body.classList.toggle('pane-console', name === 'console');
   if (name === 'ladder' && !mmrEditing) { buildMmrRows(); renderMmr(); }
   if (name === 'bans') renderModeration();
+  if (name === 'tools') loadMatchmakingStatus();
   if (name === 'maps') loadMaps();
   if (name === 'console') {
     /* While the pane is hidden it has no height, so the follow-the-tail check can't
@@ -1263,6 +1264,46 @@ setInterval(() => {
 }, 15000);
 
 /* ---------- tools ---------- */
+
+async function loadMatchmakingStatus() {
+  const button = document.getElementById('matchmakingToggle');
+  const status = document.getElementById('matchmakingStatus');
+  try {
+    const res = await fetch('/api/matchmaking');
+    if (!res.ok) throw new Error('request failed');
+    const data = await res.json();
+    button.disabled = false;
+    button.textContent = data.enabled ? 'Turn off' : 'Turn on';
+    status.textContent = data.enabled
+      ? 'Enabled. Players can enter matchmaking.'
+      : 'Disabled. Matchmaking buttons are grayed out for players.';
+    button.classList.toggle('danger-btn', data.enabled);
+  } catch {
+    button.disabled = true;
+    button.textContent = 'Unavailable';
+    status.textContent = 'Could not load matchmaking status.';
+  }
+}
+
+async function toggleMatchmaking() {
+  const button = document.getElementById('matchmakingToggle');
+  const enabled = button.textContent === 'Turn on';
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/matchmaking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    showToast('success', data.enabled ? 'Matchmaking enabled.' : 'Matchmaking disabled.');
+    loadMatchmakingStatus();
+  } catch (e) {
+    showToast('error', e.message);
+    loadMatchmakingStatus();
+  }
+}
 
 async function exec(action) {
   const btn = event.target;

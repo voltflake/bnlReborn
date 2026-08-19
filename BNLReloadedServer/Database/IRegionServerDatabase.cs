@@ -72,6 +72,8 @@ public interface IRegionServerDatabase
     public IServiceChat? GetChatService(uint playerId);
     public bool SchedulePlayerNotification(uint playerId, string message);
     public int BroadcastPlayerNotification(string message);
+    public bool MatchmakingEnabled { get; }
+    public void SetMatchmakingEnabled(bool enabled);
     public void CloseSquad(ulong squadId);
     public ulong? GetSquadId(uint playerId);
     public bool IsSquadLeader(uint playerId);

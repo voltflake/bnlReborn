@@ -92,11 +92,11 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         serviceScene.SendServerUpdate(new ServerUpdate
         {
             BuyPlatinumEnabled = false,
-            FriendlyEnabled = true,
+            FriendlyEnabled = _serverDatabase.MatchmakingEnabled,
             MadModeEnabled = true,
             MapEditorEnabled = true,
-            PlayButtonEnabled = true,
-            RankedEnabled = true,
+            PlayButtonEnabled = _serverDatabase.MatchmakingEnabled,
+            RankedEnabled = _serverDatabase.MatchmakingEnabled,
             TutorialEnabled = false,
             ShopEnabled = false,
             TimeAssaultEnabled = true
