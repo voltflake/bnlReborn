@@ -17,6 +17,7 @@
     <img class="login-logo" src="/assets/logo.png" alt="Block N Load">
     <h2>Reloaded control panel</h2>
     <p class="sub">Enter the panel password to continue.</p>
+    <input id="loginUsername" type="text" placeholder="Username" autocomplete="username">
     <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password"
            onkeydown="if(event.key==='Enter') doLogin()">
     <button class="save-btn" onclick="doLogin()">Log in</button>

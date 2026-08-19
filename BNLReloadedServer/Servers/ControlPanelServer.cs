@@ -25,7 +25,7 @@ public sealed class ControlPanelServer : IDisposable
     private readonly CouchCatalogueStore _catalogueStore;
     private readonly ServerCatalogue _serverCatalogue;
     private readonly DateTime _startTime = DateTime.UtcNow;
-    private readonly ConcurrentDictionary<string, DateTime> _sessions = new();
+    private readonly ConcurrentDictionary<string, (DateTime Expiry, string Username)> _sessions = new();
     private readonly ConcurrentDictionary<string, (int Count, DateTime WindowStart)> _failedAttempts = new();
     private Task? _listenTask;
 
@@ -54,9 +54,9 @@ public sealed class ControlPanelServer : IDisposable
 
     public void Start()
     {
-        if (string.IsNullOrEmpty(Databases.ConfigDatabase.ControlPanelPasswordHash()))
+        if (Databases.ConfigDatabase.ControlPanelUsers().Count == 0)
         {
-            Log.Warn(LogCat.Panel, "No control_panel_password_hash configured, refusing to start (would be unauthenticated).");
+            Log.Warn(LogCat.Panel, "No control-panel users configured, refusing to start (would be unauthenticated).");
             return;
         }
 
@@ -177,6 +177,9 @@ public sealed class ControlPanelServer : IDisposable
 
             if (!IsAuthenticated(ctx))
             {
+                Log.Warn(LogCat.Panel,
+                    $"Unauthorized control-panel request for user '{SessionUsername(ctx) ?? "<unknown>"}' " +
+                    $"{method} {path} from {ClientIp(ctx)}");
                 ctx.Response.StatusCode = 401;
                 await WriteJson(ctx, new { error = "Unauthorized" });
                 return;
@@ -422,13 +425,21 @@ public sealed class ControlPanelServer : IDisposable
         if (cookie == null || string.IsNullOrEmpty(cookie.Value))
             return false;
 
-        if (!_sessions.TryGetValue(cookie.Value, out var expiry) || expiry <= DateTime.UtcNow)
+        if (!_sessions.TryGetValue(cookie.Value, out var session) || session.Expiry <= DateTime.UtcNow)
         {
             _sessions.TryRemove(cookie.Value, out _);
             return false;
         }
 
         return true;
+    }
+
+    private string? SessionUsername(HttpListenerContext ctx)
+    {
+        var cookie = ctx.Request.Cookies[SessionCookieName];
+        return cookie != null && _sessions.TryGetValue(cookie.Value, out var session)
+            ? session.Username
+            : null;
     }
 
     private bool IsLockedOut(string ip)
@@ -470,10 +481,13 @@ public sealed class ControlPanelServer : IDisposable
         using var reader = new StreamReader(ctx.Request.InputStream);
         var body = await reader.ReadToEndAsync();
 
+        string? username = null;
         string? password = null;
         try
         {
             using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("username", out var user))
+                username = user.GetString();
             if (doc.RootElement.TryGetProperty("password", out var pw))
                 password = pw.GetString();
         }
@@ -481,13 +495,14 @@ public sealed class ControlPanelServer : IDisposable
         {
         }
 
-        var storedHash = Databases.ConfigDatabase.ControlPanelPasswordHash();
-        var match = PasswordHasher.Verify(password ?? string.Empty, storedHash);
+        var userAccount = Databases.ConfigDatabase.ControlPanelUsers()
+            .FirstOrDefault(user => string.Equals(user.Username, username, StringComparison.OrdinalIgnoreCase));
+        var match = userAccount != null && string.Equals(password, userAccount.Password, StringComparison.Ordinal);
 
         if (!match)
         {
             RecordFailedAttempt(ip);
-            Log.Warn(LogCat.Panel, $"Failed login attempt from {ip}");
+            Log.Warn(LogCat.Panel, $"Failed login attempt for user '{username ?? "<missing>"}' from {ip}");
             ctx.Response.StatusCode = 401;
             await WriteJson(ctx, new { error = "Invalid password" });
             return;
@@ -497,9 +512,9 @@ public sealed class ControlPanelServer : IDisposable
 
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         var expiry = DateTime.UtcNow + SessionDuration;
-        _sessions[token] = expiry;
+        _sessions[token] = (expiry, userAccount!.Username);
 
-        Log.Info(LogCat.Panel, $"Successful login from {ip}");
+        Log.Info(LogCat.Panel, $"Successful login for user '{username}' from {ip}");
 
         ctx.Response.Headers.Add("Set-Cookie",
             $"{SessionCookieName}={token}; {SessionCookieOptions(ctx, (int)SessionDuration.TotalSeconds)}");

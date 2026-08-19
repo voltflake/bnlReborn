@@ -12,6 +12,7 @@ public static class Databases
     public static string BaseFolderPath { get; } = Directory.GetCurrentDirectory();
     public static string ConfigsFolderPath { get; } = Path.Combine(BaseFolderPath, "Configs");
     public static string ConfigsFilePath { get; } = Path.Combine(ConfigsFolderPath, "configs.json");
+    public static string ControlPanelUsersFilePath { get; } = Path.Combine(ConfigsFolderPath, "control_panel_users.json");
     public static string CacheFolderPath { get; } = Path.Combine(BaseFolderPath, "Cache");
     public static string LogsFolderPath { get; } = Path.Combine(BaseFolderPath, "Logs");
     public static string PlayerDatabaseFile { get; } = Path.Combine(BaseFolderPath, "PlayerData", "playerData.db");

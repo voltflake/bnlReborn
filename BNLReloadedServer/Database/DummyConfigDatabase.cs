@@ -77,5 +77,6 @@ public class DummyConfigDatabase : IConfigDatabase
     
     public int ControlPanelPort() => 8080;
 
-    public string ControlPanelPasswordHash() => BNLReloadedServer.ControlPanel.PasswordHasher.Hash("test");
+    public IReadOnlyList<ControlPanelUser> ControlPanelUsers() =>
+        [new ControlPanelUser { Username = "admin", Password = "admin" }];
 }

@@ -21,16 +21,18 @@ function hideLoginGate() {
 }
 
 async function doLogin() {
+  const username = document.getElementById('loginUsername').value;
   const input = document.getElementById('loginPassword');
   const password = input.value;
   try {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
     if (res.ok) {
+      document.getElementById('loginUsername').value = '';
       input.value = '';
       hideLoginGate();
       init();

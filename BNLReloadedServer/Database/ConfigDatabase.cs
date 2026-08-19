@@ -10,6 +10,7 @@ namespace BNLReloadedServer.Database;
 public class ConfigDatabase : IConfigDatabase
 {
     private readonly Configs _configs;
+    private readonly IReadOnlyList<ControlPanelUser> _controlPanelUsers;
     private readonly IPAddress _masterIp;
     private readonly IPAddress _regionIp;
     private readonly IPAddress _regionPublicIp;
@@ -19,6 +20,10 @@ public class ConfigDatabase : IConfigDatabase
         var configs = JsonSerializer.Deserialize<Configs>(File.ReadAllText(Databases.ConfigsFilePath),
             JsonHelper.DefaultSerializerSettings);
         _configs = configs ?? throw new FileNotFoundException("Configs file not found");
+        _controlPanelUsers = File.Exists(Databases.ControlPanelUsersFilePath)
+            ? JsonSerializer.Deserialize<List<ControlPanelUser>>(
+                File.ReadAllText(Databases.ControlPanelUsersFilePath), JsonHelper.DefaultSerializerSettings) ?? []
+            : [];
         _masterIp = IPAddress.Parse(_configs.MasterHost);
         _regionIp = IPAddress.Parse(_configs.RegionHost);
         _regionPublicIp = IPAddress.Parse(_configs.RegionPublicHost);
@@ -95,5 +100,5 @@ public class ConfigDatabase : IConfigDatabase
     
     public int ControlPanelPort() => _configs.ControlPanelPort;
 
-    public string ControlPanelPasswordHash() => _configs.ControlPanelPasswordHash ?? string.Empty;
+    public IReadOnlyList<ControlPanelUser> ControlPanelUsers() => _controlPanelUsers;
 }
