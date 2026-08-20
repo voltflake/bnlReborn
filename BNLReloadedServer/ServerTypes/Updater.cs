@@ -7,12 +7,25 @@ namespace BNLReloadedServer.ServerTypes;
 public abstract class Updater
 {
     private const int SlowActionMillis = 25;
+    private const int StuckActionMillis = 5000;
 
     private readonly Channel<Action> _updateActions = Channel.CreateUnbounded<Action>();
+    private readonly object _watchdogLock = new();
+    private readonly System.Threading.Timer _watchdog;
+    private Action? _currentAction;
+    private long _currentActionStarted;
 
-    protected Updater() => _ = RunUpdater(_updateActions.Reader, GetType().Name);
+    protected string DiagnosticName { get; set; }
+    protected int QueuedActionCount => _updateActions.Reader.Count;
 
-    private static async Task RunUpdater(ChannelReader<Action> actions, string ownerName)
+    protected Updater()
+    {
+        DiagnosticName = GetType().Name;
+        _watchdog = new System.Threading.Timer(ReportStuckAction, null, Timeout.Infinite, Timeout.Infinite);
+        _ = RunUpdater(_updateActions.Reader);
+    }
+
+    private async Task RunUpdater(ChannelReader<Action> actions)
     {
         try
         {
@@ -21,18 +34,34 @@ public abstract class Updater
                 try
                 {
                     var start = Stopwatch.GetTimestamp();
-                    action();
+                    var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+                    lock (_watchdogLock)
+                    {
+                        _currentAction = action;
+                        _currentActionStarted = start;
+                        _watchdog.Change(StuckActionMillis, Timeout.Infinite);
+                    }
+                    try
+                    {
+                        action();
+                    }
+                    finally
+                    {
+                        ClearWatchdog();
+                    }
                     var elapsed = Stopwatch.GetElapsedTime(start);
+                    var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
                     if (elapsed.TotalMilliseconds >= SlowActionMillis)
                     {
-                        Log.Info(LogCat.Perf, $"Slow action: {ownerName} queue, {DescribeAction(action)} took " +
-                                              $"{elapsed.TotalMilliseconds:F0}ms, {actions.Count} queued");
+                        Log.Info(LogCat.Perf, $"Slow action: {DiagnosticName} queue, {DescribeAction(action)} took " +
+                                              $"{elapsed.TotalMilliseconds:F0}ms, allocated {allocated / 1024d:F0}KB, " +
+                                              $"{actions.Count} queued");
                     }
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception e)
                 {
-                    Log.Error(LogCat.Server, $"Queued action failed on the {ownerName} queue", e);
+                    Log.Error(LogCat.Server, $"Queued action failed on the {DiagnosticName} queue", e);
                 }
             }
         }
@@ -42,7 +71,33 @@ public abstract class Updater
         }
         catch (Exception e)
         {
-            Log.Error(LogCat.Server, $"{ownerName} update loop stopped", e);
+            Log.Error(LogCat.Server, $"{DiagnosticName} update loop stopped", e);
+        }
+        finally
+        {
+            _watchdog.Dispose();
+        }
+    }
+
+    private void ReportStuckAction(object? _)
+    {
+        string? message = null;
+        lock (_watchdogLock)
+        {
+            if (_currentAction is null) return;
+            var elapsed = Stopwatch.GetElapsedTime(_currentActionStarted);
+            message = $"Stuck action: {DiagnosticName} queue, {DescribeAction(_currentAction)} still running " +
+                      $"after {elapsed.TotalSeconds:F1}s, {_updateActions.Reader.Count} queued";
+        }
+        Log.Error(LogCat.Perf, message);
+    }
+
+    private void ClearWatchdog()
+    {
+        lock (_watchdogLock)
+        {
+            _watchdog.Change(Timeout.Infinite, Timeout.Infinite);
+            _currentAction = null;
         }
     }
     
@@ -62,5 +117,9 @@ public abstract class Updater
 
     public bool EnqueueAction(Action func) => _updateActions.Writer.TryWrite(func);
 
-    public void Stop() => _updateActions.Writer.TryComplete();
+    public void Stop()
+    {
+        if (_updateActions.Writer.TryComplete())
+            ClearWatchdog();
+    }
 }

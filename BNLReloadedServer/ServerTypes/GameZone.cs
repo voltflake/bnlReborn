@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Numerics;
 using System.Timers;
 using BNLReloadedServer.BaseTypes;
@@ -102,6 +103,7 @@ public partial class GameZone : Updater
 
     private ulong _tickNumber;
     private ulong _lastTickNumber;
+    private bool _firstTickCompleted;
 
     private uint NewUnitId() => _newUnitId++;
     private uint NewSpawnId() => _newSpawnId++;
@@ -111,6 +113,7 @@ public partial class GameZone : Updater
     public GameZone(IServiceZone serviceZone, IServiceZone unbufferedZone, IBuffer sendBuffer, ISender sessionsSender,
         MapData mapData, IGameInitiator gameInitiator, ConcurrentDictionary<uint, PlayerLobbyState> players, Key? mapKey = null)
     {
+        var constructionStarted = Stopwatch.GetTimestamp();
         _serviceZone = serviceZone;
         _unbufferedZone = unbufferedZone;
         _sendBuffer = sendBuffer;
@@ -118,6 +121,10 @@ public partial class GameZone : Updater
         _gameInitiator = gameInitiator;
         _playerLobbyInfo = players;
         _instanceId = gameInitiator.GameInstanceId;
+        DiagnosticName = $"GameZone instance={_instanceId ?? "<none>"} mode={gameInitiator.GetGameMode()} " +
+                         $"map={mapKey?.ToString() ?? "<embedded>"}";
+        Log.Info(LogCat.Perf, $"Zone construction started: {DiagnosticName}, size={mapData.Size}, " +
+                              $"map units={mapData.Units.Count}, players={players.Count}");
         
         foreach (var team in Enum.GetValues<TeamType>())
         {
@@ -213,12 +220,18 @@ public partial class GameZone : Updater
         BeginningZoneInitData = _zoneData.GetZoneInitData();
         EnqueueAction(() =>
         {
+            var setupStarted = Stopwatch.GetTimestamp();
+            Log.Info(LogCat.Perf, $"Zone queued setup started: {DiagnosticName}");
             _zoneData.SpawnPoints = spawns;
             _zoneData.PlayerInfo = playerMap;
             _zoneData.ResourceCap = gameInitiator.GetResourceCap();
             SetUpObjectives();
             CreateMapUnits();
+            Log.Info(LogCat.Perf, $"Zone queued setup completed: {DiagnosticName}, units={_units.Count}, " +
+                                  $"elapsed={Stopwatch.GetElapsedTime(setupStarted).TotalMilliseconds:F0}ms");
         });
+        Log.Info(LogCat.Perf, $"Zone construction completed: {DiagnosticName}, " +
+                              $"elapsed={Stopwatch.GetElapsedTime(constructionStarted).TotalMilliseconds:F0}ms");
     }
 
     public void SendInitializeZone(IServiceZone zoneService)
@@ -592,6 +605,7 @@ public partial class GameZone : Updater
     public void BeginBuildPhase()
     {
         if (_zoneData.Phase.PhaseType is not (ZonePhaseType.Waiting or ZonePhaseType.TutorialInit)) return;
+        Log.Info(LogCat.Perf, $"Build phase starting: {DiagnosticName}, units={_units.Count}, players={_playerUnits.Count}");
         var startedAt = DateTimeOffset.Now;
         _matchParticipation.Start(startedAt,
             _playerLobbyInfo.Values.Where(player => !_gameInitiator.IsPlayerSpectator(player.PlayerId)));
@@ -1815,7 +1829,8 @@ public partial class GameZone : Updater
 
             if (ticksLastSecond < TicksPerSecond - 1)
             {
-                Log.Info(LogCat.Perf, $"Low TPS: {ticksLastSecond} (GC paused {pausedMillis:F0}ms, " +
+                Log.Info(LogCat.Perf, $"Low TPS: {ticksLastSecond}, {DiagnosticName}, " +
+                                      $"{QueuedActionCount} queued (GC paused {pausedMillis:F0}ms, " +
                                       $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
             }
         }
@@ -1825,6 +1840,8 @@ public partial class GameZone : Updater
     private Action OnTick(ulong tickNumber) =>
         () =>
         {
+            if (tickNumber == 0)
+                Log.Info(LogCat.Perf, $"First tick started: {DiagnosticName}, units={_units.Count}");
             var doBuffCheck = tickNumber % TicksForBuffCheck == 0;
             var doDmgCaptureCheck = tickNumber % TicksForDmgCaptureCheck == 0;
             var doBlockCheck = tickNumber == 0;
@@ -2285,6 +2302,11 @@ public partial class GameZone : Updater
 
             _unitsToDrop.ForEach(DropUnit);
             _unitsToDrop.Clear();
+            if (tickNumber == 0 && !_firstTickCompleted)
+            {
+                _firstTickCompleted = true;
+                Log.Info(LogCat.Perf, $"First tick completed: {DiagnosticName}, units={_units.Count}");
+            }
         };
 
     private void FlushBuffer() => _sendBuffer.UseBuffer(_sessionsSender.Send);
