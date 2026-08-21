@@ -174,24 +174,21 @@ async function pollLogs() {
   try {
     const res = await fetch('/api/logs?since=' + logCursor);
     if (!res.ok) return;
-    const data = await res.json();
-
-    /* Sequence numbers restart with the server, so a new boot id means the cursor is
-       meaningless. Drop what we have and take the buffer from the top. */
-    if (logBoot !== null && data.boot !== logBoot) {
-      resetLog();
-      logBoot = data.boot;
-      return pollLogs();
-    }
-    logBoot = data.boot;
-
-    /* Sliced before rendering, not after: the first poll of a full buffer returns
-       10 000 records, and building nodes for all of them only to trim to MAX_LINES
-       would cost a stall on every page load. */
-    const all = data.records || [];
-    if (all.length) logCursor = all[all.length - 1].seq;
-    appendLogRecords(all.length > MAX_LINES ? all.slice(-MAX_LINES) : all);
+    applyLogBatch(await res.json());
   } catch { /* ignore */ }
+}
+
+function applyLogBatch(data) {
+  /* Sequence numbers restart with the server, so a new boot id means the cursor is
+     meaningless. The WebSocket reconnects against cursor 0 after a process restart. */
+  if (logBoot !== null && data.boot !== logBoot) resetLog();
+  logBoot = data.boot;
+
+  /* The REST bootstrap and WebSocket upgrade can overlap. Sequence filtering makes
+     that race harmless and also protects reconnects from replaying visible lines. */
+  const all = (data.records || []).filter(r => r.seq > logCursor);
+  if (all.length) logCursor = all[all.length - 1].seq;
+  appendLogRecords(all.length > MAX_LINES ? all.slice(-MAX_LINES) : all);
 }
 
 /* Landing on the tail is no help when the thing you came for scrolled past a thousand

@@ -1,13 +1,14 @@
 using System.Text;
 using System.Text.Json;
+using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Database;
 
 namespace BNLReloadedServer.Logging;
 
 /// <summary>
 /// The in-memory tail of the log plus its file on disk. Records are appended, never mutated, and
-/// handed to readers by sequence number — <see cref="Since"/> is what the control panel polls, so a
-/// poll costs the lines that actually happened rather than the whole buffer.
+/// handed to readers by sequence number — <see cref="Since"/> lets the control-panel event stream
+/// push only the lines that actually happened rather than the whole buffer.
 /// </summary>
 public static class LogBuffer
 {
@@ -49,10 +50,12 @@ public static class LogBuffer
 
     public static void Append(in LogRecord record)
     {
+        var appended = false;
         lock (LockObj)
         {
             var stamped = record with { Seq = ++_seq };
             Records.Enqueue(stamped);
+            appended = true;
             while (Records.Count > MaxLines)
                 Records.Dequeue();
 
@@ -71,6 +74,7 @@ public static class LogBuffer
                 // ignored — never let logging take the server down
             }
         }
+        if (appended) ControlPanelEvents.Publish(ControlPanelEvent.Logs);
     }
 
     /// <summary>Everything newer than <paramref name="seq"/>. Pass 0 for the whole buffer.</summary>

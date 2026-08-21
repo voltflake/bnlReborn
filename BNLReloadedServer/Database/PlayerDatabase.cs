@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Logging;
 using BNLReloadedServer.Service;
 using Moserware.Skills;
@@ -104,6 +105,8 @@ public class PlayerDatabase : IPlayerDatabase
         }
 
         _serviceRegionServer?.SendPlayerCount(_players.Count);
+        ControlPanelEvents.Publish(
+            ControlPanelEvent.Players | ControlPanelEvent.Status | ControlPanelEvent.Activity);
         return true;
     }
 
@@ -125,6 +128,8 @@ public class PlayerDatabase : IPlayerDatabase
                 Log.Error(LogCat.Player, $"Failed to persist last-online time for player {playerId}", ex);
             }
             _serviceRegionServer?.SendPlayerCount(_players.Count);
+            ControlPanelEvents.Publish(
+                ControlPanelEvent.Players | ControlPanelEvent.Status | ControlPanelEvent.Activity);
         }
         return removed;
     }
@@ -541,6 +546,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
         
         _serviceRegionServer.SendUsername(playerId, name);
+        ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
 
     public void SetLoadout(uint playerId, Dictionary<Key, LobbyLoadout> loadout)
@@ -556,6 +562,7 @@ public class PlayerDatabase : IPlayerDatabase
         if (_players.TryGetValue(playerId, out var player))
         {
             player.HeroStats = heroStats;
+            ControlPanelEvents.Publish(ControlPanelEvent.Players);
         }
     }
 
@@ -576,6 +583,7 @@ public class PlayerDatabase : IPlayerDatabase
                 player.Rating = rating;
             }
         }
+        ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
 
     public void SetFriendsInfo(uint playerId, List<uint>? friends, List<uint>? requestsFor, List<uint>? requestsFrom)
@@ -605,6 +613,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             Databases.RegionServerDatabase.NotifyRequests(playerId, requestsFor != null, requestsFrom != null);
         }
+        ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
 
     public void SetSteamFriends(uint playerId, List<ulong> steamFriends)
@@ -696,6 +705,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             player.RequestsFromMe = update.RequestsFromMe.Select(p => p.PlayerId).ToList();
         }
+        ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
 
     public void UpdateLoadout(uint playerId, Key hero, LobbyLoadout loadout) =>

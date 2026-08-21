@@ -57,7 +57,7 @@ public enum LogCat
     Player
 }
 
-/// <param name="Seq">Monotonic within one process run, starting at 1. The panel polls with it.</param>
+/// <param name="Seq">Monotonic within one process run, starting at 1. The panel resumes its event stream with it.</param>
 /// <param name="Ts">Unix milliseconds UTC. Every consumer re-zones it themselves.</param>
 /// <param name="Detail">Stack traces and other multi-line payloads, kept out of the line itself.</param>
 public readonly record struct LogRecord(

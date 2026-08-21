@@ -4,14 +4,27 @@ async function refreshStatus() {
   try {
     const res = await fetch('/api/status');
     if (!res.ok) return;
-    const data = await res.json();
-    setFigure('figOnline', data.player_count);
-    document.getElementById('onlineCount').textContent = data.player_count + ' online';
-    document.getElementById('status').textContent = data.uptime_seconds != null
-      ? formatUptime(data.uptime_seconds)
-      : (data.uptime || '—');
+    applyStatus(await res.json());
   } catch { /* ignore */ }
 }
+
+let statusStartedAt = null;
+
+function applyStatus(data) {
+  setFigure('figOnline', data.player_count);
+  document.getElementById('onlineCount').textContent = data.player_count + ' online';
+  statusStartedAt = data.uptime_seconds != null ? Date.now() - data.uptime_seconds * 1000 : null;
+  document.getElementById('status').textContent = statusStartedAt != null
+    ? formatUptime((Date.now() - statusStartedAt) / 1000)
+    : (data.uptime || '—');
+}
+
+/* Uptime is derived from the last server event locally. This timer changes presentation only;
+   it does not contact the server or participate in state-change detection. */
+setInterval(() => {
+  if (statusStartedAt != null)
+    document.getElementById('status').textContent = formatUptime((Date.now() - statusStartedAt) / 1000);
+}, 30000);
 
 /* A zero is greyed rather than drawn as loudly as a real count — the row is read at a
    glance and five bold zeroes look like five facts. */
@@ -33,11 +46,14 @@ async function refreshActivity() {
   try {
     const res = await fetch('/api/activity');
     if (!res.ok) return;
-    const a = await res.json();
-    const byMode = Object.fromEntries((a.by_mode || []).map(m => [m.mode_id, m.players]));
-    setFigure('figIdle', a.in_menu);
-    for (const [id, modeId] of Object.entries(FIG_MODES)) setFigure(id, byMode[modeId] || 0);
+    applyActivity(await res.json());
   } catch { /* ignore */ }
+}
+
+function applyActivity(a) {
+  const byMode = Object.fromEntries((a.by_mode || []).map(m => [m.mode_id, m.players]));
+  setFigure('figIdle', a.in_menu);
+  for (const [id, modeId] of Object.entries(FIG_MODES)) setFigure(id, byMode[modeId] || 0);
 }
 
 /* ---------- queues ---------- */
@@ -55,14 +71,17 @@ async function pollQueues() {
   try {
     const res = await fetch('/api/queues');
     if (!res.ok) { queuesStale = true; renderQueues(); return; }
-    const data = await res.json();
-    queues = data.queues || [];
-    queuesStale = false;
-    renderQueues();
+    applyQueues(await res.json());
   } catch {
     queuesStale = true;
     renderQueues();
   }
+}
+
+function applyQueues(data) {
+  queues = data.queues || [];
+  queuesStale = false;
+  renderQueues();
 }
 
 function fmtWait(ms) {
@@ -137,22 +156,16 @@ function formatUptime(totalSeconds) {
   return 'less than a minute';
 }
 
-let statusActivityTimer = null;
-let statusQueueTimer = null;
 let statusRenderTimer = null;
 
 registerView('status', {
   enter: () => {
     refreshActivity();
     pollQueues();
-    statusActivityTimer = setInterval(refreshActivity, 5000);
-    statusQueueTimer = setInterval(pollQueues, 5000);
     statusRenderTimer = setInterval(() => { if (queues) renderQueues(); }, 1000);
   },
   leave: () => {
-    clearInterval(statusActivityTimer);
-    clearInterval(statusQueueTimer);
     clearInterval(statusRenderTimer);
-    statusActivityTimer = statusQueueTimer = statusRenderTimer = null;
+    statusRenderTimer = null;
   }
 });

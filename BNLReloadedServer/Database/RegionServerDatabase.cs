@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.ProtocolHelpers;
 using BNLReloadedServer.Servers;
 using BNLReloadedServer.ServerTypes;
@@ -260,6 +261,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
 
         QueueScheduledNotificationDelivery(userId);
+        LiveStateChanged();
         return result;
     }
 
@@ -272,6 +274,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (sessionId is not null && playerInfo.Guid != sessionId) return false;
 
         playerInfo.Online = false;
+        LiveStateChanged();
         _matchmaker.RemovePlayer(userId, null);
         var customId = playerInfo.CustomGameId;
         var gameInstanceId = playerInfo.GameInstanceId;
@@ -373,6 +376,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if(!UserConnected(userId, out var info)) return false;
         info.ActiveScene = scene;
+        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
         sceneService.SendChangeScene(scene);
         NotifyFriends(userId);
         switch (scene.Type)
@@ -401,6 +405,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         var guid = playerInfo.Guid;
         var oldScene = playerInfo.ActiveScene;
         playerInfo.ActiveScene = scene;
+        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
         if (scene.Type == SceneType.MainMenu && !playerInfo.Online)
         {
             RemoveUser(userId);
@@ -806,6 +811,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         _gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance);
         playerInfo.GameInstanceId = gameInstance.GameInstanceId;
         gameInstance.StartMatch([Databases.PlayerDatabase.GetDummyPlayerLobbyInfo(playerId, heroKey, team)]);
+        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
         return true;
     }
 
@@ -1018,7 +1024,9 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
         if (_spectatableMatches.TryRemove(gameInstanceId, out var browserId))
             _spectatableMatchIds.TryRemove(browserId, out _);
-        return _gameInstances.TryRemove(gameInstanceId, out _);
+        var removed = _gameInstances.TryRemove(gameInstanceId, out _);
+        if (removed) ControlPanelEvents.Publish(ControlPanelEvent.Activity);
+        return removed;
     }
 
     public bool RemoveFromGameInstance(uint playerId, string gameInstanceId)
@@ -1052,6 +1060,9 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     public int GetActiveGamesCount(Key gameModeKey) => _gameInstances.Count(g => g.Value.GetGameMode() == gameModeKey);
 
     public List<QueueSnapshot> GetQueueSnapshot() => _matchmaker.GetQueueSnapshot();
+
+    private static void LiveStateChanged() => ControlPanelEvents.Publish(
+        ControlPanelEvent.Status | ControlPanelEvent.Activity | ControlPanelEvent.Players);
 
     /// <summary>
     /// Splits every connected user into the game mode they are in, or the menu. Both

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json;
 using BNLReloadedServer.BaseTypes;
@@ -182,6 +183,12 @@ public sealed class ControlPanelServer : IDisposable
                     $"{method} {path} from {ClientIp(ctx)}");
                 ctx.Response.StatusCode = 401;
                 await WriteJson(ctx, new { error = "Unauthorized" });
+                return;
+            }
+
+            if (method == "GET" && path == "/api/events" && ctx.Request.IsWebSocketRequest)
+            {
+                await ServeEvents(ctx);
                 return;
             }
 
@@ -657,12 +664,12 @@ public sealed class ControlPanelServer : IDisposable
         ctx.Response.OutputStream.Close();
     }
 
-    private async Task ServeStatus(HttpListenerContext ctx)
+    private object GetStatus()
     {
         var regions = Databases.MasterServerDatabase.GetRegionServers();
         var totalPlayers = regions.Sum(r => Databases.MasterServerDatabase.GetRegionPlayerCount(r.Id!));
 
-        var status = new
+        return new
         {
             uptime = (DateTime.UtcNow - _startTime).ToString(@"d\.hh\:mm\:ss"),
             uptime_seconds = (long)(DateTime.UtcNow - _startTime).TotalSeconds,
@@ -681,8 +688,9 @@ public sealed class ControlPanelServer : IDisposable
             })
         };
 
-        await WriteJson(ctx, status);
     }
+
+    private async Task ServeStatus(HttpListenerContext ctx) => await WriteJson(ctx, GetStatus());
 
     /// <remarks>
     /// Deliberately its own route rather than a field on /api/status: the matchmaker is
@@ -700,6 +708,11 @@ public sealed class ControlPanelServer : IDisposable
         await WriteJson(ctx, new { queues });
     }
 
+    private static object GetQueues() => new
+    {
+        queues = Databases.RegionServerDatabase?.GetQueueSnapshot() ?? []
+    };
+
     /// <remarks>
     /// Region-scoped like /api/queues, and for the same reason kept off /api/status,
     /// whose player_count is summed across every region on the master. The whole
@@ -708,9 +721,11 @@ public sealed class ControlPanelServer : IDisposable
     /// </remarks>
     private static async Task ServeActivity(HttpListenerContext ctx)
     {
-        var activity = Databases.RegionServerDatabase?.GetPlayerActivity();
-        await WriteJson(ctx, activity ?? new ServerTypes.PlayerActivity(0, 0, []));
+        await WriteJson(ctx, GetActivity());
     }
+
+    private static object GetActivity() => Databases.RegionServerDatabase?.GetPlayerActivity()
+        ?? new ServerTypes.PlayerActivity(0, 0, []);
 
     private static async Task ServePublicStatus(HttpListenerContext ctx)
     {
@@ -764,7 +779,7 @@ public sealed class ControlPanelServer : IDisposable
         }
     }
 
-    private async Task ServePlayerList(HttpListenerContext ctx)
+    private async Task<object> GetPlayerList()
     {
         var onlineIds = Databases.PlayerDatabase.GetAllPlayers().Select(p => p.PlayerId).ToHashSet();
         var allPlayers = await Databases.MasterServerDatabase.GetAllPlayersAsync();
@@ -787,10 +802,13 @@ public sealed class ControlPanelServer : IDisposable
             graveyard_leave_time = p.GraveyardLeaveTime,
             online_since = Databases.PlayerDatabase.GetPresence(p.PlayerId).OnlineSince?.ToUnixTimeMilliseconds(),
             last_online = Databases.PlayerDatabase.GetPresence(p.PlayerId).LastOnline?.ToUnixTimeMilliseconds()
-        });
+        }).ToList();
 
-        await WriteJson(ctx, new { players });
+        return new { players };
     }
+
+    private async Task ServePlayerList(HttpListenerContext ctx) =>
+        await WriteJson(ctx, await GetPlayerList());
 
     private async Task ServePlayerDetail(HttpListenerContext ctx, uint playerId)
     {
@@ -917,6 +935,119 @@ public sealed class ControlPanelServer : IDisposable
                 detail = r.Detail
             })
         });
+    }
+
+    private static object GetLogBatch(long cursor)
+    {
+        var records = LogBuffer.Since(cursor);
+        return new
+        {
+            boot = LogBuffer.Boot,
+            next = LogBuffer.LastSeq,
+            records = records.Select(r => new
+            {
+                seq = r.Seq,
+                ts = r.Ts,
+                lvl = LogNames.Of(r.Level),
+                cat = LogNames.Of(r.Cat),
+                msg = r.Msg,
+                detail = r.Detail
+            })
+        };
+    }
+
+    /// <summary>
+    /// One authenticated connection replaces the panel's status, queue, player, and log polling.
+    /// The connection sleeps until a mutation publisher signals one or more affected snapshots.
+    /// </summary>
+    private async Task ServeEvents(HttpListenerContext ctx)
+    {
+        WebSocket? socket = null;
+        try
+        {
+            socket = (await ctx.AcceptWebSocketAsync(null)).WebSocket;
+            var ct = _cts.Token;
+            var logCursor = long.TryParse(ctx.Request.QueryString["logs_since"], out var since) ? since : 0;
+            using var events = ControlPanelEvents.Subscribe();
+            var disconnected = ObserveDisconnect(socket, ct);
+
+            await SendEvent(socket, "status", GetStatus(), ct);
+            await SendEvent(socket, "queues", GetQueues(), ct);
+            await SendEvent(socket, "activity", GetActivity(), ct);
+            await SendEvent(socket, "players", await GetPlayerList(), ct);
+            if (LogBuffer.LastSeq > logCursor)
+            {
+                var initialLogCursor = LogBuffer.LastSeq;
+                await SendEvent(socket, "logs", GetLogBatch(logCursor), ct);
+                logCursor = initialLogCursor;
+            }
+
+            while (socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
+            {
+                var eventTask = events.WaitAsync(ct);
+                if (await Task.WhenAny(eventTask, disconnected) == disconnected)
+                    return;
+
+                if (!IsAuthenticated(ctx))
+                {
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.PolicyViolation, "Session expired", ct);
+                    return;
+                }
+
+                var changed = await eventTask;
+                if ((changed & ControlPanelEvent.Status) != 0)
+                    await SendEvent(socket, "status", GetStatus(), ct);
+                if ((changed & ControlPanelEvent.Queues) != 0)
+                    await SendEvent(socket, "queues", GetQueues(), ct);
+                if ((changed & ControlPanelEvent.Activity) != 0)
+                    await SendEvent(socket, "activity", GetActivity(), ct);
+                if ((changed & ControlPanelEvent.Players) != 0)
+                    await SendEvent(socket, "players", await GetPlayerList(), ct);
+                if ((changed & ControlPanelEvent.Logs) != 0 && LogBuffer.LastSeq > logCursor)
+                {
+                    // Capture the cursor before taking the batch. A record appended between the
+                    // batch and the send may be replayed next time, but can never be skipped.
+                    var nextLogCursor = LogBuffer.LastSeq;
+                    await SendEvent(socket, "logs", GetLogBatch(logCursor), ct);
+                    logCursor = nextLogCursor;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested) { }
+        catch (WebSocketException) { }
+        catch (Exception ex)
+        {
+            Log.Error(LogCat.Panel, "Control-panel event stream failed", ex);
+        }
+        finally
+        {
+            if (socket is { State: WebSocketState.Open })
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            socket?.Dispose();
+        }
+    }
+
+    private static async Task SendEvent(
+        WebSocket socket, string type, object data, CancellationToken ct)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { type, data }, JsonOptions);
+        await socket.SendAsync(bytes, WebSocketMessageType.Text, true, ct);
+    }
+
+    private static async Task ObserveDisconnect(WebSocket socket, CancellationToken ct)
+    {
+        try
+        {
+            var buffer = new byte[1];
+            while (socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
+            {
+                var result = await socket.ReceiveAsync(buffer, ct);
+                if (result.MessageType == WebSocketMessageType.Close) return;
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (WebSocketException) { }
     }
 
     private static async Task ServeCard(HttpListenerContext ctx, string query)
@@ -1180,6 +1311,7 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
+            ControlPanelEvents.Publish(ControlPanelEvent.Players);
             await WriteJson(ctx, new { message = "Player updated" });
         }
         catch (Exception ex)

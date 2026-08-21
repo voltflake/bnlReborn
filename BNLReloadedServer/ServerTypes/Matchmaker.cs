@@ -2,6 +2,7 @@
 using System.Text;
 using System.Timers;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.Servers;
 using BNLReloadedServer.Service;
@@ -84,6 +85,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         };
         _queues[gameModeKey] = queue;
         queue.QueueLoop = RunQueueCheck(queue);
+        QueueChanged();
     }
 
     private void StopQueue(Key gameModeKey)
@@ -106,6 +108,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         queue?.Sender.UnsubscribeAll();
         queue?.IsPop = PopStatus.None;
         queue?.Players.Clear();
+        QueueChanged();
     }
 
     public void AddPlayer(Key gameModeKey, uint playerId, Guid guid, Rating rating, ulong? squadId, IServiceMatchmaker matchmakerService)
@@ -135,6 +138,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         });
         
         QueueCheck(queue);
+        QueueChanged();
     }
 
     public void RemovePlayer(uint playerId, IServiceMatchmaker? matchmakerService)
@@ -168,6 +172,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 StopQueue(queue.GameModeKey);
             }
         }
+        QueueChanged();
     }
 
     public void RemoveSquad(ulong squadId, List<IServiceMatchmaker> serviceMatchmakers)
@@ -203,6 +208,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 StopQueue(queue.GameModeKey);
             }
         }
+        QueueChanged();
     }
 
     /// <summary>
@@ -273,6 +279,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         {
             queue.DoBackfilling[playerId] = value;
         }
+        QueueChanged();
     }
 
     public void ForceStartGame(uint playerId)
@@ -327,6 +334,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         
             queue.IsPop = PopStatus.None;
         }
+        QueueChanged();
     }
 
     private static (PlayerQueueData? Team1Backfill, PlayerQueueData? Team2Backfill) DoBackfillBalance(QueueData queue, double minQuality,
@@ -703,6 +711,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 queue.QueueTimer.AutoReset = false;
                 queue.QueueTimer.Elapsed += CreateTimerEvent(queue);
                 queue.QueueTimer.Start();
+                QueueChanged();
                 break;
             }
         }
@@ -747,6 +756,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
         queue.QueueTimer.AutoReset = false;
         queue.QueueTimer.Elapsed += CreateTimerEvent(queue);
         queue.QueueTimer.Start();
+        QueueChanged();
     }
 
     private async Task HandleQueueVote(QueueData queue, PlayerQueueData player, bool vote, IServiceMatchmaker? serviceMatchmaker)
@@ -758,6 +768,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                 if (!vote)
                 {
                     queue.IsPop = PopStatus.PopFailed;
+                    QueueChanged();
                     queue.QueueTimer?.Stop();
                     queue.QueueTimer?.Dispose();
                     queue.QueueTimer = null;
@@ -785,10 +796,12 @@ public class Matchmaker(AsyncTaskTcpServer server)
                     queue.AcceptVotes1.Clear();
                     queue.ConfTime = null;
                     queue.IsPop = PopStatus.None;
+                    QueueChanged();
                 }
                 else
                 {
                     var acceptCount = queue.AcceptVotes1.Values.Count(v => v);
+                    QueueChanged();
                     
                     SendQueueUpdate(queue.PopServiceMatchmaker1, new MatchmakerUpdate
                     {
@@ -831,6 +844,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         queue.Team2 = null;
                         queue.ConfTime = null;
                         queue.IsPop = PopStatus.None;
+                        QueueChanged();
                     }
                 }
                 break;
@@ -850,6 +864,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         queue.AcceptVotes2.TryAdd(player.PlayerId, vote);
                         break;
                 }
+                QueueChanged();
                 
                 var matchmakerService = inTeam1 ? queue.PopServiceMatchmaker1 : queue.PopServiceMatchmaker2;
                 if (!vote)
@@ -949,6 +964,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         queue.AcceptVotes1.Values.Count(v => v) < queue.Team1.Count + queue.Team2.Count)
                     {
                         queue.IsPop = PopStatus.PopFailed;
+                        QueueChanged();
                         SendQueueUpdate(queue.PopServiceMatchmaker1, new MatchmakerUpdate
                         {
                             State = new MatchmakerState
@@ -1003,6 +1019,7 @@ public class Matchmaker(AsyncTaskTcpServer server)
                     if (queue.AcceptVotes1.Values.Count(v => v) < queue.Team1?.Count)
                     {
                         queue.IsPop = PopStatus.PopFailed;
+                        QueueChanged();
                         SendQueueUpdate(queue.PopServiceMatchmaker1, new MatchmakerUpdate
                         {
                             State = new MatchmakerState
@@ -1061,5 +1078,9 @@ public class Matchmaker(AsyncTaskTcpServer server)
 
             queue.ConfTime = null;
             queue.IsPop = PopStatus.None;
+            QueueChanged();
         };
+
+    private static void QueueChanged() =>
+        ControlPanelEvents.Publish(ControlPanelEvent.Queues);
 }

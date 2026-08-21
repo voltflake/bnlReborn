@@ -23,7 +23,7 @@ public record QueueSnapshot(
     ulong? ConfirmDeadline,
     List<QueuedPlayerSnapshot> Players);
 
-/// <param name="JoinTime">Unix ms, so the wait can tick between polls.</param>
+/// <param name="JoinTime">Unix ms, so the wait can tick between pushed snapshots.</param>
 /// <param name="Confirming">
 /// True for the players in the popped line-up. Anyone who joined behind them is still
 /// waiting, so a queue can hold both at once.

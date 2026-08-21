@@ -59,6 +59,31 @@ document.addEventListener('keydown', e => {
 /* ---------- boot ---------- */
 
 let initialized = false;
+let eventRetry = 1000;
+
+function connectEvents() {
+  const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const socket = new WebSocket(scheme + '//' + location.host +
+    '/api/events?logs_since=' + encodeURIComponent(logCursor));
+
+  socket.onopen = () => { eventRetry = 1000; };
+  socket.onmessage = event => {
+    let message;
+    try { message = JSON.parse(event.data); } catch { return; }
+    const data = message.data || {};
+    if (message.type === 'status') applyStatus(data);
+    else if (message.type === 'activity') applyActivity(data);
+    else if (message.type === 'queues') applyQueues(data);
+    else if (message.type === 'players') applyPlayers(data);
+    else if (message.type === 'logs') applyLogBatch(data);
+  };
+  socket.onclose = event => {
+    if (event.code === 1008) showLoginGate('Your session expired. Sign in again.');
+    setTimeout(connectEvents, eventRetry);
+    eventRetry = Math.min(eventRetry * 2, 30000);
+  };
+}
+
 function init() {
   if (initialized) return;
   initialized = true;
@@ -66,9 +91,7 @@ function init() {
   refreshStatus();
   pollLogs();
   loadPlayers();
-  setInterval(refreshStatus, 5000);
-  setInterval(pollLogs, 1000);
-  setInterval(loadPlayers, 15000);
+  connectEvents();
   showPane(paneFromHash(), false);
 }
 

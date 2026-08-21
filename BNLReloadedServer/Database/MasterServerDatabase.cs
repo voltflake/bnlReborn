@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Service;
 using BNLReloadedServer.ProtocolHelpers;
 using Moserware.Skills;
@@ -178,6 +179,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         if (serviceMasterServer != null)
             _regionServerConnections[id] = serviceMasterServer;
 
+        ControlPanelEvents.Publish(ControlPanelEvent.Status);
         return true;
     }
 
@@ -186,7 +188,10 @@ public class MasterServerDatabase : IMasterServerDatabase
         _regionPlayerCounts.TryRemove(id, out _);
         if (!_regionServerConnections.Remove(id, out _)) return false;
 
-        lock (_regionServersLock) return _regionServers.RemoveAll(r => r.Id == id) > 0;
+        bool removed;
+        lock (_regionServersLock) removed = _regionServers.RemoveAll(r => r.Id == id) > 0;
+        if (removed) ControlPanelEvents.Publish(ControlPanelEvent.Status);
+        return removed;
     }
 
     public bool SetRegionPlayerCount(string id, int playerCount)
@@ -200,10 +205,12 @@ public class MasterServerDatabase : IMasterServerDatabase
             else
             {
                 _regionPlayerCounts["master"] = playerCount;
+                ControlPanelEvents.Publish(ControlPanelEvent.Status);
                 return true;
             }
         }
         _regionPlayerCounts[id] = playerCount;
+        ControlPanelEvents.Publish(ControlPanelEvent.Status);
         return true;
     }
 

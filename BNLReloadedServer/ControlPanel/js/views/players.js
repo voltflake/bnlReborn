@@ -6,17 +6,20 @@ async function loadPlayers() {
   try {
     const res = await fetch('/api/players');
     if (!res.ok) throw new Error('request failed');
-    const data = await res.json();
-    allPlayers = data.players || [];
-    document.getElementById('railPlayers').textContent = allPlayers.length || '';
-    document.getElementById('banPlayerNames').innerHTML =
-      allPlayers.map(p => '<option value="' + esc(p.nickname) + '"></option>').join('');
-    filterPlayers();
-    if (!mmrEditing) { buildMmrRows(); renderMmr(); }
-    renderModeration();
+    applyPlayers(await res.json());
   } catch {
     body.innerHTML = '<tr class="empty-row error-row"><td colspan="5">Failed to load players.</td></tr>';
   }
+}
+
+function applyPlayers(data) {
+  allPlayers = data.players || [];
+  document.getElementById('railPlayers').textContent = allPlayers.length || '';
+  document.getElementById('banPlayerNames').innerHTML =
+    allPlayers.map(p => '<option value="' + esc(p.nickname) + '"></option>').join('');
+  filterPlayers();
+  if (!mmrEditing) { buildMmrRows(); renderMmr(); }
+  renderModeration();
 }
 
 let sortKey = null, sortDir = -1;      // -1 desc, 1 asc
@@ -504,4 +507,3 @@ async function saveRole() {
   await loadPlayers();
   if (currentPlayerId === id) loadPlayer(id);
 }
-
