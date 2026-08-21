@@ -480,7 +480,6 @@ public partial class GameZone
                 return true;
             
             case InstEffectBuildDevice instEffectBuildDevice when unitSource is not null:
-                if (unitSource.Resource < instEffectBuildDevice.TotalCost) return false;
                 var blockLoc = (Vector3s)(impactData.InsidePoint + shift switch
                 {
                     BlockShift.Left => Vector3s.Left.ToVector3(),
@@ -498,10 +497,21 @@ public partial class GameZone
                 if (devCard is null || itemCard is null) return false;
                 switch (Databases.Catalogue.GetCard(itemCard.Value))
                 {
-                    case CardBlock blockCard: 
+                    case CardBlock blockCard:
+                        if (unitSource.Resource < instEffectBuildDevice.TotalCost)
+                        {
+                            SendAuthoritativeBuildCorrection(unitSource, blockLoc);
+                            return false;
+                        }
                         var updates = _zoneData.BlocksData.AddBlock(blockCard.Key, blockLoc, (Vector3s)impactData.InsidePoint,
                             unitSource.CurrentBuildInfo?.Direction ?? Direction2D.Left, unitSource);
-                        if (updates.Count <= 0) return true;
+                        if (updates.Count <= 0)
+                        {
+                            SendAuthoritativeBuildCorrection(unitSource, blockLoc);
+                            return false;
+                        }
+
+                        AddRequestedBuildPositionCorrection(updates, unitSource, blockLoc);
                         
                         DoBlockUpdate(updates);
                         unitSource.RemoveResources(instEffectBuildDevice.TotalCost);
@@ -525,6 +535,7 @@ public partial class GameZone
                         return true;
                     
                     case CardUnit unitCard:
+                        if (unitSource.Resource < instEffectBuildDevice.TotalCost) return false;
                         if (unitCard.CountLimit is not null)
                         {
                             var existingUnitCount = unitCard.CountLimit.Scope switch
@@ -2201,6 +2212,44 @@ public partial class GameZone
         
         var solutions = nearbyTeslas.Select(t => PropagateTesla(t, newProp, checkedTeslas)).ToList();
         return solutions.Any(t => t.teslas is not null) ? solutions.MinBy(t => t.teslas?.Count) : (null, null, tesla.Id);
+    }
+
+    private void SendAuthoritativeBuildCorrection(Unit builder, Vector3s calculatedPosition)
+    {
+        var corrections = new Dictionary<Vector3s, BlockUpdate>();
+        AddBuildCorrection(corrections, calculatedPosition);
+        if (builder.CurrentBuildInfo is { } buildInfo)
+        {
+            AddBuildCorrection(corrections, buildInfo.BuildInsidePosition);
+        }
+
+        if (corrections.Count > 0)
+        {
+            _unbufferedZone.SendBlockUpdates(corrections);
+        }
+    }
+
+    private void AddRequestedBuildPositionCorrection(
+        Dictionary<Vector3s, BlockUpdate> updates,
+        Unit builder,
+        Vector3s calculatedPosition)
+    {
+        if (builder.CurrentBuildInfo is not { } buildInfo || buildInfo.BuildInsidePosition == calculatedPosition)
+        {
+            return;
+        }
+
+        AddBuildCorrection(updates, buildInfo.BuildInsidePosition);
+    }
+
+    private void AddBuildCorrection(Dictionary<Vector3s, BlockUpdate> updates, Vector3s position)
+    {
+        if (!MapBinary.ContainsBlock(position) || updates.ContainsKey(position))
+        {
+            return;
+        }
+
+        updates[position] = MapBinary[position].ToUpdate();
     }
     
     private void ZoneUpdated(ZoneUpdate update)
