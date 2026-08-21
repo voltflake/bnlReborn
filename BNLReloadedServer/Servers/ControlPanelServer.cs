@@ -128,15 +128,15 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
-            if (method == "GET" && path == "/style.css")
+            if (method == "GET" && path.StartsWith("/js/"))
             {
-                await ServeFile(ctx, "style.css", "text/css; charset=utf-8");
+                await ServePanelScript(ctx, path["/js/".Length..]);
                 return;
             }
 
-            if (method == "GET" && path == "/app.js")
+            if (method == "GET" && path.StartsWith("/css/"))
             {
-                await ServeFile(ctx, "app.js", "application/javascript; charset=utf-8");
+                await ServePanelStyle(ctx, path["/css/".Length..]);
                 return;
             }
 
@@ -574,6 +574,48 @@ public sealed class ControlPanelServer : IDisposable
         var content = await File.ReadAllTextAsync(Path.Combine(ControlPanelFolderPath, fileName));
 
         ctx.Response.ContentType = contentType;
+        var buf = System.Text.Encoding.UTF8.GetBytes(content);
+        ctx.Response.ContentLength64 = buf.Length;
+        await ctx.Response.OutputStream.WriteAsync(buf);
+        ctx.Response.OutputStream.Close();
+    }
+
+    private static async Task ServePanelScript(HttpListenerContext ctx, string relativePath)
+    {
+        var scriptsRoot = Path.Combine(ControlPanelFolderPath, "js");
+        var fullPath = Path.GetFullPath(Path.Combine(scriptsRoot, Uri.UnescapeDataString(relativePath)));
+        if (!fullPath.StartsWith(scriptsRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            !File.Exists(fullPath) ||
+            !string.Equals(Path.GetExtension(fullPath), ".js", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Not found" });
+            return;
+        }
+
+        var content = await File.ReadAllTextAsync(fullPath);
+        ctx.Response.ContentType = "application/javascript; charset=utf-8";
+        var buf = System.Text.Encoding.UTF8.GetBytes(content);
+        ctx.Response.ContentLength64 = buf.Length;
+        await ctx.Response.OutputStream.WriteAsync(buf);
+        ctx.Response.OutputStream.Close();
+    }
+
+    private static async Task ServePanelStyle(HttpListenerContext ctx, string relativePath)
+    {
+        var stylesRoot = Path.Combine(ControlPanelFolderPath, "css");
+        var fullPath = Path.GetFullPath(Path.Combine(stylesRoot, Uri.UnescapeDataString(relativePath)));
+        if (!fullPath.StartsWith(stylesRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            !File.Exists(fullPath) ||
+            !string.Equals(Path.GetExtension(fullPath), ".css", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Not found" });
+            return;
+        }
+
+        var content = await File.ReadAllTextAsync(fullPath);
+        ctx.Response.ContentType = "text/css; charset=utf-8";
         var buf = System.Text.Encoding.UTF8.GetBytes(content);
         ctx.Response.ContentLength64 = buf.Length;
         await ctx.Response.OutputStream.WriteAsync(buf);

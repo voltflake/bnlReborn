@@ -1,0 +1,105 @@
+/* ---------- form blocks ---------- */
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; margin-bottom: 6px;
+  font-size: 13.5px; font-weight: 500; color: var(--ink-2);
+}
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+/* basis 150px, not auto — with `auto` the mono field content sets the basis and
+   three fields that would fit comfortably wrap to two rows instead */
+.form-row .form-group { flex: 1 1 132px; min-width: 132px; }
+/* a 17-digit Steam ID needs more room than an even quarter split gives it */
+.form-row .form-group-wide { flex: 1.5 1 190px; }
+.checkbox-group { width: 18px; height: 18px; margin: 0; accent-color: var(--signal); cursor: pointer; }
+
+/* Toggles, not a dropdown: with four values you want to see which ones are in play
+   without opening anything, and turning one off is one click. */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip-row.inline { margin-bottom: 0; }
+.chip {
+  padding: 5px 13px; font-size: 13px; font-weight: 600;
+  background: transparent; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-3);
+}
+.chip:hover { background: var(--panel-2); border-color: var(--line-2); color: var(--ink-2); }
+.chip.on { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
+.chip.on:hover { background: var(--panel-3); color: var(--ink); }
+.chip .chip-n { margin-left: 7px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.chip .chip-n:empty { display: none; }
+
+/* a merged pane needs its sections introduced; the pane subtitle can't do both */
+.tool-note { margin: 0 0 14px; font-size: 14.5px; color: var(--ink-2); max-width: 80ch; }
+
+/* ---------- bans ---------- */
+/* A ban is not an attribute of a player, it is a time-bounded record with an expiry,
+   and it is mostly applied by the server rather than by you (merits below threshold,
+   ranked AFK, a dodged confirm). So it lives where the question "who is serving what,
+   and until when" can actually be answered — not one player at a time in the editor. */
+.mod-wrap { max-width: 1100px; }
+.mod-table th:nth-child(2) { width: 170px; }
+.mod-table th:nth-child(3) { width: 230px; }
+.mod-table th:nth-child(4) { width: 120px; }
+.mod-table th:nth-child(5) { width: 110px; }
+.mod-table td:nth-child(1) { font-weight: 500; }
+.pen-badge {
+  display: inline-block; padding: 2px 8px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-2);
+}
+.pen-badge.graveyard { color: var(--alarm-ink); border-color: color-mix(in srgb, var(--alarm) 40%, transparent); }
+.mod-until { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+.mod-when { margin-left: 9px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+.mod-perm { font-family: var(--mono); font-size: 13.5px; color: var(--alarm-ink); }
+/* Merits are why a graveyard ban happened; lifting one without looking at them just
+   means it lands again tomorrow. */
+.mod-merits { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.mod-merits.low { color: var(--alarm-ink); }
+.mod-form {
+  max-width: 1100px; margin-top: 22px; padding: 18px 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.mod-form + .mod-wrap { margin-top: 22px; }
+.mod-form h3 { margin: 0 0 14px; font-size: 16px; font-weight: 700; }
+.mod-form .form-row { max-width: 860px; }
+.mod-form .card-actions { margin-top: 14px; }
+.mod-note { margin: 14px 0 0; font-size: 13.5px; color: var(--ink-3); max-width: 80ch; }
+.lift-btn { padding: 5px 12px; font-size: 13px; }
+.ident-note { margin: -6px 0 16px; font-size: 13.5px; color: var(--ink-3); }
+.ident .ban-status { margin-top: 3px; white-space: nowrap; }
+/* below the three-column layout the cells are too narrow to hold a date on one line */
+@media (max-width: 819px) { .ident .ban-status { white-space: normal; } }
+/* ---------- action cards ---------- */
+/* One row per action: the name is stated once, and the button is the verb. Having the
+   card title and the button say the same words was just noise. */
+.action-list {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.action-row {
+  display: flex; align-items: flex-start; gap: 24px;
+  padding: 18px 20px;
+}
+.action-row + .action-row { border-top: 1px solid var(--line); }
+.action-text { flex: 1 1 auto; min-width: 0; }
+.action-row button { flex: 0 0 auto; min-width: 116px; }
+.action-text h3 { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--ink); }
+.action-text p { margin: 0; font-size: 14.5px; color: var(--ink-2); max-width: 70ch; }
+.action-text p.note { margin-top: 8px; color: var(--ink-3); font-size: 13.5px; line-height: 1.6; }
+.action-text code {
+  padding: 1px 5px; font-family: var(--mono); font-size: 13px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 2px;
+}
+
+.card-result {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  font-family: var(--mono); font-size: 13.5px; color: var(--ink-2);
+  max-height: 420px; overflow: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.card-result:empty { display: none; }
+.card-result-actions { display: flex; gap: 8px; }
+.card-result-actions[hidden] { display: none; }
+.lookup-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.lookup-row .form-group { flex: 0 1 480px; margin-bottom: 0; }
+

@@ -1,0 +1,63 @@
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 200;
+  display: none; max-width: 380px; padding: 11px 15px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-2); border-left: 2px solid var(--ink-3);
+  border-radius: var(--r);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.32);
+}
+.toast.success { border-left-color: var(--live); }
+.toast.error { border-left-color: var(--alarm); }
+.toast pre { margin: 0; font-family: var(--mono); font-size: 14px; color: var(--ink); white-space: pre-wrap; }
+
+/* ---------- login gate ---------- */
+.login-gate {
+  position: fixed; inset: 0; z-index: 500; background: var(--void);
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.login-gate.active { display: flex; }
+.login-box { width: min(380px, 100%); }
+.login-logo { display: block; width: 260px; max-width: 100%; height: auto; margin-bottom: 22px; }
+.login-box h2 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 27px; line-height: 1.05; color: var(--ink); }
+.login-box .sub { margin: 0 0 22px; font-size: 14.5px; color: var(--ink-2); }
+.login-box input { margin-bottom: 10px; }
+.login-box button { width: 100%; }
+.login-error { min-height: 1.2em; margin-top: 10px; font-family: var(--mono); font-size: 13px; color: var(--alarm-ink); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 840px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-areas: "rail" "main";
+    grid-template-rows: auto 1fr;
+  }
+  .rail { border-right: none; border-bottom: 1px solid var(--line); overflow: visible; }
+  /* full-width rail on mobile — don't let the logo balloon across the screen */
+  .brand { padding: 12px var(--brand-pad); }
+  .brand-logo { width: 168px; margin: 0 auto; }
+  .rail-nav { flex-direction: row; gap: 4px; padding: 8px 10px; overflow-x: auto; }
+  .rail-spacer { display: none; }
+  .rail-foot {
+    flex-direction: row; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 8px 12px;
+  }
+  .stat { font-size: 15px; }
+  /* the foot is a row here, so the links run along it instead of stacking */
+  .rail-links { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 0; }
+  .logout-btn { width: auto; flex: 0 0 auto; }
+  .rail-item { width: auto; white-space: nowrap; }
+  .rail-item.active::before { left: 0; right: 0; top: auto; bottom: -8px; width: auto; height: 2px; }
+  .rail-count { display: none; }
+  .work { padding: 18px 16px 24px; }
+  .view {
+    top: 0; left: 0; transform: none;
+    width: 100vw; max-height: 100vh; height: 100%;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  .view.active { transform: none; }
+  .console-tools { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}

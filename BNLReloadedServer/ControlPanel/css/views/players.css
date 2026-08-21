@@ -1,0 +1,230 @@
+/* ---------- drawer ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 90; background: var(--overlay);
+  opacity: 0; pointer-events: none; transition: opacity .18s;
+}
+.overlay.active { opacity: 1; pointer-events: auto; }
+
+/* A modal, not a full-screen sheet: editing one player shouldn't wipe out the pane
+   you were reading. The dimmed page behind it is the context you came from, and
+   clicking it — like Esc, like Close — puts you back there. */
+.view {
+  position: fixed; z-index: 100; top: 50%; left: 50%;
+  width: min(1000px, calc(100vw - 48px));
+  max-height: min(86vh, 880px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--void);
+  border: 1px solid var(--line-2); border-radius: 6px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  opacity: 0; visibility: hidden; transform: translate(-50%, -50%) scale(0.985);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+.view.active { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+/* it takes focus on open so Esc and Tab start inside it — but a ring around the whole
+   dialog says nothing; the controls inside keep theirs */
+.view:focus, .view:focus-visible { outline: none; }
+.view-header {
+  flex: 0 0 auto; min-height: 62px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 24px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+/* Role, then who, then whether they are on right now — one line, read left to right. */
+.view-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.view-header h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.view-sub { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-3); }
+.view-sub:empty { display: none; }
+.close-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; font-size: 14px;
+  background: none; border-color: transparent; color: var(--ink-3);
+}
+.close-btn:hover { background: var(--panel-2); border-color: transparent; color: var(--ink); }
+.close-btn kbd {
+  padding: 1px 6px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  background: var(--panel-3); border: 1px solid var(--line-2); border-radius: var(--r);
+  color: var(--ink-3);
+}
+.close-btn:hover { background: var(--panel-2); color: var(--ink); border-color: transparent; }
+.view-body { flex: 1 1 auto; overflow-y: auto; padding: 22px 24px 40px; }
+.view-inner { max-width: 1240px; margin: 0 auto; }
+/* Identity is readonly, so it should read as values. The fields stay <input readonly>
+   because app.js writes them with .value — they're just stripped of their chrome. */
+.ident {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 22px;
+  padding: 14px 16px 15px; margin-bottom: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+/* Three across: ID / Steam / nickname on the first row, role and the two ban states on
+   the second. Six even columns don't fit the modal, and five leave an orphan. */
+@media (min-width: 820px) {
+  .ident { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.ident-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ident-label { font-size: 12.5px; color: var(--ink-3); }
+.ident input[readonly] {
+  padding: 0; border: 0; background: none; color: var(--ink);
+  font-family: var(--mono); font-size: 14px;
+  text-overflow: ellipsis;
+}
+
+/* Only the loadout card is left in here — role moved into the values strip and the
+   bans moved out of the editor entirely. */
+.ident-control { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.ident-control select { flex: 1 1 auto; min-width: 0; max-width: 260px; padding: 6px 10px; font-size: 13.5px; }
+.role-pending { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.role-pending[hidden] { display: none; }
+.role-was { font-size: 12.5px; color: var(--ink-3); text-decoration: line-through; }
+.role-apply, .role-discard { padding: 5px 11px; font-size: 13px; }
+.edit-card {
+  display: flex; flex-direction: column;
+  padding: 14px 16px 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+.edit-card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--ink); }
+/* The 132px basis is sized for the wide panes; inside a ~280px card it forces the two
+   fields onto separate lines and the cards go ragged. */
+.edit-card .form-row .form-group { flex: 1 1 108px; min-width: 108px; }
+.edit-card select, .edit-card input { max-width: 340px; }
+.card-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
+.check-row[hidden] { display: none; }
+.check-row {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 14px; font-size: 14px; color: var(--ink-2);
+  cursor: pointer; user-select: none;
+}
+
+.ban-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  align-self: flex-start; max-width: 100%;
+  margin-bottom: 12px; padding: 5px 12px;
+  font-family: var(--mono); font-size: 13.5px;
+  border: 1px solid var(--line); border-radius: var(--r);
+}
+.ban-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.ban-status.clear { color: var(--ok-ink); border-color: color-mix(in srgb, var(--live) 38%, transparent); }
+.ban-status.clear::before { background: var(--live); }
+.ban-status.banned { color: var(--alarm-ink); border-color: color-mix(in srgb, var(--alarm) 42%, transparent); }
+.ban-status.banned::before { background: var(--alarm); }
+
+/* ---------- profile badges ---------- */
+/* Three slots the player fills themselves. Title is a string, border and badges are
+   art, and the caps (1 / 1 / 3) come from the catalogue. */
+.profile-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px 24px; align-items: start;
+}
+.profile-item { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.profile-title { font-size: 17px; font-weight: 600; color: var(--ink); }
+.profile-value { font-size: 13.5px; color: var(--ink-2); }
+.profile-none { color: var(--ink-3); font-style: italic; font-size: 14px; font-weight: 400; }
+.profile-border { display: flex; align-items: center; gap: 12px; }
+.slot-cap { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+/* The border sprite is one corner, not a frame — the game builds the frame from four
+   of them. So four copies are rotated into place at exactly half the box, which is
+   what makes them meet. An unselected border keeps the box and draws the dashed
+   outline the empty loadout slots use. */
+.emblem {
+  position: relative; flex: 0 0 auto; width: 72px; height: 72px;
+  background: var(--panel-2); border-radius: var(--r);
+}
+.emblem.empty { border: 1px dashed var(--line-2); background: none; }
+.emblem img {
+  position: absolute; width: 36px; height: 36px;
+}
+.emblem img:nth-child(1) { top: 0; left: 0; }
+.emblem img:nth-child(2) { top: 0; right: 0; transform: rotate(90deg); }
+.emblem img:nth-child(3) { bottom: 0; right: 0; transform: rotate(180deg); }
+.emblem img:nth-child(4) { bottom: 0; left: 0; transform: rotate(270deg); }
+
+.badge-slots { display: flex; gap: 8px; }
+.badge-slot {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+}
+.badge-slot.empty { background: none; border-style: dashed; border-color: var(--line-2); }
+.badge-slot img { width: 38px; height: 38px; }
+
+/* ---------- loadouts ---------- */
+.loadouts-list { display: grid; gap: 10px; }
+/* The picker is a row of portraits, not a dropdown in the heading: a player has a
+   handful of characters at most, the portraits are already in the page, and which
+   characters they even have is worth seeing without opening a menu. */
+.hero-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.hero-tab {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 14px 6px 7px;
+  font-size: 14px; font-weight: 500; color: var(--ink-2);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+  cursor: pointer;
+}
+.hero-tab img { width: 30px; height: 30px; border-radius: 2px; }
+.hero-tab:hover { border-color: var(--line-2); color: var(--ink); }
+.hero-tab[aria-selected="true"] {
+  color: var(--ink); background: var(--panel-3);
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line-2));
+}
+/* Belongs to the character you just picked, so it sits under the picker rather than
+   beside the heading, where it read as part of the heading. */
+.loadout-skin { margin-bottom: 4px; font-size: 13.5px; color: var(--ink-2); }
+.loadout-skin:empty { display: none; }
+.loadout-cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: 4px 28px; align-items: start; }
+.loadout-cols .loadout-section + .loadout-section { margin-top: 0; border-top: none; }
+@media (max-width: 1000px) {
+  .loadout-cols { grid-template-columns: 1fr; }
+  .loadout-cols .loadout-section + .loadout-section { margin-top: 12px; border-top: 1px solid var(--line); }
+}
+
+/* The match cards' slot component, given room to name what it is showing: same fixed
+   count, same dashed box for an unused slot, same art. A loadout should not read as
+   two different things depending on which pane you are in. */
+/* One column of six: a loadout is an ordered list of slots, and reading it down is
+   how you compare it with the six slots of the next player. */
+.slot-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.slot-tile {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 7px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+}
+.slot-tile.empty { background: none; border-style: dashed; }
+.slot-tile .kit-icon { width: 30px; height: 30px; }
+.slot-name { min-width: 0; font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.slot-tile.empty .slot-name { color: var(--ink-3); font-style: italic; }
+.perk-tile { display: flex; gap: 12px; padding: 10px 0; }
+.perk-tile + .perk-tile { border-top: 1px dashed var(--line); }
+.perk-tile .kit-icon { width: 30px; height: 30px; margin-top: 1px; }
+.perk-body { flex: 1 1 auto; min-width: 0; }
+.loadout-card { padding: 2px 0 0; }
+.loadout-section { padding: 12px 0 0; }
+.loadout-section + .loadout-section { margin-top: 12px; border-top: 1px solid var(--line); }
+.loadout-section-title {
+  margin-bottom: 9px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.skin-value { margin: 0; font-size: 15px; color: var(--ink); }
+
+.slot-row { display: flex; align-items: baseline; gap: 11px; padding: 4px 0; font-size: 15px; }
+.slot-num { flex: 0 0 auto; width: 19px; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.device-variant { color: var(--ink-3); font-size: 13.5px; }
+
+.perk-row { padding: 10px 0; }
+.perk-row + .perk-row { border-top: 1px dashed var(--line); }
+.perk-badge {
+  display: inline-block; margin-bottom: 7px; padding: 2px 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  border: 1px solid var(--line-2); border-radius: 2px; color: var(--ink-3);
+}
+.perk-badge-Defensive { color: var(--perk-def);  border-color: color-mix(in srgb, var(--perk-def) 40%, transparent); }
+.perk-badge-Offensive { color: var(--perk-off);  border-color: color-mix(in srgb, var(--perk-off) 40%, transparent); }
+.perk-badge-Hero      { color: var(--perk-hero); border-color: color-mix(in srgb, var(--perk-hero) 40%, transparent); }
+.perk-name { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.perk-name.perk-empty { color: var(--ink-3); font-weight: 400; font-style: italic; }
+.perk-upside, .perk-downside { margin-top: 7px; padding-left: 12px; font-size: 14.5px; line-height: 1.55; border-left: 2px solid; }
+.perk-upside   { border-left-color: color-mix(in srgb, var(--live) 60%, transparent);  color: var(--ok-ink); }
+.perk-downside { border-left-color: color-mix(in srgb, var(--alarm) 60%, transparent); color: var(--alarm-ink); }
+

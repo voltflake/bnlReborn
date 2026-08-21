@@ -1,0 +1,299 @@
+/* ============================================================
+   BNL Reloaded Control Panel — stylesheet
+
+   Every color is a token, so the palette is one block of values.
+   The identity color (--signal) is used ONLY for the active rail
+   marker and focus rings. It is never a state, which is what keeps
+   --live / --alarm unambiguous.
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ---------- palette: cool neutral dark ---------- */
+:root {
+  color-scheme: dark;
+  --void:    #0D0F12;
+  --panel:   #14171B;
+  --panel-2: #1B1F25;
+  --panel-3: #232831;
+  --line:    #262B33;
+  --line-2:  #39404A;
+
+  --ink:   #E4E7EC;
+  --ink-2: #98A0AC;
+  --ink-3: #666E7A;
+
+  --signal: #6C9BF0;
+  --live:   #57C77F;
+  --alarm:  #E5645A;
+  --ok-ink:    #7BD69B;
+  --alarm-ink: #F0867C;
+
+  --solid-ink:      #101317;
+  --input-bg:       #0D0F12;
+  --input-bg-focus: #090B0E;
+  --placeholder:    #4E5661;
+  --dot-off:        #3B424C;
+  --overlay:        rgba(4,6,8,0.62);
+
+  --console-bg:     #0A0C0F;
+  --console-ink:    #E4E7EC;
+  --console-dim:    #98A0AC;
+  --console-faint:  #565E69;
+  --console-gutter: #454C56;
+  /* Warnings sit between the dim body text and the alarm red the errors use. Amber
+     rather than a second red, so a screen of warnings never reads as a screen of
+     failures. */
+  --warn-ink:       #E8B961;
+
+  --perk-def:  #69B6C9;
+  --perk-off:  #F0867C;
+  --perk-hero: #8FA8E8;
+
+  /* Roles are one ramp, cool to hot: cyan → green → amber → red. Four evenly spaced
+     steps rather than a literal three-light traffic signal, which has no fourth colour
+     that isn't a near-repeat of one it already has.
+     This does put a role hue next to two state hues — --live (online) is a green and
+     --alarm (banned) is a red. They are separated as far as the ramp allows: the role
+     green is grassy where --live is mint, and Core is the only *filled* badge in the
+     panel, a shape no state ever takes. */
+  --role-user:  #45BCD4;
+  --role-mod:   #6FC24A;
+  --role-admin: #E8A93C;
+  --role-core:  #E04B3C;
+}
+
+:root {
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --sans: 'Public Sans', ui-sans-serif, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* one heavy condensed face, used only for pane titles and the login heading.
+     It echoes the logo's compressed lettering without cosplaying it. */
+  --display: 'Anton', 'Public Sans', Impact, sans-serif;
+  --r: 3px;
+  --rail-w: 224px;
+  --brand-pad: 18px;  /* the logo's margin — same on all four sides */
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-areas: "rail main";
+  overflow: hidden;
+}
+
+/* ---------- brand ---------- */
+.brand {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: var(--brand-pad);
+  border-bottom: 1px solid var(--line);
+}
+.brand-tag {
+  font-size: 20px; font-weight: 700; letter-spacing: 0em;
+  color: var(--ink-2); text-align: center;
+}
+/* Scales with the rail. The PNG carries no transparent bleed — its alpha bbox is the
+   full 370x113 — so the padding above is the visual margin, equal on all four sides,
+   and the block's height falls out of the logo's own aspect ratio. */
+.brand-logo { display: block; width: 100%; height: auto; }
+
+/* #status — app.js still writes one string into one element. It sits at the foot of
+   the rail now; \n in the string breaks the line, hence pre-line. ::first-line styles
+   the label as a label without needing a second element to hang a class on: quiet sans
+   caption over a large mono figure. */
+/* Sans, not mono: uptime spelled out in words is prose, not an identifier, and the
+   mono advance width pushed "23 hours, 59 minutes" past the rail. */
+/* The uptime cell is a figure like any other — same label, same 32px value. Its value
+   is words rather than a numeral, so its column is given extra width instead of the
+   type being shrunk to fit. */
+.figure-wide { grid-column: span 1; }
+.figure-value { white-space: nowrap; }
+
+/* ---------- rail ---------- */
+.rail {
+  grid-area: rail;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.rail-nav { padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.rail-spacer { flex: 1 1 auto; min-height: 20px; }
+.rail-foot {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 14px 14px 16px;
+  border-top: 1px solid var(--line);
+}
+.rail-item {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  border: 0; background: none; border-radius: var(--r);
+  color: var(--ink-2);
+  font-family: var(--sans); font-size: 15px; font-weight: 500; text-align: left;
+  cursor: pointer;
+  transition: color .12s, background .12s;
+}
+.rail-item:hover { background: var(--panel-2); color: var(--ink); }
+.rail-item.active { background: var(--panel-2); color: var(--ink); font-weight: 600; }
+.rail-item.active::before {
+  content: ''; position: absolute; left: -10px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--signal);
+}
+.rail-count { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.logout-btn { width: 100%; }
+
+/* Where the project lives, not part of the panel's navigation — so these sit below
+   the rule as quiet text links rather than taking the weight of a .rail-item. */
+.rail-links { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.rail-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 4px; border-radius: var(--r);
+  color: var(--ink-3); font-size: 13px; text-decoration: none;
+  transition: color .12s;
+}
+.rail-link:hover { color: var(--ink-2); }
+.rail-link svg { flex: 0 0 auto; width: 14px; height: 14px; }
+
+/* min-width:0 on every grid child — without it an auto-min-width blows the
+   whole page out horizontally on narrow screens */
+.rail, .work { min-width: 0; }
+
+/* ---------- work area ---------- */
+.work { grid-area: main; overflow-y: auto; padding: 26px 28px 32px; }
+.view-pane { display: none; }
+.view-pane.active { display: block; }
+
+.pane-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.pane-head h2 {
+  margin: 0; font-family: var(--display); font-weight: 400;
+  font-size: 34px; line-height: 1; letter-spacing: 0.01em; color: var(--ink);
+}
+/* 62ch wrapped these one-line captions with half the pane still empty. They're
+   captions, not prose — cap the measure only so it can't run away on an ultrawide. */
+.pane-head p { margin: 8px 0 0; font-size: 14.5px; color: var(--ink-2); max-width: 96ch; }
+.player-count { font-family: var(--mono); font-size: 13.5px; color: var(--ink-3); }
+.player-count:empty { display: none; }
+
+/* ---------- controls ---------- */
+button {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 9px 16px;
+  border: 1px solid var(--line-2); border-radius: var(--r);
+  background: var(--panel-2); color: var(--ink);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+button:hover { background: var(--panel-3); border-color: color-mix(in srgb, var(--line-2) 70%, var(--ink)); }
+button:active { background: var(--panel-2); }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* highest emphasis: solid ink. one per context. */
+.save-btn { background: var(--ink); border-color: var(--ink); color: var(--solid-ink); font-weight: 600; }
+.save-btn:hover {
+  background: color-mix(in srgb, var(--ink) 88%, var(--signal));
+  border-color: color-mix(in srgb, var(--ink) 88%, var(--signal));
+}
+
+.ban-btn, .restart-btn {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--alarm) 45%, transparent);
+  color: var(--alarm-ink);
+}
+.ban-btn:hover, .restart-btn:hover {
+  background: color-mix(in srgb, var(--alarm) 12%, transparent);
+  border-color: var(--alarm);
+}
+.unban-btn {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--live) 42%, transparent);
+  color: var(--ok-ink);
+}
+.unban-btn:hover {
+  background: color-mix(in srgb, var(--live) 12%, transparent);
+  border-color: var(--live);
+}
+.ghost-btn { background: transparent; border-color: transparent; color: var(--ink-3); }
+.ghost-btn:hover { background: var(--panel-2); color: var(--ink); border-color: transparent; }
+
+input[type=text], input[type=number], input[type=password], select {
+  width: 100%; padding: 9px 12px;
+  font-family: var(--mono); font-size: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--line); border-radius: var(--r);
+  color: var(--ink);
+}
+select { font-family: var(--sans); }
+/* no `outline: none` here — it would out-specify :focus-visible and kill the
+   only visible keyboard affordance on every field in the drawer */
+input:focus, select:focus { border-color: var(--line-2); background: var(--input-bg-focus); }
+input::placeholder { color: var(--placeholder); }
+input[readonly] { color: var(--ink-3); background: var(--panel-2); border-color: transparent; }
+
+.search-input { max-width: 380px; margin-bottom: 16px; }
+
+/* ---------- table ---------- */
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  padding: 11px 16px; text-align: left; white-space: nowrap;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--ink-2);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 11px 16px; white-space: nowrap; font-size: 15px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+/* every identifier is monospace — IDs line up, that's the whole point */
+/* Scoped per table — nth-child means nothing once the column order differs. */
+.players-table td:nth-child(1) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.players-table td:nth-child(2) { font-weight: 500; }
+/* The nickname is a bordered Steam profile link; the sortable heading follows the
+   link's inner padding rather than appearing to belong to the previous column. */
+.players-table th:nth-child(2) .th-sort { padding-left: 26px; }
+
+/* Without this the last column swallows all the leftover width and the row ends in a
+   stretch of nothing. Pin the numeric columns; let the nickname take the slack. */
+/* Cap the panel rather than letting the nickname column absorb the slack: at full
+   width the gap between a name and its rating was wider than the data on either side
+   of it, and you tracked a row across 600px of nothing. The slack now falls outside
+   the table, where there is nothing to read anyway. */
+/* The cap sits on the wrapper, not on .table-wrap: the toolbar has to line up with the
+   table's right edge, and .table-wrap is the overflow-x scroller — a bar inside it
+   would scroll and clip along with the table. */
+.mmr-panel { max-width: 820px; }
+.players-wrap { max-width: 1200px; }
+.mmr-table th:nth-child(1) { width: 80px; }
+.mmr-table th:nth-child(2) { width: 250px; }
+/* The rating is an <input>, so its text starts one border and one padding in from the
+   cell — 9px, measured. Without matching that on the heading, "MMR" sat 9px to the left
+   of every number under it. The other columns are plain text and need no offset. */
+.mmr-table th:nth-child(3) { width: 175px; padding-left: 25px; }
+.mmr-table th:nth-child(4) { width: 120px; }
+.mmr-table th:nth-child(5) { width: 110px; }
+.steam-btn.compact { gap: 6px; font-family: var(--sans); font-size: 13px; }
+.mmr-table td:nth-child(1) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.mmr-table td:nth-child(2) { font-weight: 500; }
+.mmr-table td:nth-child(3) { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+.mmr-table td:nth-child(4),
+.mmr-table td:nth-child(5) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+
+
+.stats-table td:nth-child(3),
+.stats-table td:nth-child(4) { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }

@@ -1,0 +1,87 @@
+/* ---------- status pane ---------- */
+.work h3 { margin: 30px 0 12px; font-size: 16px; font-weight: 700; color: var(--ink); }
+/* Grid, not flex — four equal columns spanning the panel. As a flex row the figures
+   bunched at the left and left two thirds of the card empty. */
+.figures {
+  display: grid; grid-template-columns: repeat(5, 1fr) 1.75fr;
+  padding: 18px 22px 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+}
+/* Ruled columns rather than raw whitespace — four numbers in a row need a boundary,
+   or the labels read as belonging to whichever figure they sit nearest. */
+.figure { display: flex; flex-direction: column; gap: 1px; padding: 0 26px; min-width: 0; }
+.figure:first-child { padding-left: 0; }
+.figure + .figure { border-left: 1px solid var(--line); }
+.figure-label { font-size: 13px; color: var(--ink-3); }
+.figure-value { font-size: 32px; font-weight: 700; line-height: 1.15; color: var(--ink); }
+.figure-value.zero { color: var(--ink-3); }
+/* Six figures at 32px plus "4 days, 2 hours" stop fitting well before the layout's own
+   breakpoint, and the page must never scroll sideways — so the row wraps instead. The
+   dividing rule belongs between figures, not down the left edge of a new row, hence the
+   reset on whichever cell starts one. */
+@media (max-width: 1200px) {
+  .figures { grid-template-columns: repeat(3, 1fr); row-gap: 20px; }
+  .figure:nth-child(3n+1) { border-left: 0; padding-left: 0; }
+  /* Uptime is the one figure that is words rather than a number; once the cells are
+     this narrow it has to be allowed to break rather than run past the card. */
+  .figure-wide .figure-value { white-space: normal; }
+  .figure-value { font-size: 27px; }
+}
+@media (max-width: 700px) {
+  .figures { grid-template-columns: repeat(2, 1fr); }
+  .figure:nth-child(3n+1) { border-left: 1px solid var(--line); padding-left: 26px; }
+  .figure:nth-child(2n+1) { border-left: 0; padding-left: 0; }
+}
+.queue-idle td { color: var(--ink-3); }
+.empty-note { margin: 0; padding: 16px; font-size: 14px; color: var(--ink-3); font-style: italic; }
+
+/* ---------- queue cards ---------- */
+/* Queues and dodges sit side by side — two short lists, neither of which deserves the
+   full width on its own. */
+.status-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  align-items: start; margin-top: 30px;
+}
+.status-col { min-width: 0; }
+.status-col h3 { margin-top: 0; }
+
+/* Same shape as the figures card above it — label, figure, footnote — so the two
+   panels on this page read as one system instead of two unrelated widgets. */
+/* Same height as the dodge log beside it so the pair reads as one row. One column per
+   mode, each scrolling on its own. */
+.queue-box {
+  height: 156px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden;
+}
+.queue-col { padding: 12px 18px 14px; min-width: 0; overflow-y: auto; }
+.queue-col + .queue-col { border-left: 1px solid var(--line); }
+.queue-col-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 8px; padding-bottom: 7px; border-bottom: 1px solid var(--line);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.queue-col-count { font-family: var(--mono); font-size: 14px; color: var(--ink-2); letter-spacing: 0; }
+.qp { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.qp-name { font-size: 14px; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qp-wait { flex: 0 0 auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.queue-empty { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-3); font-style: italic; }
+/* Nothing is drawn while a queue is simply waiting — that is the resting state, and a
+   badge that is always on says nothing. The head keeps mode / state / count in that
+   order, so the count stays where the eye already looks for it. */
+.queue-state {
+  margin-right: auto; padding: 1px 6px; border-radius: 3px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0; text-transform: none;
+  border: 1px solid var(--line-2); color: var(--ink-2);
+}
+.queue-state-confirming { border-color: var(--live); color: var(--ok-ink); }
+.queue-state-pop_failed,
+.queue-state-unavailable { border-color: var(--alarm); color: var(--alarm-ink); }
+/* Losing contact with the matchmaker is a failure, not an empty queue. */
+.queue-empty.error-row { color: var(--alarm-ink); font-style: normal; }
+/* The popped line-up, versus anyone who joined behind them and is still waiting. */
+.qp-confirming .qp-name { color: var(--ok-ink); }
+.qp-confirming .qp-wait { color: var(--ok-ink); opacity: 0.75; }
+

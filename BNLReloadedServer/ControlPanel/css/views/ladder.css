@@ -1,0 +1,115 @@
+/* ---------- mmr pane ---------- */
+/* Entering and leaving edit mode must not move any *row*: you are looking at a player
+   when you press the button, and they should still be under your eyes afterwards. The
+   grip column always occupies its column and the rating is always an input, so the
+   table geometry is identical in both modes.
+   The toolbar is the exception, and deliberately so — a Reset and an Apply that can do
+   nothing are noise, not reassurance. They are absent until they mean something. What
+   holds the table still is the bar's own height: the button sets it, and the editing
+   hint is short enough to stay on one line beside the buttons at this width. */
+.mmr-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; margin-bottom: 12px;
+}
+.mmr-tools { display: flex; gap: 8px; flex: 0 0 auto; }
+/* The count changes on every drop; without this, Cancel would shuffle sideways
+   between "Apply 1 change" and "Apply 12 changes". */
+#mmrApplyBtn { min-width: 150px; }
+#mmrApplyBtn[hidden] { display: none; }
+/* Truncates rather than wraps. A second hint line would grow the bar and push the table
+   down on entering edit mode — the one thing this pane promises not to do — and the
+   width available for it shrinks with the window, so no fixed wording is safe at every
+   size. Full text stays on the title attribute. */
+.mmr-hint {
+  margin: 0; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13.5px; color: var(--ink-3);
+}
+
+.grip-col { width: 1%; text-align: right; }
+.grip { visibility: hidden; }
+body.mmr-editing .grip { visibility: visible; }
+/* Only the grip grabs. The rest of the row stays selectable text. */
+.grip {
+  display: inline-block; padding: 0 2px;
+  color: var(--ink-3); cursor: grab; user-select: none; font-size: 15px; line-height: 1;
+}
+.grip:hover { color: var(--ink); }
+.grip:active { cursor: grabbing; }
+/* Dragging is a lift, not a ghost. The row you are moving stays fully legible — you are
+   reading the name and the rating while you place it — and the rows it passes slide out
+   of its way, so the gap under the pointer *is* the drop target. That replaces the
+   insertion line: a marker is only needed when nothing else shows where the row lands.
+   The row moves on one axis and cannot leave the list; see initMmrDrag. */
+#mmrBody tr { transition: transform .14s cubic-bezier(.2, .7, .3, 1); }
+/* the dragged row tracks the pointer 1:1, so it must not be smoothed */
+/* The lift shadow is a filter on the row, not a box-shadow on the cells. A table row
+   is six separate boxes: shadowing each one drew a seam at every column edge, and
+   clearing the row's bottom border to hide them just handed the shared edge to the
+   neighbouring row under border-collapse. drop-shadow works on the rendered result, so
+   it sees one silhouette and the columns disappear from it. */
+#mmrBody tr.dragging {
+  transition: none; position: relative; z-index: 3;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
+}
+#mmrBody tr.dragging td { background: var(--panel-3); }
+#mmrBody tr.dragging .grip { color: var(--ink); cursor: grabbing; }
+/* A changed rating reads typographically — old struck through, new in full ink — so it
+   needs no colour of its own and can't be mistaken for a live/alarm state. */
+/* Always present, even when there is nothing to show: a row that gains an old value
+   would otherwise push its input sideways into the Volatility column. It sits *after*
+   the rating, so the reserved 42px falls on the empty side of the cell instead of
+   pushing every rating out from under its own column heading. */
+.mmr-was {
+  display: inline-block; width: 42px; margin-left: 8px;
+  text-align: left; vertical-align: middle;
+  color: var(--ink-3); text-decoration: line-through;
+}
+input.mmr-input {
+  width: 78px; padding: 4px 8px; font-size: 13.5px;
+  background: var(--input-bg); border-color: var(--line-2);
+}
+/* Same box, no chrome: read-only it reads as the value it is, and the row keeps the
+   height and the column keeps the offset it had. (The identity strip in the editor
+   does the same thing for the same reason.) */
+input.mmr-input[readonly] {
+  background: none; border-color: transparent; color: var(--ink);
+  cursor: default;
+}
+/* spinners would appear on hover in one mode and not the other */
+.mmr-input::-webkit-inner-spin-button, .mmr-input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.mmr-input { -moz-appearance: textfield; appearance: textfield; }
+.mmr-new { color: var(--ink); font-weight: 700; }
+
+/* Sortable headers. The button carries the cell's padding so the whole header cell
+   is the hit area, and an inactive column shows its arrow only on hover. */
+th.sortable { padding: 0; }
+.th-sort {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 11px 16px;
+  border: 0; border-radius: 0; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.th-sort:hover { background: var(--panel-3); color: var(--ink); border-color: transparent; }
+.th-sort[data-dir="asc"], .th-sort[data-dir="desc"] { color: var(--ink); }
+.sort-ind { font-size: 12px; line-height: 1; color: var(--ink-3); }
+.th-sort[data-dir="none"] .sort-ind::after { content: '\2195'; opacity: 0; transition: opacity .12s; }
+.th-sort:hover .sort-ind::after { opacity: 0.5; }
+.th-sort[data-dir="desc"] .sort-ind::after { content: '\2193'; opacity: 1; color: var(--ink-2); }
+.th-sort[data-dir="asc"]  .sort-ind::after { content: '\2191'; opacity: 1; color: var(--ink-2); }
+
+/* Rows are not clickable. The hover tint is for tracking one player across six
+   columns — it is not an affordance, so there's no pointer cursor with it. */
+tbody tr:hover td { background: var(--panel-2); }
+
+/* The row's action lives in its own trailing cell rather than being hidden on the
+   nickname — explicit, and it leaves every other cell as selectable text. */
+.row-action { text-align: right; }
+.edit-btn { padding: 5px 14px; font-size: 13px; }
+.message-btn { padding: 5px 14px; font-size: 13px; }
+.empty-row td { color: var(--ink-3); font-style: italic; }
+/* A failed fetch is not an empty list, and must not read like one. */
+.empty-row.error-row td { color: var(--alarm-ink); font-style: normal; }
+
