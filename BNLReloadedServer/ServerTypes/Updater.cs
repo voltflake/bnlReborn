@@ -8,6 +8,7 @@ public abstract class Updater
 {
     private const int SlowActionMillis = 25;
     private const int StuckActionMillis = 5000;
+    private const long LargeActionAllocationBytes = 1024 * 1024;
 
     private readonly Channel<Action> _updateActions = Channel.CreateUnbounded<Action>();
     private readonly object _watchdogLock = new();
@@ -33,6 +34,8 @@ public abstract class Updater
             {
                 try
                 {
+                    if (TrackQueuedActionSources)
+                        ActionDequeued(action.Method);
                     var start = Stopwatch.GetTimestamp();
                     var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
                     lock (_watchdogLock)
@@ -51,9 +54,10 @@ public abstract class Updater
                     }
                     var elapsed = Stopwatch.GetElapsedTime(start);
                     var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
-                    if (elapsed.TotalMilliseconds >= SlowActionMillis)
+                    if (elapsed.TotalMilliseconds >= SlowActionMillis || allocated >= LargeActionAllocationBytes)
                     {
-                        Log.Info(LogCat.Perf, $"Slow action: {DiagnosticName} queue, {DescribeAction(action)} took " +
+                        var kind = elapsed.TotalMilliseconds >= SlowActionMillis ? "Slow action" : "Allocation-heavy action";
+                        Log.Info(LogCat.Perf, $"{kind}: {DiagnosticName} queue, {DescribeAction(action)} took " +
                                               $"{elapsed.TotalMilliseconds:F0}ms, allocated {allocated / 1024d:F0}KB, " +
                                               $"{actions.Count} queued");
                     }
@@ -103,7 +107,11 @@ public abstract class Updater
     
     private static string DescribeAction(Action action)
     {
-        var method = action.Method;
+        return DescribeMethod(action.Method);
+    }
+
+    protected static string DescribeMethod(System.Reflection.MethodInfo method)
+    {
         var name = method.Name;
         if (name.StartsWith('<') && name.IndexOf('>') > 1)
             name = name[1..name.IndexOf('>')];
@@ -115,7 +123,24 @@ public abstract class Updater
         return type is null ? name : $"{type.Name}.{name}";
     }
 
-    public bool EnqueueAction(Action func) => _updateActions.Writer.TryWrite(func);
+    protected virtual bool TrackQueuedActionSources => false;
+
+    protected virtual void ActionQueued(System.Reflection.MethodInfo method) { }
+
+    protected virtual void ActionDequeued(System.Reflection.MethodInfo method) { }
+
+    protected virtual string DescribeQueuedActionSources() => string.Empty;
+
+    public virtual bool EnqueueAction(Action func)
+    {
+        if (!TrackQueuedActionSources)
+            return _updateActions.Writer.TryWrite(func);
+
+        ActionQueued(func.Method);
+        if (_updateActions.Writer.TryWrite(func)) return true;
+        ActionDequeued(func.Method);
+        return false;
+    }
 
     public void Stop()
     {

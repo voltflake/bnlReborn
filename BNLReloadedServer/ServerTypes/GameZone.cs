@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
+using System.Reflection;
 using System.Timers;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
@@ -44,6 +45,7 @@ public partial class GameZone : Updater
     private readonly Dictionary<uint, Unit> _playerUnits = new();
     private readonly Dictionary<uint, uint> _playerIdToUnitId = new();
     private readonly Dictionary<uint, RemovedUnitDiagnostic> _removedUnitDiagnostics = new();
+    private readonly ConcurrentDictionary<MethodInfo, int> _queuedActionSources = new();
 
     private sealed record RemovedUnitDiagnostic(
         Key Key,
@@ -81,7 +83,6 @@ public partial class GameZone : Updater
     private DateTimeOffset? _attackStartTime;
     
     private Task? _gameLoop;
-    private Task? _tickChecker;
     private Task? _endMatchTask;
 
     private Timer? _build1Timer;
@@ -102,13 +103,32 @@ public partial class GameZone : Updater
     private readonly string? _instanceId;
 
     private ulong _tickNumber;
-    private ulong _lastTickNumber;
     private bool _firstTickCompleted;
 
     private uint NewUnitId() => _newUnitId++;
     private uint NewSpawnId() => _newSpawnId++;
 
     public bool HasEnded => _zoneData.MatchEnded;
+
+    protected override bool TrackQueuedActionSources => true;
+
+    protected override void ActionQueued(MethodInfo method) =>
+        _queuedActionSources.AddOrUpdate(method, 1, (_, count) => count + 1);
+
+    protected override void ActionDequeued(MethodInfo method)
+    {
+        _queuedActionSources.AddOrUpdate(method, 0, (_, count) => Math.Max(0, count - 1));
+    }
+
+    protected override string DescribeQueuedActionSources()
+    {
+        var sources = _queuedActionSources
+            .Where(entry => entry.Value > 0)
+            .OrderByDescending(entry => entry.Value)
+            .Take(4)
+            .Select(entry => $"{DescribeMethod(entry.Key)}={entry.Value}");
+        return string.Join(", ", sources);
+    }
 
     public GameZone(IServiceZone serviceZone, IServiceZone unbufferedZone, IBuffer sendBuffer, ISender sessionsSender,
         MapData mapData, IGameInitiator gameInitiator, ConcurrentDictionary<uint, PlayerLobbyState> players, Key? mapKey = null)
@@ -846,7 +866,6 @@ public partial class GameZone : Updater
         }
         
         _gameLoop = RunGameLoop();
-        _tickChecker = RunTickCheck();
         _gameInitiator.SetBackfillReady(_zoneData.GameModeCard.Ranking is GameRankingType.Friendly);
     }
 
@@ -1794,7 +1813,9 @@ public partial class GameZone : Updater
             });
             while (await tickTimer.WaitForNextTickAsync(token))
             {
-                EnqueueAction(OnTick(_tickNumber++));
+                var tickNumber = _tickNumber++;
+                var queuedAt = Stopwatch.GetTimestamp();
+                EnqueueAction(() => RunTick(tickNumber, queuedAt));
             }
         }
         finally
@@ -1803,39 +1824,31 @@ public partial class GameZone : Updater
         }
     }
 
-    private async Task RunTickCheck()
+    private void RunTick(ulong tickNumber, long queuedAt)
     {
-        var tickTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-        var token = GameCanceler.Token;
-        var lastGcPause = GC.GetTotalPauseDuration();
-        var lastGen2 = GC.CollectionCount(2);
-        var lastGen1 = GC.CollectionCount(1);
-        var lastGen0 = GC.CollectionCount(0);
-        while (await tickTimer.WaitForNextTickAsync(token))
+        var startedAt = Stopwatch.GetTimestamp();
+        try
         {
-            var ticksLastSecond = _tickNumber - _lastTickNumber;
-            _lastTickNumber = _tickNumber;
-
-            var gcPause = GC.GetTotalPauseDuration();
-            var gen2 = GC.CollectionCount(2);
-            var gen1 = GC.CollectionCount(1);
-            var gen0 = GC.CollectionCount(0);
-            var pausedMillis = (gcPause - lastGcPause).TotalMilliseconds;
-            var collections = $"{gen0 - lastGen0}/{gen1 - lastGen1}/{gen2 - lastGen2}";
-            lastGcPause = gcPause;
-            lastGen2 = gen2;
-            lastGen1 = gen1;
-            lastGen0 = gen0;
-
-            if (ticksLastSecond < TicksPerSecond - 1)
+            OnTick(tickNumber)();
+        }
+        finally
+        {
+            var completedAt = Stopwatch.GetTimestamp();
+            var queueDelayTicks = startedAt - queuedAt;
+            var executionTicks = completedAt - startedAt;
+            var queueDelayMillis = ToMilliseconds(queueDelayTicks);
+            var executionMillis = ToMilliseconds(executionTicks);
+            if (queueDelayMillis >= TickRate || executionMillis >= TickRate)
             {
-                Log.Info(LogCat.Perf, $"Low TPS: {ticksLastSecond}, {DiagnosticName}, " +
-                                      $"{QueuedActionCount} queued (GC paused {pausedMillis:F0}ms, " +
-                                      $"gen0/1/2 collections {collections}, heap {GC.GetTotalMemory(false) / (1024 * 1024)}MB)");
+                var queuedSources = DescribeQueuedActionSources();
+                Log.Info(LogCat.Perf, $"Slow tick: tick={tickNumber}, queue delay {queueDelayMillis:F0}ms, " +
+                                      $"execution {executionMillis:F0}ms, {DiagnosticName}, {QueuedActionCount} queued" +
+                                      (queuedSources.Length == 0 ? string.Empty : $"; sources: {queuedSources}"));
             }
         }
-
     }
+
+    private static double ToMilliseconds(long stopwatchTicks) => stopwatchTicks * 1000d / Stopwatch.Frequency;
 
     private Action OnTick(ulong tickNumber) =>
         () =>
