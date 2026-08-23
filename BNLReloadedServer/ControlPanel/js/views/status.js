@@ -69,7 +69,7 @@ let queuesStale = false;
    rather than as a panel that has lost contact. */
 async function pollQueues() {
   try {
-    const res = await fetch('/api/queues');
+    const res = await fetch('/api/queues', { cache: 'no-store' });
     if (!res.ok) { queuesStale = true; renderQueues(); return; }
     applyQueues(await res.json());
   } catch {

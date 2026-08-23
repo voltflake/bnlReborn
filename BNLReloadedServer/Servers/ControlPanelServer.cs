@@ -17,6 +17,7 @@ public sealed class ControlPanelServer : IDisposable
     private static readonly TimeSpan SessionDuration = TimeSpan.FromHours(12);
     private const int MaxFailedAttempts = 5;
     private static readonly TimeSpan LockoutWindow = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan EventHeartbeatInterval = TimeSpan.FromSeconds(15);
 
     private readonly HttpListener _listener;
     private readonly CancellationTokenSource _cts = new();
@@ -705,6 +706,9 @@ public sealed class ControlPanelServer : IDisposable
         // path this holds. It is a settable static with no initializer, though, and a
         // 500 here would say less than an empty list does.
         var queues = Databases.RegionServerDatabase?.GetQueueSnapshot() ?? [];
+        // Queue contents are live state. Do not allow a browser or reverse proxy to
+        // reuse the snapshot taken when the panel was first opened.
+        ctx.Response.Headers["Cache-Control"] = "no-store";
         await WriteJson(ctx, new { queues });
     }
 
@@ -982,10 +986,13 @@ public sealed class ControlPanelServer : IDisposable
                 logCursor = initialLogCursor;
             }
 
+            var heartbeatTask = Task.Delay(EventHeartbeatInterval, ct);
             while (socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
             {
-                var eventTask = events.WaitAsync(ct);
-                if (await Task.WhenAny(eventTask, disconnected) == disconnected)
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var eventTask = events.WaitAsync(waitCts.Token);
+                var completed = await Task.WhenAny(eventTask, disconnected, heartbeatTask);
+                if (completed == disconnected)
                     return;
 
                 if (!IsAuthenticated(ctx))
@@ -995,23 +1002,27 @@ public sealed class ControlPanelServer : IDisposable
                     return;
                 }
 
-                var changed = await eventTask;
-                if ((changed & ControlPanelEvent.Status) != 0)
-                    await SendEvent(socket, "status", GetStatus(), ct);
-                if ((changed & ControlPanelEvent.Queues) != 0)
-                    await SendEvent(socket, "queues", GetQueues(), ct);
-                if ((changed & ControlPanelEvent.Activity) != 0)
-                    await SendEvent(socket, "activity", GetActivity(), ct);
-                if ((changed & ControlPanelEvent.Players) != 0)
-                    await SendEvent(socket, "players", await GetPlayerList(), ct);
-                if ((changed & ControlPanelEvent.Logs) != 0 && LogBuffer.LastSeq > logCursor)
+                if (completed == heartbeatTask)
                 {
-                    // Capture the cursor before taking the batch. A record appended between the
-                    // batch and the send may be replayed next time, but can never be skipped.
-                    var nextLogCursor = LogBuffer.LastSeq;
-                    await SendEvent(socket, "logs", GetLogBatch(logCursor), ct);
-                    logCursor = nextLogCursor;
+                    // Do not discard a queue change which arrived at the same time as
+                    // the heartbeat. If the wait was cancelled first, its pending bit
+                    // remains in the subscription for the next loop.
+                    waitCts.Cancel();
+                    try
+                    {
+                        var changedWithHeartbeat = await eventTask;
+                        logCursor = await SendChangedEvents(socket, changedWithHeartbeat, logCursor, ct);
+                    }
+                    catch (OperationCanceledException) when (waitCts.IsCancellationRequested)
+                    {
+                        await SendEvent(socket, "heartbeat", new { }, ct);
+                    }
+
+                    heartbeatTask = Task.Delay(EventHeartbeatInterval, ct);
+                    continue;
                 }
+
+                logCursor = await SendChangedEvents(socket, await eventTask, logCursor, ct);
             }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested) { }
@@ -1033,6 +1044,29 @@ public sealed class ControlPanelServer : IDisposable
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new { type, data }, JsonOptions);
         await socket.SendAsync(bytes, WebSocketMessageType.Text, true, ct);
+    }
+
+    private async Task<long> SendChangedEvents(
+        WebSocket socket, ControlPanelEvent changed, long logCursor, CancellationToken ct)
+    {
+        if ((changed & ControlPanelEvent.Status) != 0)
+            await SendEvent(socket, "status", GetStatus(), ct);
+        if ((changed & ControlPanelEvent.Queues) != 0)
+            await SendEvent(socket, "queues", GetQueues(), ct);
+        if ((changed & ControlPanelEvent.Activity) != 0)
+            await SendEvent(socket, "activity", GetActivity(), ct);
+        if ((changed & ControlPanelEvent.Players) != 0)
+            await SendEvent(socket, "players", await GetPlayerList(), ct);
+        if ((changed & ControlPanelEvent.Logs) != 0 && LogBuffer.LastSeq > logCursor)
+        {
+            // Capture the cursor before taking the batch. A record appended between the
+            // batch and the send may be replayed next time, but can never be skipped.
+            var nextLogCursor = LogBuffer.LastSeq;
+            await SendEvent(socket, "logs", GetLogBatch(logCursor), ct);
+            logCursor = nextLogCursor;
+        }
+
+        return logCursor;
     }
 
     private static async Task ObserveDisconnect(WebSocket socket, CancellationToken ct)

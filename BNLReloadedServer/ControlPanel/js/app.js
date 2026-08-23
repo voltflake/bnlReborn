@@ -60,14 +60,21 @@ document.addEventListener('keydown', e => {
 
 let initialized = false;
 let eventRetry = 1000;
+let eventSocket = null;
+let lastEventAt = 0;
 
 function connectEvents() {
   const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(scheme + '//' + location.host +
     '/api/events?logs_since=' + encodeURIComponent(logCursor));
+  eventSocket = socket;
 
-  socket.onopen = () => { eventRetry = 1000; };
+  socket.onopen = () => {
+    eventRetry = 1000;
+    lastEventAt = Date.now();
+  };
   socket.onmessage = event => {
+    lastEventAt = Date.now();
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
     const data = message.data || {};
@@ -78,11 +85,20 @@ function connectEvents() {
     else if (message.type === 'logs') applyLogBatch(data);
   };
   socket.onclose = event => {
+    if (eventSocket === socket) eventSocket = null;
     if (event.code === 1008) showLoginGate('Your session expired. Sign in again.');
     setTimeout(connectEvents, eventRetry);
     eventRetry = Math.min(eventRetry * 2, 30000);
   };
 }
+
+/* A WebSocket can be silently dropped by a proxy, leaving the browser with an open
+   object and the last received queue snapshot. The server emits heartbeats; if they
+   stop, close this socket so its normal reconnect path takes a fresh event snapshot. */
+setInterval(() => {
+  if (eventSocket?.readyState === WebSocket.OPEN && Date.now() - lastEventAt > 45000)
+    eventSocket.close(4000, 'Event stream timed out');
+}, 15000);
 
 function init() {
   if (initialized) return;
