@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/css/views/bans.css">
 <link rel="stylesheet" href="/css/views/console.css">
 <link rel="stylesheet" href="/css/views/players.css">
+<link rel="stylesheet" href="/css/views/history.css">
 <link rel="stylesheet" href="/css/overlays-responsive.css">
 </head>
 <body>
@@ -48,6 +49,7 @@
     <button class="rail-item" data-pane="players" onclick="showPane('players')">
       Players <span class="rail-count" id="railPlayers"></span>
     </button>
+    <button class="rail-item" data-pane="history" onclick="showPane('history')">Match history</button>
     <button class="rail-item" data-pane="ladder" onclick="showPane('ladder')">Ladder</button>
     <button class="rail-item" data-pane="maps" onclick="showPane('maps')">
       Maps <span class="rail-count" id="railMaps"></span>
@@ -151,6 +153,34 @@
         <tbody id="playersBody"></tbody>
       </table>
     </div>
+  </section>
+
+  <!-- ================= match history ================= -->
+  <section class="view-pane" id="pane-history">
+    <div class="pane-head">
+      <div>
+        <h2>Match history</h2>
+        <p>Completed Casual and Ranked matches, newest first.</p>
+      </div>
+      <div class="player-count" id="historyCount"></div>
+    </div>
+    <div class="history-toolbar">
+      <div class="history-filters" id="historyFilters">
+        <div class="history-filter-title">Filters</div>
+        <div class="history-filter-menu">
+          <div class="history-mode-filters" id="historyModeFilters" aria-label="Filter match history by mode"></div>
+          <input class="search-input" id="historySearch" type="text" placeholder="Map name"
+                 oninput="filterHistory()">
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap history-wrap">
+      <table class="history-table">
+        <thead><tr><th>Map</th><th>Mode</th><th>Started</th><th>Length</th><th>Result</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+    <button class="history-more" id="historyMore" onclick="loadOlderHistory()" hidden>Load older matches</button>
   </section>
 
   <!-- ================= ladder ================= -->
@@ -499,6 +529,7 @@
 <script src="/js/views/maps.js"></script>
 <script src="/js/views/status.js"></script>
 <script src="/js/views/players.js"></script>
+<script src="/js/views/history.js"></script>
 <script src="/js/views/ladder.js"></script>
 <script src="/js/views/bans.js"></script>
 <script src="/js/views/tools.js"></script>

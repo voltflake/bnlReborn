@@ -1442,7 +1442,7 @@ public partial class GameZone
                 TeamType.Team1 => TeamType.Team2,
                 TeamType.Team2 => TeamType.Team1,
                 _ => TeamType.Neutral
-            });
+            }, MatchEndReason.Surrender);
             
             _units.Values.Where(u => u.Team == player.Team && u.UnitCard?.IsBase is true).ToList().ForEach(DropUnit);
         }
@@ -1519,7 +1519,7 @@ public partial class GameZone
                 }
                 break;
             case MapEditorCommand.WinMatch:
-                _endMatchTask = BeginEndOfGame(player.Team, false);
+                _endMatchTask = BeginEndOfGame(player.Team, MatchEndReason.Unknown, false);
                 break;
         }
     }

@@ -12,6 +12,7 @@ namespace BNLReloadedServer.Database;
 
 public class MasterServerDatabase : IMasterServerDatabase
 {
+    private sealed class SchemaColumn { public string Name { get; set; } = string.Empty; }
     // Region servers register on their session thread and deregister from disconnect teardown,
     // while the control panel and login enumerate the list: every touch goes through the lock,
     // and callers get a copy so they cannot enumerate it while it is being edited.
@@ -35,11 +36,50 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb.CreateTableAsync<ArchivedMatchPresenceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchDeviceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchPerkRecord>().Wait();
+        EnsureMatchArchiveColumns().Wait();
         BackfillRankEligibility().Wait();
     }
 
-    public Task StoreCompletedMatch(CompletedMatchRecord match) => _playerDb.RunInTransactionAsync(db =>
+    private async Task EnsureMatchArchiveColumns()
     {
+        var playerColumns = await _playerDb.QueryAsync<SchemaColumn>("PRAGMA table_info(MatchPlayers)");
+        if (!playerColumns.Any(column => column.Name.Equals("starting_rating_mean", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN starting_rating_mean REAL");
+        if (!playerColumns.Any(column => column.Name.Equals("rating_delta", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN rating_delta REAL");
+        var matchColumns = await _playerDb.QueryAsync<SchemaColumn>("PRAGMA table_info(Matches)");
+        if (!matchColumns.Any(column => column.Name.Equals("end_reason", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE Matches ADD COLUMN end_reason INTEGER NOT NULL DEFAULT 0");
+    }
+
+    public async Task StoreCompletedMatch(CompletedMatchRecord match)
+    {
+        await _asyncLock.WaitAsync();
+        try
+        {
+            // Rating updates are received just before the completed-match message on the same
+            // region connection. Sharing their lock makes these values the post-update rating,
+            // rather than a timing-dependent later profile read.
+            var previousPlayers = await _playerDb.Table<ArchivedMatchPlayerRecord>()
+                .Where(player => player.MatchId == match.MatchId).ToListAsync();
+            var previousByPlayer = previousPlayers.ToDictionary(player => (uint)player.PlayerId);
+            var playerIds = match.Players.Select(player => player.PlayerId).Distinct().ToList();
+            var currentRatings = (await _playerDb.Table<PlayerRecord>()
+                    .Where(player => playerIds.Contains(player.PlayerId)).ToListAsync())
+                .ToDictionary(player => player.PlayerId, player => player.RatingMean);
+            foreach (var player in match.Players)
+            {
+                // A retransmission must retain the delta originally recorded for this match;
+                // deriving it again after later games would be wrong.
+                if (previousByPlayer.GetValueOrDefault(player.PlayerId)?.RatingDelta is double recordedDelta)
+                    player.RatingDelta = recordedDelta;
+                else if (player.StartingRatingMean is double startingRating &&
+                         currentRatings.TryGetValue(player.PlayerId, out var currentRating))
+                    player.RatingDelta = currentRating - startingRating;
+            }
+
+            await _playerDb.RunInTransactionAsync(db =>
+            {
         // A region can retransmit after losing its master connection. Replacing the complete
         // aggregate makes the operation idempotent without leaving stale child rows behind.
         var oldPresenceIds = db.Table<ArchivedMatchPresenceRecord>()
@@ -56,7 +96,8 @@ public class MasterServerDatabase : IMasterServerDatabase
         db.InsertOrReplace(new ArchivedMatchRecord
         {
             Id = match.MatchId, MapKey = match.MapKey.Hash, GameModeKey = match.GameModeKey.Hash,
-            StartedAt = (long)match.StartedAt, EndedAt = (long)match.EndedAt, Winner = (int)match.Winner
+            StartedAt = (long)match.StartedAt, EndedAt = (long)match.EndedAt, Winner = (int)match.Winner,
+            EndReason = (int)match.EndReason
         });
         foreach (var team in match.Teams) db.Insert(new ArchivedMatchTeamRecord
         {
@@ -74,6 +115,7 @@ public class MasterServerDatabase : IMasterServerDatabase
                 MatchId = match.MatchId, PlayerId = player.PlayerId, Nickname = player.Nickname,
                 SquadId = player.SquadId?.ToString(), WasInitial = player.WasInitial,
                 WasBackfiller = player.WasBackfiller, IsWinner = player.IsWinner,
+                StartingRatingMean = player.StartingRatingMean, RatingDelta = player.RatingDelta,
                 TotalScore = player.TotalScore, Stats = statStream.ToArray()
             });
             foreach (var presence in player.Presences)
@@ -97,7 +139,13 @@ public class MasterServerDatabase : IMasterServerDatabase
                 });
             }
         }
-    });
+        });
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
+    }
 
     public async Task<List<ArchivedMatchRecord>> GetCompletedMatches(int limit, long? before)
     {

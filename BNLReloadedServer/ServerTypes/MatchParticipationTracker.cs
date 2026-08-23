@@ -8,14 +8,18 @@ internal sealed class MatchParticipationTracker
     public DateTimeOffset? StartedAt { get; private set; }
     public bool HasParticipant(uint playerId) => _players.ContainsKey(playerId);
 
-    public void Start(DateTimeOffset startedAt, IEnumerable<PlayerLobbyState> initialPlayers)
+    public void Start(DateTimeOffset startedAt, IEnumerable<PlayerLobbyState> initialPlayers,
+        IReadOnlyDictionary<uint, double> startingRatings)
     {
         if (StartedAt.HasValue) return;
         StartedAt = startedAt;
-        foreach (var player in initialPlayers) Join(player, startedAt, MatchJoinKind.Initial, false);
+        foreach (var player in initialPlayers)
+            Join(player, startedAt, MatchJoinKind.Initial, false,
+                startingRatings.TryGetValue(player.PlayerId, out var rating) ? rating : null);
     }
 
-    public void Join(PlayerLobbyState state, DateTimeOffset at, MatchJoinKind kind, bool backfiller)
+    public void Join(PlayerLobbyState state, DateTimeOffset at, MatchJoinKind kind, bool backfiller,
+        double? startingRatingMean = null)
     {
         if (!StartedAt.HasValue) return;
         if (!_players.TryGetValue(state.PlayerId, out var player))
@@ -26,7 +30,8 @@ internal sealed class MatchParticipationTracker
                 Nickname = state.Nickname ?? string.Empty,
                 SquadId = state.SquadId,
                 WasInitial = kind == MatchJoinKind.Initial,
-                WasBackfiller = backfiller
+                WasBackfiller = backfiller,
+                StartingRatingMean = startingRatingMean
             };
             _players[state.PlayerId] = player;
         }

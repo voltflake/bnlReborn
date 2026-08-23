@@ -4,6 +4,7 @@ namespace BNLReloadedServer.BaseTypes;
 
 public enum MatchJoinKind : byte { Initial, Backfill, Reconnect }
 public enum MatchLeaveKind : byte { MatchEnded, Disconnect, Quit, Inactivity, Kicked }
+public enum MatchEndReason : byte { Unknown, ObjectivesDestroyed, Surrender, ObjectivesCompleted, Abandoned }
 
 public sealed class CompletedMatchPresence
 {
@@ -28,6 +29,10 @@ public sealed class CompletedMatchPlayer
     public bool WasInitial { get; set; }
     public bool WasBackfiller { get; set; }
     public bool IsWinner { get; set; }
+    // Rating means are stored in their native TrueSkill scale.  The control panel formats them
+    // in display MMR points, just as it does everywhere else.
+    public double? StartingRatingMean { get; set; }
+    public double? RatingDelta { get; set; }
     public Dictionary<PlayerMatchStatType, int> Stats { get; set; } = [];
     public int TotalScore { get; set; }
     public List<CompletedMatchPresence> Presences { get; set; } = [];
@@ -50,6 +55,7 @@ public sealed class CompletedMatchRecord
     public ulong StartedAt { get; set; }
     public ulong EndedAt { get; set; }
     public TeamType Winner { get; set; }
+    public MatchEndReason EndReason { get; set; }
     public List<CompletedMatchTeam> Teams { get; set; } = [];
     public List<CompletedMatchPlayer> Players { get; set; } = [];
 
@@ -84,6 +90,11 @@ public sealed class CompletedMatchRecord
                 pw.WriteMap(presence.DeviceLevels, Key.WriteRecord, pw.Write);
             });
         });
+        // Appended so an old master can safely ignore it and a new master can still accept an
+        // archive sent by an older region during a rolling restart.
+        writer.WriteMap(Players.Where(player => player.StartingRatingMean.HasValue)
+            .ToDictionary(player => player.PlayerId, player => player.StartingRatingMean!.Value), writer.Write, writer.Write);
+        writer.WriteByteEnum(EndReason);
     }
 
     public static CompletedMatchRecord ReadRecord(BinaryReader reader)
@@ -122,6 +133,15 @@ public sealed class CompletedMatchRecord
             });
             return player;
         });
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var startingRatings = reader.ReadMap<uint, double, Dictionary<uint, double>>(
+                reader.ReadUInt32, reader.ReadDouble);
+            foreach (var player in result.Players)
+                if (startingRatings.TryGetValue(player.PlayerId, out var rating)) player.StartingRatingMean = rating;
+        }
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+            result.EndReason = reader.ReadByteEnum<MatchEndReason>();
         return result;
     }
 }

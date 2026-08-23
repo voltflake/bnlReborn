@@ -1843,9 +1843,10 @@ public partial class GameZone
                                                        TeamType.Team1 => TeamType.Team2,
                                                        TeamType.Team2 => TeamType.Team1,
                                                        _ => TeamType.Neutral
-                                                   }),
+                                                   }, MatchEndReason.ObjectivesDestroyed),
                     MatchType.Tutorial or
-                        MatchType.TimeTrial => BeginEndOfGame(killerPlayer?.Team ?? TeamType.Neutral, false),
+                        MatchType.TimeTrial => BeginEndOfGame(killerPlayer?.Team ?? TeamType.Neutral,
+                            MatchEndReason.ObjectivesCompleted, false),
                     _ => null
                 };
             }
@@ -1856,7 +1857,8 @@ public partial class GameZone
             _zoneData.CheckIfObjective(target, killerTeam ?? TeamType.Neutral);
             if (_endMatchTask is null && CheckIfMatchOver(targetTeam, killerPlayer))
             {
-                _endMatchTask = BeginEndOfGame(killerPlayer?.Team ?? TeamType.Neutral, false);
+                _endMatchTask = BeginEndOfGame(killerPlayer?.Team ?? TeamType.Neutral,
+                    MatchEndReason.ObjectivesCompleted, false);
             }
         }
         

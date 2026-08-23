@@ -351,6 +351,15 @@ public sealed class ControlPanelServer : IDisposable
         };
     }
 
+    private static string? DescribeArchivePortrait(long skinHash) => Databases.Catalogue.All
+        .OfType<CardSkin>().FirstOrDefault(card => card.Key.Hash == (uint)skinHash)?.IconPortrait;
+
+    private static string? DescribeArchiveDeviceIcon(long deviceHash) => Databases.Catalogue.All
+        .OfType<CardDevice>().FirstOrDefault(card => card.Key.Hash == (uint)deviceHash)?.Icon;
+
+    private static string? DescribeArchivePerkIcon(long perkHash) => Databases.Catalogue.All
+        .OfType<CardPerk>().FirstOrDefault(card => card.Key.Hash == (uint)perkHash)?.Icon;
+
     private async Task ServeMatchHistory(HttpListenerContext ctx)
     {
         var limit = int.TryParse(ctx.Request.QueryString["limit"], out var requested) ? requested : 50;
@@ -366,7 +375,8 @@ public sealed class ControlPanelServer : IDisposable
                 started_at = match.StartedAt,
                 ended_at = match.EndedAt,
                 duration_seconds = Math.Max(0, match.EndedAt - match.StartedAt) / 1000,
-                winner = ((TeamType)match.Winner).ToString()
+                winner = ((TeamType)match.Winner).ToString(),
+                end_reason = ((MatchEndReason)match.EndReason).ToString()
             }),
             next_before = matches.Count == Math.Clamp(limit, 1, 100) ? matches[^1].EndedAt : (long?)null
         });
@@ -400,6 +410,7 @@ public sealed class ControlPanelServer : IDisposable
             started_at = detail.Match.StartedAt,
             ended_at = detail.Match.EndedAt,
             winner = ((TeamType)detail.Match.Winner).ToString(),
+            end_reason = ((MatchEndReason)detail.Match.EndReason).ToString(),
             teams = detail.Teams.Select(team => new
             {
                 team = ((TeamType)team.Team).ToString(),
@@ -417,6 +428,8 @@ public sealed class ControlPanelServer : IDisposable
                 was_initial = player.WasInitial,
                 was_backfiller = player.WasBackfiller,
                 is_winner = player.IsWinner,
+                starting_mmr = player.StartingRatingMean,
+                mmr_delta = player.RatingDelta,
                 total_score = player.TotalScore,
                 stats = ReadStats(player.Stats).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
                 presences = presencesByPlayer.GetValueOrDefault(player.PlayerId, []).Select(presence => new
@@ -429,10 +442,15 @@ public sealed class ControlPanelServer : IDisposable
                     team = ((TeamType)presence.Team).ToString(),
                     hero = DescribeArchiveKey(presence.HeroKey),
                     skin = DescribeArchiveKey(presence.SkinKey),
+                    hero_icon = DescribeArchivePortrait(presence.SkinKey),
                     devices = detail.Devices.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
-                        .Select(row => new { slot = row.Slot, device = DescribeArchiveKey(row.DeviceKey), level = row.DeviceLevel }),
+                        .Select(row => new
+                        {
+                            slot = row.Slot, device = DescribeArchiveKey(row.DeviceKey),
+                            icon = DescribeArchiveDeviceIcon(row.DeviceKey), level = row.DeviceLevel
+                        }),
                     perks = detail.Perks.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
-                        .Select(row => new { slot = row.Slot, perk = DescribeArchiveKey(row.PerkKey) })
+                        .Select(row => new { slot = row.Slot, perk = DescribeArchiveKey(row.PerkKey), icon = DescribeArchivePerkIcon(row.PerkKey) })
                 })
             })
         });

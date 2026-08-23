@@ -11,6 +11,7 @@ public sealed class ArchivedMatchRecord
     [Indexed, Column("started_at_ms")] public long StartedAt { get; set; }
     [Indexed, Column("ended_at_ms")] public long EndedAt { get; set; }
     [Column("winner")] public int Winner { get; set; }
+    [Column("end_reason")] public int EndReason { get; set; }
 }
 
 [Table("MatchTeams")]
@@ -36,6 +37,8 @@ public sealed class ArchivedMatchPlayerRecord
     [Column("was_initial")] public bool WasInitial { get; set; }
     [Column("was_backfiller")] public bool WasBackfiller { get; set; }
     [Column("is_winner")] public bool IsWinner { get; set; }
+    [Column("starting_rating_mean")] public double? StartingRatingMean { get; set; }
+    [Column("rating_delta")] public double? RatingDelta { get; set; }
     [Column("total_score")] public int TotalScore { get; set; }
     [Column("stats")] public byte[] Stats { get; set; } = [];
 }

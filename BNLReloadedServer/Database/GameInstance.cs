@@ -306,14 +306,18 @@ public class GameInstance : IGameInstance
         _serverDatabase.RemoveFromGameInstance(userId, GameInstanceId);
 
         if (!_connectedUsers.IsEmpty) return;
+        var finalZone = Zone;
+        // PlayerLeft was queued immediately above. Queue the abandoned-match snapshot after it,
+        // then complete the writer: Updater drains queued actions in order before stopping.
+        finalZone?.EnqueueAction(finalZone.ArchiveAbandonedMatch);
         foreach (var pending in _disconnectTimers.Keys)
         {
             CancelDisconnectTimer(pending);
         }
-        Zone?.GameCanceler.Cancel();
+        finalZone?.GameCanceler.Cancel();
         IsStarted = false;
         Lobby?.Stop();
-        Zone?.Stop();
+        finalZone?.Stop();
         ChatRooms.ClearRooms();
         Lobby = null;
         Zone = null;

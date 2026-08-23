@@ -265,7 +265,8 @@ public partial class GameZone : Updater
         {
             var kind = _matchParticipation.HasParticipant(playerId) ? MatchJoinKind.Reconnect : MatchJoinKind.Backfill;
             _matchParticipation.Join(joiningPlayer, DateTimeOffset.Now, kind,
-                _gameInitiator.IsPlayerBackfill(playerId));
+                _gameInitiator.IsPlayerBackfill(playerId),
+                Databases.PlayerDatabase.GetPlayerDataNoWait(playerId)?.Rating.Mean);
         }
         zoneService.SendUpdateZone(GetInitialZoneUpdate());
         zoneService.SendUpdateBarriers(GetBarriersForPhase(_zoneData.Phase.PhaseType));
@@ -627,8 +628,18 @@ public partial class GameZone : Updater
         if (_zoneData.Phase.PhaseType is not (ZonePhaseType.Waiting or ZonePhaseType.TutorialInit)) return;
         Log.Info(LogCat.Perf, $"Build phase starting: {DiagnosticName}, units={_units.Count}, players={_playerUnits.Count}");
         var startedAt = DateTimeOffset.Now;
-        _matchParticipation.Start(startedAt,
-            _playerLobbyInfo.Values.Where(player => !_gameInitiator.IsPlayerSpectator(player.PlayerId)));
+        var (team1Ratings, team2Ratings) = _gameInitiator.GetTeamRatings();
+        var startingRatings = team1Ratings.Concat(team2Ratings)
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Mean);
+        var initialPlayers = _playerLobbyInfo.Values
+            .Where(player => !_gameInitiator.IsPlayerSpectator(player.PlayerId)).ToList();
+        foreach (var player in initialPlayers)
+        {
+            if (!startingRatings.ContainsKey(player.PlayerId) &&
+                Databases.PlayerDatabase.GetPlayerDataNoWait(player.PlayerId)?.Rating.Mean is double rating)
+                startingRatings[player.PlayerId] = rating;
+        }
+        _matchParticipation.Start(startedAt, initialPlayers, startingRatings);
         foreach (var team in Enum.GetValues<TeamType>())
             _initialCubeCounts[(int)team] = CountCubes(_objectiveConquest[(int)team]);
         UpdatePhase();
@@ -1320,7 +1331,7 @@ public partial class GameZone : Updater
             _ => false
         };
 
-    private async Task BeginEndOfGame(TeamType winner, bool doWait = true)
+    private async Task BeginEndOfGame(TeamType winner, MatchEndReason reason, bool doWait = true)
     {
         EnqueueAction(() =>
         {
@@ -1338,7 +1349,7 @@ public partial class GameZone : Updater
             }));
         }
         
-        EnqueueAction(() => EndGame(winner));
+        EnqueueAction(() => EndGame(winner, reason));
     }
 
     // Builds the result the reward screen renders, and folds it into the region's copy of the
@@ -1410,7 +1421,7 @@ public partial class GameZone : Updater
         };
     }
 
-    private void EndGame(TeamType winner)
+    private void EndGame(TeamType winner, MatchEndReason reason)
     {
         _unbufferedZone.SendEndMatch(winner);
         var matchStats = new List<EndMatchPlayerData>();
@@ -1644,17 +1655,7 @@ public partial class GameZone : Updater
                     BaseDestroyed = !remaining.Contains(UnitLabel.LineBase)
                 };
             }).ToList();
-            Databases.PlayerDatabase.StoreCompletedMatch(new CompletedMatchRecord
-            {
-                MatchId = matchId,
-                MapKey = _zoneData.MapKey ?? Key.None,
-                GameModeKey = _zoneData.GameModeKey,
-                StartedAt = (ulong)startedAt.ToUnixTimeMilliseconds(),
-                EndedAt = (ulong)gameEnd.ToUnixTimeMilliseconds(),
-                Winner = winner,
-                Teams = teams,
-                Players = _matchParticipation.Complete(gameEnd)
-            });
+            StoreCompletedMatch(matchId, startedAt, gameEnd, winner, reason, teams);
         }
         
         var unitsToClean = _units.Values.Where(u => u.UnitCard?.Labels?.Contains(UnitLabel.DestroyOnMatchEnd) is true).ToList();
@@ -1671,6 +1672,46 @@ public partial class GameZone : Updater
             Databases.RegionServerDatabase.GetGameInstance(player)?.PlayerLeftInstance(player, KickReason.MatchInactivity);
         }
     }
+
+    // This runs on the zone queue before its writer is completed when the last player leaves.
+    // Unlike a normal EndGame path, it deliberately does not award a winner or trigger ratings.
+    public void ArchiveAbandonedMatch()
+    {
+        if (HasEnded || !_matchParticipation.StartedAt.HasValue || _gameInitiator.IsMapEditor() ||
+            _zoneData.GameModeCard.Ranking is not (GameRankingType.Friendly or GameRankingType.Ranked)) return;
+
+        var endedAt = DateTimeOffset.Now;
+        var startedAt = _matchParticipation.StartedAt.Value;
+        var matchId = $"{_instanceId ?? "unknown"}:{startedAt.ToUnixTimeMilliseconds()}";
+        var teams = new[] { TeamType.Team1, TeamType.Team2 }.Select(team =>
+        {
+            var remaining = _objectiveConquest[(int)team].ToList();
+            return new CompletedMatchTeam
+            {
+                Team = team,
+                IsWinner = false,
+                CubesAtStart = _initialCubeCounts[(int)team],
+                CubesRemaining = CountCubes(remaining),
+                BaseDestroyed = !remaining.Contains(UnitLabel.LineBase)
+            };
+        }).ToList();
+        StoreCompletedMatch(matchId, startedAt, endedAt, TeamType.Neutral, MatchEndReason.Abandoned, teams);
+    }
+
+    private void StoreCompletedMatch(string matchId, DateTimeOffset startedAt, DateTimeOffset endedAt,
+        TeamType winner, MatchEndReason reason, List<CompletedMatchTeam> teams) =>
+        Databases.PlayerDatabase.StoreCompletedMatch(new CompletedMatchRecord
+        {
+            MatchId = matchId,
+            MapKey = _zoneData.MapKey ?? Key.None,
+            GameModeKey = _zoneData.GameModeKey,
+            StartedAt = (ulong)startedAt.ToUnixTimeMilliseconds(),
+            EndedAt = (ulong)endedAt.ToUnixTimeMilliseconds(),
+            Winner = winner,
+            EndReason = reason,
+            Teams = teams,
+            Players = _matchParticipation.Complete(endedAt)
+        });
 
     private DamageData ConvertToDamageData(Damage damage, Vector3 targetPos, Vector3 shotPos, Unit? source = null,
         bool splashDamage = false, bool crit = false, 
