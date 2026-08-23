@@ -376,7 +376,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if(!UserConnected(userId, out var info)) return false;
         info.ActiveScene = scene;
-        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
+        LiveStateChanged();
         sceneService.SendChangeScene(scene);
         NotifyFriends(userId);
         switch (scene.Type)
@@ -405,7 +405,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         var guid = playerInfo.Guid;
         var oldScene = playerInfo.ActiveScene;
         playerInfo.ActiveScene = scene;
-        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
+        LiveStateChanged();
         if (scene.Type == SceneType.MainMenu && !playerInfo.Online)
         {
             RemoveUser(userId);
@@ -563,6 +563,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         }
         
         AddCustomGameEntry(newCustom.Id, (playerGroup, sender));
+        LiveStateChanged();
         return newCustom.Id;
     }
 
@@ -601,6 +602,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             customGame.custom.ChatRoom.AddToRoom(playerGuid, chatService);
         }
+        LiveStateChanged();
         return CustomGameJoinResult.Accepted;
     }
 
@@ -697,6 +699,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         playerInfo.CustomGameId = null;
         GetService<IServiceMatchmaker>(playerGuid, ServiceId.ServiceMatchmaker, out var matchService);
         matchService?.SendExitCustomGame();
+        LiveStateChanged();
         return true;
     }
 
@@ -717,6 +720,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         playerInfo.CustomGameId = null;
         GetService<IServiceMatchmaker>(playerGuid, ServiceId.ServiceMatchmaker, out var matchService);
         matchService?.SendExitCustomGame();
+        LiveStateChanged();
         return true;
     }
 
@@ -811,7 +815,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         _gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance);
         playerInfo.GameInstanceId = gameInstance.GameInstanceId;
         gameInstance.StartMatch([Databases.PlayerDatabase.GetDummyPlayerLobbyInfo(playerId, heroKey, team)]);
-        ControlPanelEvents.Publish(ControlPanelEvent.Activity);
+        LiveStateChanged();
         return true;
     }
 
@@ -859,6 +863,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         gameInstance.StartMatch(
             [Databases.PlayerDatabase.GetDummyPlayerLobbyInfo(playerId, course.Hero, TeamType.Team1,
                 CatalogueHelper.GetCourseDevices(course))], restart);
+        LiveStateChanged();
         return true;
     }
 
@@ -1016,6 +1021,30 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         return instance;
     }
 
+    /// <summary>
+    /// Returns the panel-facing location for a connected player, or null when they are offline.
+    /// Queueing happens from the menu. A custom room exists before its game instance, so its
+    /// membership is checked separately.
+    /// </summary>
+    public string? GetOnlinePlayerLocation(uint playerId)
+    {
+        if (!UserConnected(playerId, out var playerInfo) || !playerInfo.Online) return null;
+
+        if (playerInfo.GameInstanceId != null &&
+            _gameInstances.TryGetValue(playerInfo.GameInstanceId, out var instance))
+        {
+            var location = instance.GetGameMode().GetCard<CardGameMode>()?.Ranking switch
+            {
+                GameRankingType.Friendly => "Casual game",
+                GameRankingType.Ranked => "Ranked game",
+                _ => "Custom game"
+            };
+            return instance.IsPlayerSpectator(playerId) ? "Spectating " + location : location;
+        }
+
+        return playerInfo.CustomGameId.HasValue ? "Custom game" : "Menu";
+    }
+
     public bool RemoveGameInstance(string gameInstanceId)
     {
         foreach (var playerId in _connectedUsers.Keys)
@@ -1025,7 +1054,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (_spectatableMatches.TryRemove(gameInstanceId, out var browserId))
             _spectatableMatchIds.TryRemove(browserId, out _);
         var removed = _gameInstances.TryRemove(gameInstanceId, out _);
-        if (removed) ControlPanelEvents.Publish(ControlPanelEvent.Activity);
+        if (removed) LiveStateChanged();
         return removed;
     }
 
@@ -1040,6 +1069,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             SendIgnores(playerInfo);
         }
         UpdateScene(playerId, new SceneMainMenu());
+        LiveStateChanged();
 
         return true;
     }
@@ -1065,30 +1095,36 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         ControlPanelEvent.Status | ControlPanelEvent.Activity | ControlPanelEvent.Players);
 
     /// <summary>
-    /// Splits every connected user into the game mode they are in, or the menu. Both
-    /// dictionaries it walks are concurrent, so unlike the queues this needs no guard.
+    /// Splits every connected user into the game mode they are in, spectating, or the
+    /// menu. Both dictionaries it walks are concurrent, so unlike the queues this needs
+    /// no guard.
     /// </summary>
     /// <remarks>
-    /// A game instance is the only thing that takes a player out of the menu. Queueing
-    /// does not: you queue from the menu and stay there until the match starts, so a
-    /// queued player is still counted in the menu — /api/queues is what says how many of
-    /// them are waiting for what.
+    /// A game instance or custom-game lobby is the only thing that takes a player out of
+    /// the menu. Queueing does not: you queue from the menu and stay there until the
+    /// match starts, so a queued player is still counted in the menu — /api/queues is
+    /// what says how many of them are waiting for what.
     /// </remarks>
     public PlayerActivity GetPlayerActivity()
     {
         var byMode = new Dictionary<string, (string? Name, int Players)>();
         var online = 0;
         var inMenu = 0;
+        var spectating = 0;
 
-        foreach (var (_, info) in _connectedUsers)
+        foreach (var (playerId, info) in _connectedUsers)
         {
             if (!info.Online) continue;
             online++;
 
-            // A custom game lobby sets GameInstanceId too, so "in a custom" covers both
-            // sitting in the lobby and playing the match it starts.
             if (info.GameInstanceId != null && _gameInstances.TryGetValue(info.GameInstanceId, out var instance))
             {
+                if (instance.IsPlayerSpectator(playerId))
+                {
+                    spectating++;
+                    continue;
+                }
+
                 var modeKey = instance.GetGameMode();
                 var card = modeKey.GetCard<CardGameMode>();
                 var id = card?.Id ?? modeKey.ToString();
@@ -1097,12 +1133,23 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
                 continue;
             }
 
+            // Before the host starts the match, a custom lobby has an ID but no game
+            // instance. It is still a custom-game player, not someone in the menu.
+            if (info.CustomGameId.HasValue)
+            {
+                var custom = CatalogueHelper.ModeCustom;
+                var entry = byMode.GetValueOrDefault(custom.Id, (Name: custom.Name, Players: 0));
+                byMode[custom.Id] = (entry.Name, entry.Players + 1);
+                continue;
+            }
+
             inMenu++;
         }
 
         return new PlayerActivity(online, inMenu,
             byMode.Select(kv => new ModePlayerCount(kv.Key, kv.Value.Name, kv.Value.Players))
-                  .OrderByDescending(m => m.Players).ToList());
+                  .OrderByDescending(m => m.Players).ToList(),
+            spectating);
     }
 
     public void JoinQueue(uint playerId, Key gameModeKey, IServiceMatchmaker serviceMatchmaker)

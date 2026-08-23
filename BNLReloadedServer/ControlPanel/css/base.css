@@ -278,7 +278,7 @@ td {
    table's right edge, and .table-wrap is the overflow-x scroller — a bar inside it
    would scroll and clip along with the table. */
 .mmr-panel { max-width: 820px; }
-.players-wrap { max-width: 1200px; }
+.players-wrap { max-width: 1320px; }
 .mmr-table th:nth-child(1) { width: 80px; }
 .mmr-table th:nth-child(2) { width: 250px; }
 /* The rating is an <input>, so its text starts one border and one padding in from the

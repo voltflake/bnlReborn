@@ -729,7 +729,7 @@ public sealed class ControlPanelServer : IDisposable
     }
 
     private static object GetActivity() => Databases.RegionServerDatabase?.GetPlayerActivity()
-        ?? new ServerTypes.PlayerActivity(0, 0, []);
+        ?? new ServerTypes.PlayerActivity(0, 0, [], 0);
 
     private static async Task ServePublicStatus(HttpListenerContext ctx)
     {
@@ -786,6 +786,14 @@ public sealed class ControlPanelServer : IDisposable
     private async Task<object> GetPlayerList()
     {
         var onlineIds = Databases.PlayerDatabase.GetAllPlayers().Select(p => p.PlayerId).ToHashSet();
+        var queues = Databases.RegionServerDatabase?.GetQueueSnapshot() ?? [];
+        var playerLocations = Databases.RegionServerDatabase;
+        var queueAvailable = queues.All(queue => queue.State != "unavailable");
+        var queuedPlayers = queues
+            .Where(queue => queue.State != "unavailable")
+            .SelectMany(queue => queue.Players.Select(player => (queue, player)))
+            .GroupBy(entry => entry.player.PlayerId)
+            .ToDictionary(group => group.Key, group => group.First());
         var allPlayers = await Databases.MasterServerDatabase.GetAllPlayersAsync();
         var players = allPlayers.Select(p => new
         {
@@ -798,6 +806,9 @@ public sealed class ControlPanelServer : IDisposable
             role_id = (int)p.Role,
             region = p.Region,
             online = onlineIds.Contains(p.PlayerId),
+            game_location = onlineIds.Contains(p.PlayerId)
+                ? playerLocations?.GetOnlinePlayerLocation(p.PlayerId) ?? "Menu"
+                : null,
             // The ladder and the bans list are both built off this one response.
             rating_mean = p.Rating.Mean,
             rating_deviation = p.Rating.StandardDeviation,
@@ -805,7 +816,12 @@ public sealed class ControlPanelServer : IDisposable
             graveyard_permanent = p.GraveyardPermanent,
             graveyard_leave_time = p.GraveyardLeaveTime,
             online_since = Databases.PlayerDatabase.GetPresence(p.PlayerId).OnlineSince?.ToUnixTimeMilliseconds(),
-            last_online = Databases.PlayerDatabase.GetPresence(p.PlayerId).LastOnline?.ToUnixTimeMilliseconds()
+            last_online = Databases.PlayerDatabase.GetPresence(p.PlayerId).LastOnline?.ToUnixTimeMilliseconds(),
+            queue_available = queueAvailable,
+            queue_mode = queuedPlayers.TryGetValue(p.PlayerId, out var queued)
+                ? queued.queue.ModeName ?? queued.queue.ModeId
+                : null,
+            queue_confirming = queued.player?.Confirming ?? false
         }).ToList();
 
         return new { players };

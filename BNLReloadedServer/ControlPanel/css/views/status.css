@@ -3,7 +3,7 @@
 /* Grid, not flex — four equal columns spanning the panel. As a flex row the figures
    bunched at the left and left two thirds of the card empty. */
 .figures {
-  display: grid; grid-template-columns: repeat(5, 1fr) 1.75fr;
+  display: grid; grid-template-columns: repeat(6, 1fr);
   padding: 18px 22px 20px;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
 }
@@ -15,16 +15,13 @@
 .figure-label { font-size: 13px; color: var(--ink-3); }
 .figure-value { font-size: 32px; font-weight: 700; line-height: 1.15; color: var(--ink); }
 .figure-value.zero { color: var(--ink-3); }
-/* Six figures at 32px plus "4 days, 2 hours" stop fitting well before the layout's own
-   breakpoint, and the page must never scroll sideways — so the row wraps instead. The
+/* Six figures at 32px stop fitting well before the layout's own breakpoint, and the page
+   must never scroll sideways — so the row wraps instead. The
    dividing rule belongs between figures, not down the left edge of a new row, hence the
    reset on whichever cell starts one. */
 @media (max-width: 1200px) {
   .figures { grid-template-columns: repeat(3, 1fr); row-gap: 20px; }
   .figure:nth-child(3n+1) { border-left: 0; padding-left: 0; }
-  /* Uptime is the one figure that is words rather than a number; once the cells are
-     this narrow it has to be allowed to break rather than run past the card. */
-  .figure-wide .figure-value { white-space: normal; }
   .figure-value { font-size: 27px; }
 }
 @media (max-width: 700px) {
@@ -84,4 +81,3 @@
 /* The popped line-up, versus anyone who joined behind them and is still waiting. */
 .qp-confirming .qp-name { color: var(--ok-ink); }
 .qp-confirming .qp-wait { color: var(--ok-ink); opacity: 0.75; }
-

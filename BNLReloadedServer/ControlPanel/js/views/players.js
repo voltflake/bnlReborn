@@ -2,13 +2,13 @@
 
 async function loadPlayers() {
   const body = document.getElementById('playersBody');
-  if (!allPlayers.length) body.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
+  if (!allPlayers.length) body.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
   try {
     const res = await fetch('/api/players');
     if (!res.ok) throw new Error('request failed');
     applyPlayers(await res.json());
   } catch {
-    body.innerHTML = '<tr class="empty-row error-row"><td colspan="5">Failed to load players.</td></tr>';
+    body.innerHTML = '<tr class="empty-row error-row"><td colspan="7">Failed to load players.</td></tr>';
   }
 }
 
@@ -24,15 +24,38 @@ function applyPlayers(data) {
 
 let sortKey = null, sortDir = -1;      // -1 desc, 1 asc
 
-/* Numeric and ordinal columns open descending — newest ID, highest role, online first —
+/* Numeric and ordinal columns open descending — newest ID, highest role, longest online —
    because that's the answer you wanted when you clicked. Text opens A-Z. */
 const SORT_OPENS_ASC = { nickname: true };
+
+/* Presence runs from longest-online to longest-offline: online presence starts earliest
+   first, then offline presence ends most recently first. Missing timestamps are last. */
+function comparePresence(a, b) {
+  if (a.online !== b.online) return a.online ? 1 : -1;
+
+  const aTimestamp = a.online ? a.online_since : a.last_online;
+  const bTimestamp = b.online ? b.online_since : b.last_online;
+  if (aTimestamp == null || bTimestamp == null)
+    return aTimestamp == null ? (bTimestamp == null ? 0 : -1) : 1;
+
+  return a.online ? bTimestamp - aTimestamp : aTimestamp - bTimestamp;
+}
+
+/* Queue sorting answers the operational question first: who is online but has not
+   joined a queue? Queued players follow, then unavailable and offline entries. */
+function compareQueue(a, b) {
+  const rank = p => isNotQueued(p) ? 3 : p.queue_mode ? 2 : p.online ? 1 : 0;
+  const rankDifference = rank(a) - rank(b);
+  if (rankDifference !== 0) return rankDifference;
+  return (a.queue_mode || '').localeCompare(b.queue_mode || '', undefined, { sensitivity: 'base' });
+}
 
 const COMPARE = {
   id:       (a, b) => a.id - b.id,
   nickname: (a, b) => a.nickname.localeCompare(b.nickname, undefined, { sensitivity: 'base', numeric: true }),
   role:     (a, b) => a.role_id - b.role_id,          // by rank, not alphabetically
-  status:   (a, b) => (a.online ? 1 : 0) - (b.online ? 1 : 0)
+  presence: comparePresence,
+  queue:    compareQueue
 };
 
 function formatElapsed(milliseconds) {
@@ -50,6 +73,19 @@ function presenceLabel(p) {
   if (p.online && p.online_since) return 'Online for ' + formatElapsed(Date.now() - p.online_since);
   if (!p.online && p.last_online) return 'Last online ' + formatElapsed(Date.now() - p.last_online) + ' ago';
   return p.online ? 'Online' : 'Offline';
+}
+
+function isNotQueued(p) {
+  return p.online && p.queue_available && !p.queue_mode;
+}
+
+function queueLabel(p) {
+  if (p.queue_mode)
+    return '<span class="queue-status queued">' + esc(p.queue_mode) +
+      (p.queue_confirming ? ' · confirming' : '') + '</span>';
+  if (!p.online) return '<span class="queue-status">Offline</span>';
+  if (!p.queue_available) return '<span class="queue-status unavailable">Queue unavailable</span>';
+  return '<span class="queue-status">Not queued</span>';
 }
 
 function updatePresenceLabels() {
@@ -74,8 +110,8 @@ function setSort(key) {
   filterPlayers();
 }
 
-/* Ties fall back to player ID ascending regardless of direction, so equal roles and the
-   whole offline block keep a stable order instead of shuffling between renders — and
+/* Ties fall back to player ID ascending regardless of direction, so equal roles and
+   matching presence times keep a stable order instead of shuffling between renders — and
    this table re-renders on every poll. */
 function sortPlayers(players) {
   if (!sortKey) return players;
@@ -90,7 +126,7 @@ function renderPlayers(list) {
   const players = sortPlayers(list);
   const body = document.getElementById('playersBody');
   if (!players.length) {
-    body.innerHTML = '<tr class="empty-row"><td colspan="5">No players match that filter.</td></tr>';
+    body.innerHTML = '<tr class="empty-row"><td colspan="7">No players match that filter.</td></tr>';
     return;
   }
   body.innerHTML = players.map(p =>
@@ -99,12 +135,14 @@ function renderPlayers(list) {
     '<td><a class="steam-btn" href="https://steamcommunity.com/profiles/' +
       encodeURIComponent(p.steam_id) + '" target="_blank" rel="noopener noreferrer"' +
       ' title="Open Steam profile">' + esc(p.nickname) + '</a></td>' +
-    '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
     '<td><span class="status-dot ' + (p.online ? 'online' : '') +
       '" data-presence-online="' + p.online +
       '" data-presence-online-since="' + (p.online_since || '') +
       '" data-presence-last-online="' + (p.last_online || '') + '">' +
       esc(presenceLabel(p)) + '</span></td>' +
+    '<td>' + (p.online ? esc(p.game_location || 'Menu') : '<span class="queue-status">Offline</span>') + '</td>' +
+    '<td>' + queueLabel(p) + '</td>' +
+    '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
     '<td class="row-action">' +
       (p.online
         ? '<button class="message-btn" onclick="sendPlayerMessage(' + p.id + ')">Message</button> '
@@ -258,10 +296,10 @@ async function submitPlayerMessage() {
 function filterPlayers() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const filtered = allPlayers.filter(p =>
-    p.nickname.toLowerCase().includes(q) ||
-    String(p.id).includes(q) ||
-    String(p.steam_id).includes(q) ||
-    (p.region || '').toLowerCase().includes(q));
+    (p.nickname.toLowerCase().includes(q) ||
+     String(p.id).includes(q) ||
+     String(p.steam_id).includes(q) ||
+     (p.region || '').toLowerCase().includes(q)));
   renderPlayers(filtered);
   // Only says anything while a filter is narrowing things — the total lives in the rail.
   document.getElementById('playerCount').textContent =

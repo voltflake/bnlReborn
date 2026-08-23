@@ -1082,5 +1082,5 @@ public class Matchmaker(AsyncTaskTcpServer server)
         };
 
     private static void QueueChanged() =>
-        ControlPanelEvents.Publish(ControlPanelEvent.Queues);
+        ControlPanelEvents.Publish(ControlPanelEvent.Queues | ControlPanelEvent.Players);
 }

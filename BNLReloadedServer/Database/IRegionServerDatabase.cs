@@ -48,6 +48,7 @@ public interface IRegionServerDatabase
     public bool SendMessage(uint playerId, RoomId roomId, string message);
     public PrivateMessageFailReason? SendMessage(uint playerId, uint receiver, string message);
     public IGameInstance? GetGameInstance(uint? playerId);
+    public string? GetOnlinePlayerLocation(uint playerId);
     public bool RemoveGameInstance(string gameInstanceId);
     public bool RemoveFromGameInstance(uint playerId, string gameInstanceId);
     public IEnumerable<(Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2, string instanceId)> GetBackfillNeeded(Key gameModeKey);

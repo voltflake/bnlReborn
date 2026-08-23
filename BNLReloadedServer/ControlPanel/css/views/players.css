@@ -34,6 +34,9 @@
 .view-header h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
 .view-sub { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-3); }
 .view-sub:empty { display: none; }
+.queue-status { font-size: 13.5px; color: var(--ink-3); }
+.queue-status.queued { color: var(--ok-ink); }
+.queue-status.unavailable { color: var(--alarm-ink); }
 .close-btn {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 12px; font-size: 14px;
@@ -227,4 +230,3 @@
 .perk-upside, .perk-downside { margin-top: 7px; padding-left: 12px; font-size: 14.5px; line-height: 1.55; border-left: 2px solid; }
 .perk-upside   { border-left-color: color-mix(in srgb, var(--live) 60%, transparent);  color: var(--ok-ink); }
 .perk-downside { border-left-color: color-mix(in srgb, var(--alarm) 60%, transparent); color: var(--alarm-ink); }
-

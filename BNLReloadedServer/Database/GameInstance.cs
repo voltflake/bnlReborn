@@ -421,6 +421,7 @@ public class GameInstance : IGameInstance
 
     public Key GetGameMode() => GameInitiator.GetGameMode();
 
+    public bool IsPlayerSpectator(uint playerId) => GameInitiator.IsPlayerSpectator(playerId);
 
     public bool NeedsBackfill() => GameInitiator.NeedsBackfill();
 

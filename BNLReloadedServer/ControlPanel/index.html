@@ -91,7 +91,7 @@
     <div class="pane-head">
       <div>
         <h2>Status</h2>
-        <p>What the server is doing right now.</p>
+        <p>What the server is doing right now. Last restart was <span id="status">&mdash;</span> ago.</p>
       </div>
     </div>
 
@@ -104,7 +104,7 @@
       <div class="figure"><span class="figure-label">In Casual</span><span class="figure-value" id="figCasual">&mdash;</span></div>
       <div class="figure"><span class="figure-label">In Ranked</span><span class="figure-value" id="figRanked">&mdash;</span></div>
       <div class="figure"><span class="figure-label">In Custom</span><span class="figure-value" id="figCustom">&mdash;</span></div>
-      <div class="figure figure-wide"><span class="figure-label">Time since restart</span><span class="figure-value" id="status">&mdash;</span></div>
+      <div class="figure"><span class="figure-label">Spectating</span><span class="figure-value" id="figSpectating">&mdash;</span></div>
     </div>
 
     <!-- The queue total lives here rather than beside "Players online": this is one
@@ -136,10 +136,14 @@
               <button class="th-sort" data-key="nickname" data-dir="none" onclick="setSort('nickname')">Nickname<span class="sort-ind"></span></button>
             </th>
             <th class="sortable" aria-sort="none">
-              <button class="th-sort" data-key="role" data-dir="none" onclick="setSort('role')">Role<span class="sort-ind"></span></button>
+              <button class="th-sort" data-key="presence" data-dir="none" onclick="setSort('presence')">Presence<span class="sort-ind"></span></button>
+            </th>
+            <th>Status</th>
+            <th class="sortable" aria-sort="none">
+              <button class="th-sort" data-key="queue" data-dir="none" onclick="setSort('queue')">Queue<span class="sort-ind"></span></button>
             </th>
             <th class="sortable" aria-sort="none">
-              <button class="th-sort" data-key="status" data-dir="none" onclick="setSort('status')">Status<span class="sort-ind"></span></button>
+              <button class="th-sort" data-key="role" data-dir="none" onclick="setSort('role')">Role<span class="sort-ind"></span></button>
             </th>
             <th></th>
           </tr>

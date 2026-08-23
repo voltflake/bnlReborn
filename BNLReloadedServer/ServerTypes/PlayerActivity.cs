@@ -17,9 +17,13 @@ namespace BNLReloadedServer.ServerTypes;
 /// as well as its match, because joining a custom lobby already sets the player's
 /// instance id.
 /// </param>
+/// <param name="Spectating">Connected users actively spectating a game. These users are
+/// intentionally excluded from <paramref name="ByMode"/> so activity buckets do not
+/// double-count them.</param>
 public record PlayerActivity(
     int Online,
     int InMenu,
-    List<ModePlayerCount> ByMode);
+    List<ModePlayerCount> ByMode,
+    int Spectating);
 
 public record ModePlayerCount(string ModeId, string? ModeName, int Players);

@@ -29,6 +29,7 @@ public interface IGameInstance
     public void CreateLobby(Key gameModeKey, MapInfo? mapInfo);
     public ChatRoom? GetChatRoom(RoomId roomId);
     public Key GetGameMode();
+    public bool IsPlayerSpectator(uint playerId);
     public bool NeedsBackfill();
     public (Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2) GetTeamRatings();
     public void SendAfkWarning(uint playerId);

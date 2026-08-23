@@ -53,6 +53,7 @@ async function refreshActivity() {
 function applyActivity(a) {
   const byMode = Object.fromEntries((a.by_mode || []).map(m => [m.mode_id, m.players]));
   setFigure('figIdle', a.in_menu);
+  setFigure('figSpectating', a.spectating || 0);
   for (const [id, modeId] of Object.entries(FIG_MODES)) setFigure(id, byMode[modeId] || 0);
 }
 
