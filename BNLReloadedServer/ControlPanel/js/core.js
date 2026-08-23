@@ -34,8 +34,8 @@ async function doLogin() {
     if (res.ok) {
       document.getElementById('loginUsername').value = '';
       input.value = '';
-      hideLoginGate();
-      init();
+      // An authenticated reload is what receives the server-included admin controls.
+      location.reload();
     } else {
       document.getElementById('loginError').textContent = data.error || 'Login failed';
     }

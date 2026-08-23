@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/css/views/players.css">
 <link rel="stylesheet" href="/css/views/history.css">
 <link rel="stylesheet" href="/css/overlays-responsive.css">
+<!-- PANEL-MODE -->
 </head>
 <body>
 
@@ -57,10 +58,12 @@
     <button class="rail-item" data-pane="bans" onclick="showPane('bans')">
       Bans <span class="rail-count" id="railBans"></span>
     </button>
+    <!-- ADMIN-START -->
     <button class="rail-item" data-pane="tools" onclick="showPane('tools')">Tools</button>
     <button class="rail-item" data-pane="console" onclick="showPane('console')">
       Console <span class="rail-count rail-faults" id="railFaults"></span>
     </button>
+    <!-- ADMIN-END -->
   </div>
 
   <div class="rail-spacer"></div>
@@ -81,7 +84,8 @@
         Discord Server
       </a>
     </div>
-    <button class="logout-btn" onclick="doLogout()">Log out</button>
+    <button class="logout-btn" id="loginBtn" onclick="showLoginGate()">Log in</button>
+    <!-- ADMIN-START --><button class="logout-btn" onclick="doLogout()">Log out</button><!-- ADMIN-END -->
   </div>
 </nav>
 
@@ -120,7 +124,7 @@
     <div class="pane-head">
       <div>
         <h2>Players</h2>
-        <p>Edit a player to change their role, and to read their profile and loadouts.</p>
+        <p>Browse player presence, roles, and queue status.</p>
       </div>
       <div class="player-count" id="playerCount"></div>
     </div>
@@ -188,16 +192,18 @@
     <div class="pane-head">
       <div>
         <h2>Ladder</h2>
-        <p>The ladder, highest rating first. Position and rating are the same thing &mdash; change either one.</p>
+        <p>The ladder, highest rating first.</p>
       </div>
     </div>
     <div class="mmr-panel">
       <div class="mmr-bar">
         <p class="mmr-hint" id="mmrHint"></p>
+        <!-- ADMIN-START -->
         <div class="mmr-tools">
           <button id="mmrEditBtn" onclick="toggleMmrEdit()">Edit ladder</button>
           <button class="save-btn" id="mmrApplyBtn" onclick="applyMmrEdits()" hidden>Apply</button>
         </div>
+        <!-- ADMIN-END -->
       </div>
       <div class="table-wrap mmr-wrap">
         <table class="mmr-table">
@@ -213,9 +219,10 @@
     <div class="pane-head">
       <div>
         <h2>Maps</h2>
-        <p>Browse and download maps. Select a game mode to adjust its map pool.</p>
+        <p>Browse and download maps by game mode.</p>
       </div>
     </div>
+    <!-- ADMIN-START -->
     <div class="pool-edit-bar" id="poolEditBar">
       <div class="pool-edit-title" id="poolEditTitle" aria-live="polite"></div>
       <div class="pool-edit-actions">
@@ -224,6 +231,7 @@
         <button class="save-btn" id="poolSubmitBtn" onclick="submitPoolEdit()" hidden>Submit changes</button>
       </div>
     </div>
+    <!-- ADMIN-END -->
     <div class="map-toolbar" id="mapToolbar">
       <div class="chip-row" id="mapPoolChips" aria-label="Filter maps by pool">
         <button class="chip on" data-pool="" onclick="selectMapPoolFilter(this)">All maps</button>
@@ -234,7 +242,7 @@
         <button class="chip" data-pool="time-trial" onclick="selectMapPoolFilter(this)">Time trials</button>
         <button class="chip" data-pool="tutorial" onclick="selectMapPoolFilter(this)">Tutorial</button>
       </div>
-      <div class="pool-controls" id="poolControls"></div>
+      <!-- ADMIN-START --><div class="pool-controls" id="poolControls"></div><!-- ADMIN-END -->
     </div>
     <div class="map-grid" id="mapGrid"></div>
   </section>
@@ -246,10 +254,11 @@
         <h2>Bans</h2>
         <p>Bans in force right now, soonest to lift first. The server applies most of
           these itself &mdash; a dodged confirm, ranked AFK, merits below the graveyard
-          threshold &mdash; so this is mostly where you review and lift them.</p>
+          threshold &mdash; so this is where you can review them.</p>
       </div>
     </div>
 
+    <!-- ADMIN-START -->
     <section class="mod-form">
       <h3>Impose a ban</h3>
       <div class="form-row">
@@ -300,6 +309,7 @@
         record of its own, which is also what a history rather than a live list needs.
         Merits are not stored per player at all, so the list cannot show them.</p>
     </section>
+    <!-- ADMIN-END -->
 
     <div class="table-wrap mod-wrap">
       <table class="mod-table">
@@ -309,6 +319,7 @@
     </div>
   </section>
 
+  <!-- ADMIN-START -->
   <!-- ================= tools ================= -->
   <section class="view-pane" id="pane-tools">
     <div class="pane-head">
@@ -401,6 +412,7 @@
     </div>
     <div id="consoleOutput" class="console-output"></div>
   </section>
+  <!-- ADMIN-END -->
 
 </main>
 
@@ -410,15 +422,20 @@
        aria-labelledby="playerTitle" tabindex="-1">
   <div class="view-header">
     <div class="view-title">
+      <!-- ADMIN-START -->
       <span id="playerRole"></span>
-      <h2 id="playerTitle">Edit player</h2>
+      <!-- ADMIN-END -->
+      <h2 id="playerTitle">View player</h2>
+      <!-- ADMIN-START -->
       <div class="view-sub" id="playerSub"></div>
+      <!-- ADMIN-END -->
     </div>
     <button class="close-btn" onclick="closePlayerEdit()">Close <kbd>Esc</kbd></button>
   </div>
   <div class="view-body">
    <div class="view-inner">
 
+    <!-- ADMIN-START -->
     <!-- identity: readonly, so it reads as values rather than four dead input boxes -->
     <div class="ident">
       <div class="ident-item"><span class="ident-label">Player ID</span><input id="f-id" type="text" readonly></div>
@@ -448,6 +465,18 @@
       <div class="ident-item"><span class="ident-label">Graveyard</span>
         <div class="ban-status" id="gyBanStatus">Loading&hellip;</div></div>
     </div>
+    <!-- ADMIN-END -->
+
+    <!-- Reference data comes first, so a player's current build is immediately visible. -->
+    <section class="edit-card">
+      <h3>Loadouts</h3>
+      <div class="hero-tabs" id="loadoutTabs" role="tablist" aria-label="Character"></div>
+      <!-- The tabs are the control; this stays as the state they write to, because
+           the selection is read off `f-loadout-select` by id. -->
+      <select id="f-loadout-select" onchange="renderSelectedLoadout()" hidden></select>
+      <div class="loadout-skin" id="loadoutSkin"></div>
+      <div id="loadoutDetail" class="loadouts-list"></div>
+    </section>
 
     <!-- The three things a player picks to dress their profile. All of it already comes
          back from /api/players/{id} as `badges`, keyed by BadgeType. -->
@@ -472,21 +501,11 @@
       </div>
     </section>
 
-    <!-- reference, not editing — so it sits last instead of splitting the controls -->
-    <section class="edit-card">
-      <h3>Loadouts</h3>
-      <div class="hero-tabs" id="loadoutTabs" role="tablist" aria-label="Character"></div>
-      <!-- The tabs are the control; this stays as the state they write to, because
-           the selection is read off `f-loadout-select` by id. -->
-      <select id="f-loadout-select" onchange="renderSelectedLoadout()" hidden></select>
-      <div class="loadout-skin" id="loadoutSkin"></div>
-      <div id="loadoutDetail" class="loadouts-list"></div>
-    </section>
-
    </div>
   </div>
 </aside>
 
+<!-- ADMIN-START -->
 <div class="message-modal-backdrop" id="messageModalBackdrop" onclick="closeMessageModal()"></div>
 <section class="message-modal" id="messageModal" role="dialog" aria-modal="true"
          aria-labelledby="messageModalTitle">
@@ -522,6 +541,7 @@
     </div>
   </div>
 </section>
+<!-- ADMIN-END -->
 
 <div class="toast" id="toast"><pre id="toastMsg"></pre></div>
 <script src="/sprites.js"></script>
@@ -532,8 +552,10 @@
 <script src="/js/views/history.js"></script>
 <script src="/js/views/ladder.js"></script>
 <script src="/js/views/bans.js"></script>
+<!-- ADMIN-START -->
 <script src="/js/views/tools.js"></script>
 <script src="/js/views/console.js"></script>
+<!-- ADMIN-END -->
 <script src="/js/app.js"></script>
 </body>
 </html>

@@ -32,8 +32,9 @@ function renderModeration() {
           ? '<span class="mod-perm">Never &mdash; permanent</span>'
           : '<span class="mod-until">' + fmtRemaining(r.until) + '</span> ' +
             '<span class="mod-when">' + fmtUntil(r.until) + '</span>') + '</td>' +
-        '<td><button class="unban-btn lift-btn" onclick="liftBan(' + r.id + ', \'' + r.kind + '\')">' +
-          'Lift</button></td>' +
+        '<td>' + (window.controlPanelAdmin
+          ? '<button class="unban-btn lift-btn" onclick="liftBan(' + r.id + ', \'' + r.kind + '\')">Lift</button>'
+          : '') + '</td>' +
         '</tr>').join('')
     : '<tr><td colspan="4" class="empty-row">Nobody is banned.</td></tr>';
 
@@ -51,6 +52,7 @@ function durationMs(amountId, unitId) {
 
 /* Two duration groups rather than one, so each penalty keeps its own fields. */
 function renderBanForm() {
+  if (!window.controlPanelAdmin) return;
   const gy = document.getElementById('f-ban-kind').value === 'gy';
   for (const [id, show] of [['mmDuration', !gy], ['mmUnit', !gy],
                             ['gyDuration', gy], ['gyUnit', gy], ['gyPermRow', gy]])

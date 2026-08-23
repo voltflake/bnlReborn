@@ -67,12 +67,14 @@ function selectMapPoolFilter(btn) {
 
 function renderMapPoolControls() {
   const controls = document.getElementById('poolControls');
+  if (!controls || !window.controlPanelAdmin) return;
   controls.innerHTML = !mapEditing && ['friendly', 'ranked', 'custom'].includes(mapFilter)
     ? '<button class="save-btn" onclick="beginPoolEdit(\'' + mapFilter + '\')">Edit ' + esc(mapLabel(mapFilter)) + ' map pool</button>'
     : '';
 }
 
 function beginPoolEdit(pool) {
+  if (!window.controlPanelAdmin) return;
   mapEditing = pool;
   mapSnapshot = (mapPools[pool] || []).slice();
   const selected = new Set(mapSnapshot);

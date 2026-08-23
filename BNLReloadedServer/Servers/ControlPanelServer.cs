@@ -126,7 +126,7 @@ public sealed class ControlPanelServer : IDisposable
 
             if (method == "GET" && path == "/")
             {
-                await ServeFile(ctx, "index.html", "text/html; charset=utf-8");
+                await ServePanelIndex(ctx);
                 return;
             }
 
@@ -177,7 +177,7 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
-            if (!IsAuthenticated(ctx))
+            if (!IsAuthenticated(ctx) && !IsPublicReadRequest(method, path))
             {
                 Log.Warn(LogCat.Panel,
                     $"Unauthorized control-panel request for user '{SessionUsername(ctx) ?? "<unknown>"}' " +
@@ -245,7 +245,10 @@ public sealed class ControlPanelServer : IDisposable
             {
                 if (method == "GET")
                 {
-                    await ServePlayerDetail(ctx, playerId);
+                    if (IsAuthenticated(ctx))
+                        await ServePlayerDetail(ctx, playerId);
+                    else
+                        await ServePublicPlayerDetail(ctx, playerId);
                     return;
                 }
                 if (method == "POST")
@@ -595,6 +598,58 @@ public sealed class ControlPanelServer : IDisposable
 
     private static readonly string ControlPanelFolderPath = Path.Combine(AppContext.BaseDirectory, "ControlPanel");
 
+    private async Task ServePanelIndex(HttpListenerContext ctx)
+    {
+        var html = await File.ReadAllTextAsync(Path.Combine(ControlPanelFolderPath, "index.html"));
+        var isAdmin = IsAuthenticated(ctx);
+        html = RenderPanelTemplate(html, isAdmin);
+        ctx.Response.ContentType = "text/html; charset=utf-8";
+        // The document differs by session, so a shared cache must never reuse the
+        // admin document for a visitor who is not signed in.
+        ctx.Response.Headers["Cache-Control"] = "private, no-store";
+        var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+        ctx.Response.ContentLength64 = bytes.Length;
+        await ctx.Response.OutputStream.WriteAsync(bytes);
+        ctx.Response.OutputStream.Close();
+    }
+
+    private static string RenderPanelTemplate(string html, bool isAdmin)
+    {
+        const string adminStart = "<!-- ADMIN-START -->";
+        const string adminEnd = "<!-- ADMIN-END -->";
+
+        if (isAdmin)
+            return html.Replace(adminStart, string.Empty).Replace(adminEnd, string.Empty)
+                .Replace("<!-- PANEL-MODE -->", "<script>window.controlPanelAdmin = true;</script>");
+
+        var start = 0;
+        while ((start = html.IndexOf(adminStart, start, StringComparison.Ordinal)) >= 0)
+        {
+            var end = html.IndexOf(adminEnd, start, StringComparison.Ordinal);
+            if (end < 0)
+                throw new InvalidOperationException("Unclosed control-panel admin template section.");
+            html = html.Remove(start, end + adminEnd.Length - start);
+        }
+
+        return html.Replace("<!-- PANEL-MODE -->", "<script>window.controlPanelAdmin = false;</script>");
+    }
+
+    private static bool IsPublicReadRequest(string method, string path) => method == "GET" &&
+        (path == "/api/status" ||
+         path == "/api/queues" ||
+         path == "/api/activity" ||
+         path == "/api/players" ||
+         IsPublicPlayerDetailPath(path) ||
+         path == "/api/matches" ||
+         path.StartsWith("/api/matches/", StringComparison.Ordinal) ||
+         path == "/api/maps" ||
+         (path.StartsWith("/api/maps/", StringComparison.Ordinal) && path.EndsWith("/download", StringComparison.Ordinal)) ||
+         path.StartsWith("/api/cards/", StringComparison.Ordinal));
+
+    private static bool IsPublicPlayerDetailPath(string path) =>
+        path.StartsWith("/api/players/", StringComparison.Ordinal) &&
+        uint.TryParse(path["/api/players/".Length..], out _);
+
     private static async Task ServeFile(HttpListenerContext ctx, string fileName, string contentType)
     {
         var content = await File.ReadAllTextAsync(Path.Combine(ControlPanelFolderPath, fileName));
@@ -606,16 +661,25 @@ public sealed class ControlPanelServer : IDisposable
         ctx.Response.OutputStream.Close();
     }
 
-    private static async Task ServePanelScript(HttpListenerContext ctx, string relativePath)
+    private async Task ServePanelScript(HttpListenerContext ctx, string relativePath)
     {
         var scriptsRoot = Path.Combine(ControlPanelFolderPath, "js");
-        var fullPath = Path.GetFullPath(Path.Combine(scriptsRoot, Uri.UnescapeDataString(relativePath)));
+        var decodedPath = Uri.UnescapeDataString(relativePath);
+        var fullPath = Path.GetFullPath(Path.Combine(scriptsRoot, decodedPath));
         if (!fullPath.StartsWith(scriptsRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
             !File.Exists(fullPath) ||
             !string.Equals(Path.GetExtension(fullPath), ".js", StringComparison.OrdinalIgnoreCase))
         {
             ctx.Response.StatusCode = 404;
             await WriteJson(ctx, new { error = "Not found" });
+            return;
+        }
+
+        var scriptName = Path.GetRelativePath(scriptsRoot, fullPath).Replace('\\', '/');
+        if (scriptName is "views/tools.js" or "views/console.js" && !IsAuthenticated(ctx))
+        {
+            ctx.Response.StatusCode = 401;
+            await WriteJson(ctx, new { error = "Unauthorized" });
             return;
         }
 
@@ -942,6 +1006,34 @@ public sealed class ControlPanelServer : IDisposable
         };
 
         await WriteJson(ctx, data);
+    }
+
+    private async Task ServePublicPlayerDetail(HttpListenerContext ctx, uint playerId)
+    {
+        var player = Databases.PlayerDatabase.GetPlayerDataNoWait(playerId);
+        player ??= await Databases.MasterServerDatabase.GetPlayer(playerId);
+        if (player == null)
+        {
+            ctx.Response.StatusCode = 404;
+            await WriteJson(ctx, new { error = "Player not found" });
+            return;
+        }
+
+        await WriteJson(ctx, new
+        {
+            nickname = player.Nickname,
+            badges = player.Badges.ToDictionary(
+                badge => badge.Key.ToString(),
+                badge => badge.Value.Select(key => key.GetCard<BaseTypes.CardBadge>()?.Name?.Text
+                    ?? key.GetCard<BaseTypes.CardBadge>()?.Id ?? key.ToString())),
+            badge_icons = player.Badges.Values
+                .SelectMany(list => list)
+                .Select(key => key.GetCard<BaseTypes.CardBadge>())
+                .Where(card => card is { Icon.Length: > 0 })
+                .GroupBy(card => card!.Name?.Text ?? card.Id ?? string.Empty)
+                .ToDictionary(group => group.Key, group => group.First()!.Icon),
+            loadouts = player.HeroLoadouts.Values.Select(DescribeLoadout)
+        });
     }
 
     /// <summary>

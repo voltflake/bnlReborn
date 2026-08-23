@@ -92,6 +92,7 @@ function renderMmr() {
 /* Nothing here is shown in a state where it can't do anything: no Apply until there is
    a change to apply, and no hint when the pane is read-only. */
 function updateMmrTools() {
+  if (!window.controlPanelAdmin) return;
   const n = mmrPending();
   const apply = document.getElementById('mmrApplyBtn');
   document.getElementById('mmrEditBtn').textContent = mmrEditing ? 'Cancel' : 'Edit ladder';

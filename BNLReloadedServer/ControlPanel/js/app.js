@@ -1,6 +1,7 @@
 /* ---------- shared ---------- */
 
 async function postPlayer(id, body, successMsg) {
+  if (!window.controlPanelAdmin) return false;
   try {
     const res = await fetch('/api/players/' + id, {
       method: 'POST',
@@ -47,7 +48,7 @@ function fmtRemaining(ms) {
    already looking at doesn't send you to the Players pane to retype the name. */
 function playerLink(name, id, cls) {
   const c = 'player-link' + (cls ? ' ' + cls : '');
-  return id == null
+  return id == null || !window.controlPanelAdmin
     ? '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(name) + '</span>'
     : '<button class="' + c + '" onclick="showPlayerEdit(' + id + ')">' + esc(name) + '</button>';
 }
@@ -103,21 +104,31 @@ setInterval(() => {
 function init() {
   if (initialized) return;
   initialized = true;
-  renderBanForm();
+  if (window.controlPanelAdmin) {
+    document.getElementById('loginBtn').hidden = true;
+    renderBanForm();
+  }
   refreshStatus();
-  pollLogs();
   loadPlayers();
-  connectEvents();
+  if (window.controlPanelAdmin) {
+    pollLogs();
+    connectEvents();
+  } else {
+    refreshActivity();
+    pollQueues();
+    setInterval(() => {
+      refreshStatus();
+      refreshActivity();
+      pollQueues();
+      loadPlayers();
+    }, 15000);
+  }
   showPane(paneFromHash(), false);
 }
 
 (async function start() {
   try {
-    const res = await _origFetch('/api/status');
-    if (res.status === 401) {
-      showLoginGate();
-      return;
-    }
+    await _origFetch('/api/status');
     init();
   } catch { /* ignore */ }
 })();

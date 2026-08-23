@@ -15,8 +15,11 @@ async function loadPlayers() {
 function applyPlayers(data) {
   allPlayers = data.players || [];
   document.getElementById('railPlayers').textContent = allPlayers.length || '';
-  document.getElementById('banPlayerNames').innerHTML =
-    allPlayers.map(p => '<option value="' + esc(p.nickname) + '"></option>').join('');
+  const banPlayerNames = document.getElementById('banPlayerNames');
+  if (banPlayerNames) {
+    banPlayerNames.innerHTML =
+      allPlayers.map(p => '<option value="' + esc(p.nickname) + '"></option>').join('');
+  }
   filterPlayers();
   if (!mmrEditing) { buildMmrRows(); renderMmr(); }
   renderModeration();
@@ -144,10 +147,11 @@ function renderPlayers(list) {
     '<td>' + queueLabel(p) + '</td>' +
     '<td><span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span></td>' +
     '<td class="row-action">' +
-      (p.online
+      (window.controlPanelAdmin && p.online
         ? '<button class="message-btn" onclick="sendPlayerMessage(' + p.id + ')">Message</button> '
-        : '<button class="message-btn" onclick="schedulePlayerMessage(' + p.id + ')">Schedule message</button> ') +
-      '<button class="edit-btn" onclick="showPlayerEdit(' + p.id + ')">Edit</button>' +
+        : window.controlPanelAdmin ? '<button class="message-btn" onclick="schedulePlayerMessage(' + p.id + ')">Schedule message</button> ' : '') +
+      '<button class="edit-btn" onclick="showPlayerEdit(' + p.id + ')">' +
+        (window.controlPanelAdmin ? 'Edit' : 'View') + '</button>' +
       '</td>' +
     '</tr>').join('');
   updatePresenceLabels();
@@ -334,8 +338,10 @@ function closePlayerEdit() {
 
 async function loadPlayer(id) {
   document.getElementById('playerTitle').textContent = 'Player #' + id;
-  document.getElementById('playerRole').innerHTML = '';
-  document.getElementById('playerSub').innerHTML = '';
+  const playerRole = document.getElementById('playerRole');
+  const playerSub = document.getElementById('playerSub');
+  if (playerRole) playerRole.innerHTML = '';
+  if (playerSub) playerSub.innerHTML = '';
   try {
     const res = await fetch('/api/players/' + id);
     if (!res.ok) throw new Error('Player not found');
@@ -343,35 +349,36 @@ async function loadPlayer(id) {
     if (currentPlayerId !== id) return;           // drawer moved on while we waited
 
     document.getElementById('playerTitle').textContent = p.nickname;
-    document.getElementById('playerRole').innerHTML =
-      '<span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span>';
-    document.getElementById('playerSub').innerHTML =
-      '<span class="status-dot ' + (p.online ? 'online' : '') +
-        '" data-presence-online="' + p.online +
-        '" data-presence-online-since="' + (p.online_since || '') +
-        '" data-presence-last-online="' + (p.last_online || '') + '">' +
-        esc(presenceLabel(p)) + '</span>';
-    updatePresenceLabels();
-    document.getElementById('f-id').value = p.id;
-    document.getElementById('f-steam').value = p.steam_id;
-    document.getElementById('f-nickname').value = p.nickname;
-    document.getElementById('f-role').value = p.role_id;
-    loadedRoleId = String(p.role_id);
-    roleChanged();
+    if (window.controlPanelAdmin) {
+      playerRole.innerHTML = '<span class="role-badge role-' + esc(p.role) + '">' + esc(p.role) + '</span>';
+      playerSub.innerHTML =
+        '<span class="status-dot ' + (p.online ? 'online' : '') +
+          '" data-presence-online="' + p.online +
+          '" data-presence-online-since="' + (p.online_since || '') +
+          '" data-presence-last-online="' + (p.last_online || '') + '">' +
+          esc(presenceLabel(p)) + '</span>';
+      updatePresenceLabels();
+      document.getElementById('f-id').value = p.id;
+      document.getElementById('f-steam').value = p.steam_id;
+      document.getElementById('f-nickname').value = p.nickname;
+      document.getElementById('f-role').value = p.role_id;
+      loadedRoleId = String(p.role_id);
+      roleChanged();
 
-    const t = Date.now();
-    const mm = document.getElementById('mmBanStatus');
-    const mmBanned = p.matchmaker_ban_end != null && p.matchmaker_ban_end > t;
-    mm.textContent = mmBanned ? 'Until ' + fmtUntil(p.matchmaker_ban_end) : 'Not banned';
-    mm.className = 'ban-status ' + (mmBanned ? 'banned' : 'clear');
+      const t = Date.now();
+      const mm = document.getElementById('mmBanStatus');
+      const mmBanned = p.matchmaker_ban_end != null && p.matchmaker_ban_end > t;
+      mm.textContent = mmBanned ? 'Until ' + fmtUntil(p.matchmaker_ban_end) : 'Not banned';
+      mm.className = 'ban-status ' + (mmBanned ? 'banned' : 'clear');
 
-    const gy = document.getElementById('gyBanStatus');
-    const perm = p.graveyard_permanent === true;
-    const gyBanned = perm || (p.graveyard_leave_time != null && p.graveyard_leave_time > t);
-    gy.textContent = perm ? 'Permanent'
-      : gyBanned ? 'Until ' + fmtUntil(p.graveyard_leave_time)
-      : 'Not banned';
-    gy.className = 'ban-status ' + (gyBanned ? 'banned' : 'clear');
+      const gy = document.getElementById('gyBanStatus');
+      const perm = p.graveyard_permanent === true;
+      const gyBanned = perm || (p.graveyard_leave_time != null && p.graveyard_leave_time > t);
+      gy.textContent = perm ? 'Permanent'
+        : gyBanned ? 'Until ' + fmtUntil(p.graveyard_leave_time)
+        : 'Not banned';
+      gy.className = 'ban-status ' + (gyBanned ? 'banned' : 'clear');
+    }
 
     renderProfile(p.badges, p.badge_icons);
     renderLoadouts(p.loadouts || []);
