@@ -308,9 +308,9 @@ public partial class Unit
         var currHealth = update.Health ?? _health;
         if (amount <= 0 || UnitCard?.Health?.Health is not {} health || currHealth >= this.UnitMaxHealth(health.MaxHealth)) return 0;
 
-        var healAmount = MathF.Min(currHealth + this.HealthGainAmount(amount), this.UnitMaxHealth(health.MaxHealth));
-        update.Health = healAmount;
-        return healAmount;
+        var newHealth = MathF.Min(currHealth + this.HealthGainAmount(amount), this.UnitMaxHealth(health.MaxHealth));
+        update.Health = newHealth;
+        return newHealth - currHealth;
     }
 
     public float AddHealth(float amount)
