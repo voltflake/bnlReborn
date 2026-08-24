@@ -82,5 +82,7 @@ public enum ScoreType
     Assists = 78,
     SupplyCollected = 79,
     BlockbusterCollected = 80,
-    AbilityUsed = 81
+    AbilityUsed = 81,
+    MiningHealthRestored = 82,
+    MiningAmmoRestored = 83
 }

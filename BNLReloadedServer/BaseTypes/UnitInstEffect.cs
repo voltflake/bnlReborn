@@ -125,11 +125,12 @@ public partial class Unit
         }
     }
 
-    private void AddAmmo(float amount, UnitUpdate update)
+    private float AddAmmo(float amount, UnitUpdate update)
     {
-        if (Gears.Count == 0 || amount <= 0) return;
+        if (Gears.Count == 0 || amount <= 0) return 0;
         var ammoUpdate = new Dictionary<Key, List<Ammo>>();
         var sendUpdate = false;
+        var ammoRestored = 0.0f;
         foreach (var gear in Gears)
         {
             if (gear.Card.Ammo is not { } ammoData) continue;
@@ -141,9 +142,10 @@ public partial class Unit
                     { Index = gearAmmo.AmmoIndex, Mag = gearAmmo.Mag, Pool = gearAmmo.Pool });
                 if (gearAmmo.Pool >= gearAmmo.PoolSize) continue;
                 if (ammoData[i].Pool is not { } pool) continue;
-                ammoUpdate[gear.Key][i].Pool =
-                    Math.Min(float.FusedMultiplyAdd(this.AmmoGainAmount(amount), pool.BaseRegen, gearAmmo.Pool),
-                        gearAmmo.PoolSize);
+                var newPool = Math.Min(float.FusedMultiplyAdd(this.AmmoGainAmount(amount), pool.BaseRegen, gearAmmo.Pool),
+                    gearAmmo.PoolSize);
+                ammoUpdate[gear.Key][i].Pool = newPool;
+                ammoRestored += newPool - gearAmmo.Pool;
                 sendUpdate = true;
             }
         }
@@ -152,6 +154,8 @@ public partial class Unit
         {
             update.Ammo = ammoUpdate;
         }
+
+        return ammoRestored;
     }
 
     public void AddAmmo(float amount)
@@ -257,13 +261,13 @@ public partial class Unit
             var digHpBuff = buffedAmount * GetBuff(BuffType.MiningHealthRefill);
             if (digHpBuff > 0.0f)
             {
-                AddHealth(digHpBuff, update);
+                UpdateStat(ScoreType.MiningHealthRestored, AddHealth(digHpBuff, update));
             }
 
             var digAmmoBuff = buffedAmount * GetBuff(BuffType.MiningAmmoRefill);
             if (digAmmoBuff > 0.0f)
             {
-                AddAmmo(digAmmoBuff, update);
+                UpdateStat(ScoreType.MiningAmmoRestored, AddAmmo(digAmmoBuff, update));
             }
         }
         if (buffedAmount == 0 || (buffedAmount > 0 && currResource >= _updater.GetResourceCap()) || (buffedAmount < 0 && currResource <= 0)) return;
