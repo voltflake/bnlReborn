@@ -18,6 +18,7 @@ public partial class Unit
     private float _shield;
     private readonly ObservableList<ImmutableList<ConstEffectInfo>> _constEffects = [new List<ConstEffectInfo>().ToImmutableList()];
     private readonly Dictionary<Key, HashSet<EffectSource>> _effectSources = new();
+    private readonly Dictionary<Key, HashSet<EffectSource>> _nestedEffectSources = new();
     public Key Key;
     private Dictionary<BuffType, float> _buffs = new();
     private float _health;
@@ -1468,7 +1469,20 @@ public partial class Unit
                 case ConstEffectSelf constEffectSelf:
                     if (constEffectSelf.ConstantEffects is { Count: > 0 } effects)
                     {
-                        RemoveEffects(effects.Select(k => new ConstEffectInfo(k, null)), Team, SelfSource);
+                        var sources = _nestedEffectSources.GetValueOrDefault(info.Key);
+                        if (sources is { Count: > 0 })
+                        {
+                            foreach (var source in sources)
+                            {
+                                RemoveEffects(effects.Select(k => new ConstEffectInfo(k, null)), Team, source);
+                            }
+                        }
+                        else
+                        {
+                            RemoveEffects(effects.Select(k => new ConstEffectInfo(k, null)), Team, SelfSource);
+                        }
+
+                        _nestedEffectSources.Remove(info.Key);
                     }
                     break;
                 case ConstEffectTeam:
@@ -1528,7 +1542,21 @@ public partial class Unit
                 case ConstEffectSelf constEffectSelf:
                     CreateIntervalUpdater(info.Key, constEffectSelf);
                     if (constEffectSelf.ConstantEffects is { Count: > 0 } effects)
-                        AddEffects(effects.Select(k => new ConstEffectInfo(k)), Team, SelfSource);
+                    {
+                        var sources = _effectSources.GetValueOrDefault(info.Key);
+                        if (sources is { Count: > 0 })
+                        {
+                            _nestedEffectSources[info.Key] = new HashSet<EffectSource>(sources);
+                            foreach (var source in sources)
+                            {
+                                AddEffects(effects.Select(k => new ConstEffectInfo(k)), Team, source);
+                            }
+                        }
+                        else
+                        {
+                            AddEffects(effects.Select(k => new ConstEffectInfo(k)), Team, SelfSource);
+                        }
+                    }
                     break;
                 case ConstEffectTeam:
                     _updater.OnTeamEffectAdded(this, info);
