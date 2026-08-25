@@ -161,8 +161,6 @@ let statusRenderTimer = null;
 
 registerView('status', {
   enter: () => {
-    refreshActivity();
-    pollQueues();
     statusRenderTimer = setInterval(() => { if (queues) renderQueues(); }, 1000);
   },
   leave: () => {

@@ -63,12 +63,65 @@ let initialized = false;
 let eventRetry = 1000;
 let eventSocket = null;
 let lastEventAt = 0;
+let eventReconnectTimer = null;
+let eventRecoveryEnabled = false;
+let eventSnapshotReceived = false;
+
+function setEventConnection(state, message) {
+  const indicator = document.getElementById('eventConnection');
+  if (!indicator) return;
+  indicator.hidden = false;
+  indicator.className = 'event-connection ' + state;
+  indicator.textContent = message;
+}
+
+function stopEventRecovery(message, expired) {
+  eventRecoveryEnabled = false;
+  if (eventReconnectTimer != null) {
+    clearTimeout(eventReconnectTimer);
+    eventReconnectTimer = null;
+  }
+  setEventConnection('stale', message);
+  if (expired) showLoginGate('Your session expired. Sign in again.');
+}
+
+function scheduleEventReconnect() {
+  if (!eventRecoveryEnabled || eventReconnectTimer != null) return;
+  const delay = eventRetry;
+  setEventConnection('reconnecting',
+    'Live updates reconnecting in ' + Math.ceil(delay / 1000) + 's; displayed data may be stale.');
+  eventReconnectTimer = setTimeout(() => {
+    eventReconnectTimer = null;
+    connectEvents();
+  }, delay);
+  eventRetry = Math.min(eventRetry * 2, 30000);
+}
+
+async function eventSessionStillValid() {
+  try {
+    // A WebSocket handshake failure is intentionally opaque to browser JavaScript. Probe an
+    // authenticated route only when the stream died before its initial snapshot, which is the
+    // usual signature of a restarted server having forgotten its in-memory session.
+    const res = await _origFetch('/api/logs?since=' + encodeURIComponent(logCursor), { cache: 'no-store' });
+    return res.status !== 401 && res.status !== 403;
+  } catch {
+    // A transport failure is recoverable; the normal backoff remains responsible for it.
+    return true;
+  }
+}
 
 function connectEvents() {
+  if (!eventRecoveryEnabled ||
+      eventSocket?.readyState === WebSocket.OPEN || eventSocket?.readyState === WebSocket.CONNECTING) return;
   const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const endpoint = window.controlPanelAdmin
+    ? '/api/events?logs_since=' + encodeURIComponent(logCursor)
+    : '/api/public/events';
   const socket = new WebSocket(scheme + '//' + location.host +
-    '/api/events?logs_since=' + encodeURIComponent(logCursor));
+    endpoint);
   eventSocket = socket;
+  eventSnapshotReceived = false;
+  setEventConnection('reconnecting', 'Connecting live updates…');
 
   socket.onopen = () => {
     eventRetry = 1000;
@@ -78,6 +131,10 @@ function connectEvents() {
     lastEventAt = Date.now();
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
+    if (!eventSnapshotReceived) {
+      eventSnapshotReceived = true;
+      setEventConnection('live', 'Live updates connected.');
+    }
     const data = message.data || {};
     if (message.type === 'status') applyStatus(data);
     else if (message.type === 'activity') applyActivity(data);
@@ -85,11 +142,18 @@ function connectEvents() {
     else if (message.type === 'players') applyPlayers(data);
     else if (message.type === 'logs') applyLogBatch(data);
   };
-  socket.onclose = event => {
+  socket.onclose = async event => {
     if (eventSocket === socket) eventSocket = null;
-    if (event.code === 1008) showLoginGate('Your session expired. Sign in again.');
-    setTimeout(connectEvents, eventRetry);
-    eventRetry = Math.min(eventRetry * 2, 30000);
+    if (!eventRecoveryEnabled) return;
+    if (event.code === 1008) {
+      stopEventRecovery('Live updates stopped because the session expired.', true);
+      return;
+    }
+    if (window.controlPanelAdmin && !eventSnapshotReceived && !await eventSessionStillValid()) {
+      stopEventRecovery('Live updates stopped because the session is no longer valid.', true);
+      return;
+    }
+    scheduleEventReconnect();
   };
 }
 
@@ -108,27 +172,10 @@ function init() {
     document.getElementById('loginBtn').hidden = true;
     renderBanForm();
   }
-  refreshStatus();
-  loadPlayers();
-  if (window.controlPanelAdmin) {
-    pollLogs();
-    connectEvents();
-  } else {
-    refreshActivity();
-    pollQueues();
-    setInterval(() => {
-      refreshStatus();
-      refreshActivity();
-      pollQueues();
-      loadPlayers();
-    }, 15000);
-  }
+  // The stream sends its own initial snapshots; there is no REST bootstrap to race it.
+  eventRecoveryEnabled = true;
+  connectEvents();
   showPane(paneFromHash(), false);
 }
 
-(async function start() {
-  try {
-    await _origFetch('/api/status');
-    init();
-  } catch { /* ignore */ }
-})();
+init();

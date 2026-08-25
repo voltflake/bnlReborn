@@ -61,12 +61,17 @@ public static class LogBuffer
 
             try
             {
-                if (_file == null) return;
-                _file.WriteLine(Serialize(stamped));
-                if (_file.BaseStream.Length > MaxFileBytes)
+                // Disk persistence is optional for the panel. A read-only or temporarily
+                // unavailable log directory must not suppress the in-memory event that keeps
+                // authenticated consoles live.
+                if (_file != null)
                 {
-                    _file.Dispose();
-                    OpenLogFile();
+                    _file.WriteLine(Serialize(stamped));
+                    if (_file.BaseStream.Length > MaxFileBytes)
+                    {
+                        _file.Dispose();
+                        OpenLogFile();
+                    }
                 }
             }
             catch

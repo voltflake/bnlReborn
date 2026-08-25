@@ -25,7 +25,7 @@ function applyPlayers(data) {
   renderModeration();
 }
 
-let sortKey = null, sortDir = -1;      // -1 desc, 1 asc
+let sortKey = 'presence', sortDir = -1; // -1 desc, 1 asc
 
 /* Numeric and ordinal columns open descending — newest ID, highest role, longest online —
    because that's the answer you wanted when you clicked. Text opens A-Z. */

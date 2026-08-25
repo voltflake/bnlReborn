@@ -132,6 +132,18 @@ body {
   padding: 14px 14px 16px;
   border-top: 1px solid var(--line);
 }
+.event-connection {
+  margin: 0 0 12px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.event-connection.live { border-color: color-mix(in srgb, var(--live) 42%, var(--line)); color: var(--ok-ink); }
+.event-connection.reconnecting,
+.event-connection.stale { border-color: color-mix(in srgb, var(--alarm) 48%, var(--line)); color: var(--alarm-ink); }
 .rail-item {
   position: relative;
   display: flex; align-items: center; gap: 10px;
@@ -279,6 +291,25 @@ td {
    would scroll and clip along with the table. */
 .mmr-panel { max-width: 820px; }
 .players-wrap { max-width: 1320px; }
+.players-table {
+  width: 100%;
+  min-width: 1230px;
+  table-layout: fixed;
+}
+.players-col-id       { width: 80px; }
+.players-col-nickname { width: 240px; }
+.players-col-presence { width: 235px; }
+.players-col-status   { width: 175px; }
+.players-col-queue    { width: 190px; }
+.players-col-role     { width: 100px; }
+.players-col-actions  { width: 210px; }
+/* Live values may grow, but never at the cost of moving a neighbouring column. */
+.players-table th,
+.players-table td { overflow: hidden; text-overflow: ellipsis; }
+.players-table td:nth-child(2),
+.players-table td:nth-child(3),
+.players-table td:nth-child(4),
+.players-table td:nth-child(5) { text-overflow: ellipsis; overflow: hidden; }
 .mmr-table th:nth-child(1) { width: 80px; }
 .mmr-table th:nth-child(2) { width: 250px; }
 /* The rating is an <input>, so its text starts one border and one padding in from the

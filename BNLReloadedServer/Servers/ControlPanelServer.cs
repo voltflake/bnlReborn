@@ -177,6 +177,12 @@ public sealed class ControlPanelServer : IDisposable
                 return;
             }
 
+            if (method == "GET" && path == "/api/public/events" && ctx.Request.IsWebSocketRequest)
+            {
+                await ServePublicEvents(ctx);
+                return;
+            }
+
             if (!IsAuthenticated(ctx) && !IsPublicReadRequest(method, path))
             {
                 Log.Warn(LogCat.Panel,
@@ -1090,14 +1096,25 @@ public sealed class ControlPanelServer : IDisposable
     /// One authenticated connection replaces the panel's status, queue, player, and log polling.
     /// The connection sleeps until a mutation publisher signals one or more affected snapshots.
     /// </summary>
-    private async Task ServeEvents(HttpListenerContext ctx)
+    private Task ServeEvents(HttpListenerContext ctx) => ServeEvents(ctx, requiresAuthentication: true);
+
+    /// <summary>
+    /// Public counterpart to the authenticated event stream. It deliberately shares only the
+    /// snapshots already exposed by public REST routes; logs and all admin-only state stay on
+    /// <c>/api/events</c>.
+    /// </summary>
+    private Task ServePublicEvents(HttpListenerContext ctx) => ServeEvents(ctx, requiresAuthentication: false);
+
+    private async Task ServeEvents(HttpListenerContext ctx, bool requiresAuthentication)
     {
         WebSocket? socket = null;
         try
         {
             socket = (await ctx.AcceptWebSocketAsync(null)).WebSocket;
             var ct = _cts.Token;
-            var logCursor = long.TryParse(ctx.Request.QueryString["logs_since"], out var since) ? since : 0;
+            var logCursor = requiresAuthentication && long.TryParse(ctx.Request.QueryString["logs_since"], out var since)
+                ? since
+                : long.MaxValue;
             using var events = ControlPanelEvents.Subscribe();
             var disconnected = ObserveDisconnect(socket, ct);
 
@@ -1105,7 +1122,7 @@ public sealed class ControlPanelServer : IDisposable
             await SendEvent(socket, "queues", GetQueues(), ct);
             await SendEvent(socket, "activity", GetActivity(), ct);
             await SendEvent(socket, "players", await GetPlayerList(), ct);
-            if (LogBuffer.LastSeq > logCursor)
+            if (requiresAuthentication && LogBuffer.LastSeq > logCursor)
             {
                 var initialLogCursor = LogBuffer.LastSeq;
                 await SendEvent(socket, "logs", GetLogBatch(logCursor), ct);
@@ -1121,7 +1138,7 @@ public sealed class ControlPanelServer : IDisposable
                 if (completed == disconnected)
                     return;
 
-                if (!IsAuthenticated(ctx))
+                if (requiresAuthentication && !IsAuthenticated(ctx))
                 {
                     await socket.CloseAsync(
                         WebSocketCloseStatus.PolicyViolation, "Session expired", ct);
@@ -1148,7 +1165,14 @@ public sealed class ControlPanelServer : IDisposable
                     continue;
                 }
 
-                logCursor = await SendChangedEvents(socket, await eventTask, logCursor, ct);
+                var changed = await eventTask;
+                // Log records are intentionally absent from the public stream. Ignoring a
+                // logs-only wakeup also prevents busy logging from making public clients do
+                // needless work.
+                if (!requiresAuthentication)
+                    changed &= ~ControlPanelEvent.Logs;
+                if (changed != ControlPanelEvent.None)
+                    logCursor = await SendChangedEvents(socket, changed, logCursor, ct);
             }
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested) { }

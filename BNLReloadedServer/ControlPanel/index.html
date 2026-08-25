@@ -69,6 +69,7 @@
   <div class="rail-spacer"></div>
 
   <div class="rail-foot">
+    <div class="event-connection" id="eventConnection" role="status" aria-live="polite" hidden></div>
     <!-- Icons are inline so the rail carries no request the panel can't serve offline. -->
     <div class="rail-links">
       <a class="rail-link" href="https://github.com/voltflake/bnlReloaded" target="_blank" rel="noopener noreferrer">
@@ -133,6 +134,15 @@
     <!-- region still matches, it's just not advertised now that the column is gone -->
     <div class="table-wrap players-wrap">
       <table class="players-table">
+        <colgroup>
+          <col class="players-col-id">
+          <col class="players-col-nickname">
+          <col class="players-col-presence">
+          <col class="players-col-status">
+          <col class="players-col-queue">
+          <col class="players-col-role">
+          <col class="players-col-actions">
+        </colgroup>
         <thead>
           <tr>
             <th class="sortable" aria-sort="none">
@@ -141,8 +151,8 @@
             <th class="sortable" aria-sort="none">
               <button class="th-sort" data-key="nickname" data-dir="none" onclick="setSort('nickname')">Nickname<span class="sort-ind"></span></button>
             </th>
-            <th class="sortable" aria-sort="none">
-              <button class="th-sort" data-key="presence" data-dir="none" onclick="setSort('presence')">Presence<span class="sort-ind"></span></button>
+            <th class="sortable" aria-sort="descending">
+              <button class="th-sort" data-key="presence" data-dir="desc" onclick="setSort('presence')">Presence<span class="sort-ind"></span></button>
             </th>
             <th>Status</th>
             <th class="sortable" aria-sort="none">
