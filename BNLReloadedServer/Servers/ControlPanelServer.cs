@@ -408,6 +408,14 @@ public sealed class ControlPanelServer : IDisposable
             return reader.ReadMap<PlayerMatchStatType, int, Dictionary<PlayerMatchStatType, int>>(
                 reader.ReadByteEnum<PlayerMatchStatType>, reader.ReadInt32);
         }
+        Dictionary<ScoreType, float> ReadRawStats(byte[]? bytes)
+        {
+            if (bytes is not { Length: > 0 }) return [];
+            using var stream = new MemoryStream(bytes);
+            using var reader = new BinaryReader(stream);
+            return reader.ReadMap<ScoreType, float, Dictionary<ScoreType, float>>(
+                reader.ReadByteEnum<ScoreType>, reader.ReadSingle);
+        }
 
         var presencesByPlayer = detail.Presences.GroupBy(row => row.PlayerId)
             .ToDictionary(group => group.Key, group => group.OrderBy(row => row.Sequence).ToList());
@@ -438,12 +446,22 @@ public sealed class ControlPanelServer : IDisposable
                 was_backfiller = player.WasBackfiller,
                 is_winner = player.IsWinner,
                 starting_mmr = player.StartingRatingMean,
+                starting_rating_deviation = player.StartingRatingDeviation,
                 mmr_delta = player.RatingDelta,
+                rating_deviation_delta = player.RatingDeviationDelta,
                 total_score = player.TotalScore,
                 stats = ReadStats(player.Stats).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
+                raw_stats = ReadRawStats(player.RawStats).ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
+                device_stats = detail.PlayerDevices.Where(row => row.PlayerId == player.PlayerId).Select(row => new
+                {
+                    device = DescribeArchiveKey(row.DeviceKey),
+                    placed = row.Placed,
+                    destroyed = row.Destroyed
+                }),
                 presences = presencesByPlayer.GetValueOrDefault(player.PlayerId, []).Select(presence => new
                 {
                     sequence = presence.Sequence,
+                    team_slot = presence.TeamSlot,
                     joined_at = presence.JoinedAt,
                     left_at = presence.LeftAt,
                     join_kind = ((MatchJoinKind)presence.JoinKind).ToString(),

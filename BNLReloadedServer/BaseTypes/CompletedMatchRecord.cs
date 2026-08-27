@@ -9,6 +9,9 @@ public enum MatchEndReason : byte { Unknown, ObjectivesDestroyed, Surrender, Obj
 public sealed class CompletedMatchPresence
 {
     public int Sequence { get; set; }
+    // A persistent display slot within the team. A backfiller inherits an available slot so
+    // a future scoreboard can show the people who occupied the same place together.
+    public int TeamSlot { get; set; }
     public ulong JoinedAt { get; set; }
     public ulong? LeftAt { get; set; }
     public MatchJoinKind JoinKind { get; set; }
@@ -32,10 +35,23 @@ public sealed class CompletedMatchPlayer
     // Rating means are stored in their native TrueSkill scale.  The control panel formats them
     // in display MMR points, just as it does everywhere else.
     public double? StartingRatingMean { get; set; }
+    // TrueSkill standard deviation: the uncertainty that determines how much MMR can move.
+    public double? StartingRatingDeviation { get; set; }
     public double? RatingDelta { get; set; }
+    public double? RatingDeviationDelta { get; set; }
     public Dictionary<PlayerMatchStatType, int> Stats { get; set; } = [];
+    // Keep the unprojected server counters as well as the client-facing score categories.
+    // The latter cannot faithfully reconstruct damage, healing, or detailed build breakdowns.
+    public Dictionary<ScoreType, float> RawStats { get; set; } = [];
+    public Dictionary<Key, CompletedMatchDeviceStats> DeviceStats { get; set; } = [];
     public int TotalScore { get; set; }
     public List<CompletedMatchPresence> Presences { get; set; } = [];
+}
+
+public sealed class CompletedMatchDeviceStats
+{
+    public int Placed { get; set; }
+    public int Destroyed { get; set; }
 }
 
 public sealed class CompletedMatchTeam
@@ -49,6 +65,9 @@ public sealed class CompletedMatchTeam
 
 public sealed class CompletedMatchRecord
 {
+    private const byte ArchiveExtensionVersion = 3;
+    private const byte LegacyArchiveExtensionVersion = 1;
+    private const byte RatingDeviationExtensionVersion = 2;
     public string MatchId { get; set; } = string.Empty;
     public Key MapKey { get; set; }
     public Key GameModeKey { get; set; }
@@ -95,6 +114,26 @@ public sealed class CompletedMatchRecord
         writer.WriteMap(Players.Where(player => player.StartingRatingMean.HasValue)
             .ToDictionary(player => player.PlayerId, player => player.StartingRatingMean!.Value), writer.Write, writer.Write);
         writer.WriteByteEnum(EndReason);
+        // Keep additions after the old terminal field. Old masters read EndReason and safely
+        // ignore this tail during a rolling upgrade.
+        writer.Write(ArchiveExtensionVersion);
+        writer.WriteList(Players, (w, player) =>
+        {
+            w.Write(player.PlayerId);
+            w.Write(player.StartingRatingDeviation.HasValue);
+            if (player.StartingRatingDeviation.HasValue) w.Write(player.StartingRatingDeviation.Value);
+            w.WriteMap(player.RawStats, w.WriteByteEnum, w.Write);
+            w.WriteMap(player.DeviceStats, Key.WriteRecord, (pw, stats) =>
+            {
+                pw.Write(stats.Placed);
+                pw.Write(stats.Destroyed);
+            });
+            w.WriteList(player.Presences, (pw, presence) =>
+            {
+                pw.Write(presence.Sequence);
+                pw.Write(presence.TeamSlot);
+            });
+        });
     }
 
     public static CompletedMatchRecord ReadRecord(BinaryReader reader)
@@ -149,6 +188,39 @@ public sealed class CompletedMatchRecord
         }
         if (reader.BaseStream.Position < reader.BaseStream.Length)
             result.EndReason = reader.ReadByteEnum<MatchEndReason>();
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var extensionVersion = reader.ReadByte();
+            if (extensionVersion is not (LegacyArchiveExtensionVersion or RatingDeviationExtensionVersion or ArchiveExtensionVersion)) return result;
+            var playersById = result.Players.ToDictionary(player => player.PlayerId);
+            foreach (var extension in reader.ReadList<(uint playerId, double? deviation,
+                         Dictionary<ScoreType, float> rawStats, Dictionary<Key, CompletedMatchDeviceStats> deviceStats, Dictionary<int, int> slots),
+                     List<(uint playerId, double? deviation, Dictionary<ScoreType, float> rawStats, Dictionary<Key, CompletedMatchDeviceStats> deviceStats, Dictionary<int, int> slots)>>(() =>
+                     {
+                         var playerId = reader.ReadUInt32();
+                         double? deviation = reader.ReadBoolean() ? reader.ReadDouble() : null;
+                         var rawStats = reader.ReadMap<ScoreType, float, Dictionary<ScoreType, float>>(
+                             reader.ReadByteEnum<ScoreType>, reader.ReadSingle);
+                         var deviceStats = extensionVersion == ArchiveExtensionVersion
+                             ? reader.ReadMap<Key, CompletedMatchDeviceStats, Dictionary<Key, CompletedMatchDeviceStats>>(
+                                 Key.ReadRecord, () => new CompletedMatchDeviceStats { Placed = reader.ReadInt32(), Destroyed = reader.ReadInt32() })
+                             : [];
+                         var slots = reader.ReadList<(int sequence, int slot), List<(int sequence, int slot)>>(() =>
+                             (reader.ReadInt32(), reader.ReadInt32())).ToDictionary(slot => slot.sequence, slot => slot.slot);
+                         return (playerId, deviation, rawStats, deviceStats, slots);
+                     }))
+            {
+                if (!playersById.TryGetValue(extension.playerId, out var player)) continue;
+                // Version 1 contained the unrelated Glicko volatility constant. Retain none of
+                // it; version 2 records the TrueSkill deviation used for MMR movement instead.
+                if (extensionVersion is RatingDeviationExtensionVersion or ArchiveExtensionVersion)
+                    player.StartingRatingDeviation = extension.deviation;
+                player.RawStats = extension.rawStats;
+                player.DeviceStats = extension.deviceStats;
+                foreach (var presence in player.Presences)
+                    if (extension.slots.TryGetValue(presence.Sequence, out var slot)) presence.TeamSlot = slot;
+            }
+        }
         return result;
     }
 }

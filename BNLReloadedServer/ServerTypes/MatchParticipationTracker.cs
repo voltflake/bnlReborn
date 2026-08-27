@@ -1,4 +1,5 @@
 using BNLReloadedServer.BaseTypes;
+using Moserware.Skills;
 
 namespace BNLReloadedServer.ServerTypes;
 
@@ -9,7 +10,7 @@ internal sealed class MatchParticipationTracker
     public bool HasParticipant(uint playerId) => _players.ContainsKey(playerId);
 
     public void Start(DateTimeOffset startedAt, IEnumerable<PlayerLobbyState> initialPlayers,
-        IReadOnlyDictionary<uint, double> startingRatings)
+        IReadOnlyDictionary<uint, Rating> startingRatings)
     {
         if (StartedAt.HasValue) return;
         StartedAt = startedAt;
@@ -19,7 +20,7 @@ internal sealed class MatchParticipationTracker
     }
 
     public void Join(PlayerLobbyState state, DateTimeOffset at, MatchJoinKind kind, bool backfiller,
-        double? startingRatingMean = null)
+        Rating? startingRating = null)
     {
         if (!StartedAt.HasValue) return;
         if (!_players.TryGetValue(state.PlayerId, out var player))
@@ -31,7 +32,8 @@ internal sealed class MatchParticipationTracker
                 SquadId = state.SquadId,
                 WasInitial = kind == MatchJoinKind.Initial,
                 WasBackfiller = backfiller,
-                StartingRatingMean = startingRatingMean
+                StartingRatingMean = startingRating?.Mean,
+                StartingRatingDeviation = startingRating?.StandardDeviation
             };
             _players[state.PlayerId] = player;
         }
@@ -44,6 +46,7 @@ internal sealed class MatchParticipationTracker
         player.Presences.Add(new CompletedMatchPresence
         {
             Sequence = player.Presences.Count,
+            TeamSlot = GetTeamSlot(player, state.Team, at),
             JoinedAt = (ulong)at.ToUnixTimeMilliseconds(),
             JoinKind = kind,
             Team = state.Team,
@@ -63,12 +66,20 @@ internal sealed class MatchParticipationTracker
         presence.LeaveKind = reason;
     }
 
-    public void SetResult(uint playerId, bool winner, Dictionary<PlayerMatchStatType, int>? stats, int total)
+    public void SetResult(uint playerId, bool winner, Dictionary<PlayerMatchStatType, int>? stats, int total,
+        Dictionary<ScoreType, float>? rawStats, Dictionary<Key, CompletedMatchDeviceStats>? deviceStats)
     {
         if (!_players.TryGetValue(playerId, out var player)) return;
         player.IsWinner = winner;
-        player.Stats = new Dictionary<PlayerMatchStatType, int>(stats ?? []);
-        player.TotalScore = total;
+        foreach (var (type, value) in stats ?? []) player.Stats[type] = player.Stats.GetValueOrDefault(type) + value;
+        player.TotalScore += total;
+        foreach (var (type, value) in rawStats ?? []) player.RawStats[type] = player.RawStats.GetValueOrDefault(type) + value;
+        foreach (var (key, value) in deviceStats ?? [])
+        {
+            if (!player.DeviceStats.TryGetValue(key, out var existing)) player.DeviceStats[key] = existing = new CompletedMatchDeviceStats();
+            existing.Placed += value.Placed;
+            existing.Destroyed += value.Destroyed;
+        }
     }
 
     public List<CompletedMatchPlayer> Complete(DateTimeOffset endedAt)
@@ -83,5 +94,19 @@ internal sealed class MatchParticipationTracker
             }
         }
         return _players.Values.ToList();
+    }
+
+    private int GetTeamSlot(CompletedMatchPlayer player, TeamType team, DateTimeOffset at)
+    {
+        var previousSlot = player.Presences.LastOrDefault(presence => presence.Team == team)?.TeamSlot;
+        if (previousSlot is > 0) return previousSlot.Value;
+
+        var occupiedSlots = _players.Values
+            .SelectMany(candidate => candidate.Presences)
+            .Where(presence => presence.Team == team && presence.LeftAt is null)
+            .Select(presence => presence.TeamSlot)
+            .ToHashSet();
+        for (var slot = 1; ; slot++)
+            if (!occupiedSlots.Contains(slot)) return slot;
     }
 }

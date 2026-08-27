@@ -7,6 +7,7 @@ namespace BNLReloadedServer.BaseTypes;
 public partial class Unit
 {
     public Dictionary<ScoreType, float>? Stats { get; }
+    public Dictionary<Key, CompletedMatchDeviceStats>? DeviceStats { get; }
 
     private const float AssistSeconds = 30;
 
@@ -39,8 +40,9 @@ public partial class Unit
         }
     }
 
-    public void BuiltBlock(DeviceType deviceType, float resources)
+    public void BuiltBlock(Key deviceKey, DeviceType deviceType, float resources)
     {
+        UpdateDeviceStat(deviceKey, placed: true);
         switch (deviceType)
         {
             case DeviceType.None:
@@ -82,6 +84,15 @@ public partial class Unit
                 break;
         }
     }
+
+    private void UpdateDeviceStat(Key deviceKey, bool placed)
+    {
+        if (DeviceStats is null) return;
+        if (!DeviceStats.TryGetValue(deviceKey, out var stats)) DeviceStats[deviceKey] = stats = new CompletedMatchDeviceStats();
+        if (placed) stats.Placed++; else stats.Destroyed++;
+    }
+
+    private void RecordDestroyedBlock(Key deviceKey) => UpdateDeviceStat(deviceKey, placed: false);
 
     public void EarnedResource(float resources, bool isMining)
     {
@@ -289,6 +300,7 @@ public partial class Unit
                 break;
 
             case HealthType.World when killerPlayer is not null:
+                killerPlayer.RecordDestroyedBlock(Key);
                 switch (UnitCard.DeviceType)
                 {
                     case DeviceType.None:

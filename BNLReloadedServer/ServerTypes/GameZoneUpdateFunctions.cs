@@ -529,7 +529,7 @@ public partial class GameZone
 
                         if (unitSource.PlayerId is not null)
                         {
-                            unitSource.BuiltBlock(blockCard.DeviceType, instEffectBuildDevice.TotalCost);
+                            unitSource.BuiltBlock(blockCard.Key, blockCard.DeviceType, instEffectBuildDevice.TotalCost);
                             _serviceZone.SendDeviceBuilt(unitSource.PlayerId.Value, devCard.Key, blockLoc.ToVector3() + new Vector3(0.5f));
                         }
                         return true;
@@ -738,7 +738,7 @@ public partial class GameZone
 
                         if (unitSource.PlayerId is not null)
                         {
-                            unitSource.BuiltBlock(unitCard.DeviceType, instEffectBuildDevice.TotalCost);
+                            unitSource.BuiltBlock(unitCard.Key, unitCard.DeviceType, instEffectBuildDevice.TotalCost);
                             _serviceZone.SendDeviceBuilt(unitSource.PlayerId.Value, devCard.Key, placePos);
                         }
 

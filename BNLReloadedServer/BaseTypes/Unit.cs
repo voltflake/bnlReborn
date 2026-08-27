@@ -779,6 +779,7 @@ public partial class Unit
         if (PlayerId != null)
         {
             Stats = new Dictionary<ScoreType, float>();
+            DeviceStats = new Dictionary<Key, CompletedMatchDeviceStats>();
         }
 
         var effects = new Dictionary<Key, ulong?>();

@@ -32,6 +32,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         _playerDb.CreateTableAsync<ArchivedMatchRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchTeamRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchPlayerRecord>().Wait();
+        _playerDb.CreateTableAsync<ArchivedMatchPlayerDeviceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchPresenceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchDeviceRecord>().Wait();
         _playerDb.CreateTableAsync<ArchivedMatchPerkRecord>().Wait();
@@ -46,6 +47,15 @@ public class MasterServerDatabase : IMasterServerDatabase
             await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN starting_rating_mean REAL");
         if (!playerColumns.Any(column => column.Name.Equals("rating_delta", StringComparison.OrdinalIgnoreCase)))
             await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN rating_delta REAL");
+        if (!playerColumns.Any(column => column.Name.Equals("starting_rating_deviation", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN starting_rating_deviation REAL");
+        if (!playerColumns.Any(column => column.Name.Equals("rating_deviation_delta", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN rating_deviation_delta REAL");
+        if (!playerColumns.Any(column => column.Name.Equals("raw_stats", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPlayers ADD COLUMN raw_stats BLOB");
+        var presenceColumns = await _playerDb.QueryAsync<SchemaColumn>("PRAGMA table_info(MatchPresences)");
+        if (!presenceColumns.Any(column => column.Name.Equals("team_slot", StringComparison.OrdinalIgnoreCase)))
+            await _playerDb.ExecuteAsync("ALTER TABLE MatchPresences ADD COLUMN team_slot INTEGER NOT NULL DEFAULT 0");
         var matchColumns = await _playerDb.QueryAsync<SchemaColumn>("PRAGMA table_info(Matches)");
         if (!matchColumns.Any(column => column.Name.Equals("end_reason", StringComparison.OrdinalIgnoreCase)))
             await _playerDb.ExecuteAsync("ALTER TABLE Matches ADD COLUMN end_reason INTEGER NOT NULL DEFAULT 0");
@@ -65,7 +75,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             var playerIds = match.Players.Select(player => player.PlayerId).Distinct().ToList();
             var currentRatings = (await _playerDb.Table<PlayerRecord>()
                     .Where(player => playerIds.Contains(player.PlayerId)).ToListAsync())
-                .ToDictionary(player => player.PlayerId, player => player.RatingMean);
+                .ToDictionary(player => player.PlayerId);
             foreach (var player in match.Players)
             {
                 // A retransmission must retain the delta originally recorded for this match;
@@ -74,7 +84,12 @@ public class MasterServerDatabase : IMasterServerDatabase
                     player.RatingDelta = recordedDelta;
                 else if (player.StartingRatingMean is double startingRating &&
                          currentRatings.TryGetValue(player.PlayerId, out var currentRating))
-                    player.RatingDelta = currentRating - startingRating;
+                    player.RatingDelta = currentRating.RatingMean - startingRating;
+                if (previousByPlayer.GetValueOrDefault(player.PlayerId)?.RatingDeviationDelta is double recordedDeviationDelta)
+                    player.RatingDeviationDelta = recordedDeviationDelta;
+                else if (player.StartingRatingDeviation is double startingDeviation &&
+                         currentRatings.TryGetValue(player.PlayerId, out var currentDeviationRating))
+                    player.RatingDeviationDelta = currentDeviationRating.RatingDeviation - startingDeviation;
             }
 
             await _playerDb.RunInTransactionAsync(db =>
@@ -90,6 +105,7 @@ public class MasterServerDatabase : IMasterServerDatabase
                 }
                 db.Execute("DELETE FROM MatchPresences WHERE match_id = ?", match.MatchId);
                 db.Execute("DELETE FROM MatchPlayers WHERE match_id = ?", match.MatchId);
+                db.Execute("DELETE FROM MatchPlayerDevices WHERE match_id = ?", match.MatchId);
                 db.Execute("DELETE FROM MatchTeams WHERE match_id = ?", match.MatchId);
 
                 db.InsertOrReplace(new ArchivedMatchRecord
@@ -116,6 +132,9 @@ public class MasterServerDatabase : IMasterServerDatabase
                     using var statStream = new MemoryStream();
                     using (var writer = new BinaryWriter(statStream, System.Text.Encoding.UTF8, true))
                         writer.WriteMap(player.Stats, writer.WriteByteEnum, writer.Write);
+                    using var rawStatStream = new MemoryStream();
+                    using (var writer = new BinaryWriter(rawStatStream, System.Text.Encoding.UTF8, true))
+                        writer.WriteMap(player.RawStats, writer.WriteByteEnum, writer.Write);
                     db.Insert(new ArchivedMatchPlayerRecord
                     {
                         MatchId = match.MatchId,
@@ -126,9 +145,17 @@ public class MasterServerDatabase : IMasterServerDatabase
                         WasBackfiller = player.WasBackfiller,
                         IsWinner = player.IsWinner,
                         StartingRatingMean = player.StartingRatingMean,
+                        StartingRatingDeviation = player.StartingRatingDeviation,
                         RatingDelta = player.RatingDelta,
+                        RatingDeviationDelta = player.RatingDeviationDelta,
                         TotalScore = player.TotalScore,
-                        Stats = statStream.ToArray()
+                        Stats = statStream.ToArray(),
+                        RawStats = rawStatStream.ToArray()
+                    });
+                    foreach (var (deviceKey, counts) in player.DeviceStats) db.Insert(new ArchivedMatchPlayerDeviceRecord
+                    {
+                        MatchId = match.MatchId, PlayerId = player.PlayerId, DeviceKey = deviceKey.Hash,
+                        Placed = counts.Placed, Destroyed = counts.Destroyed
                     });
                     foreach (var presence in player.Presences)
                     {
@@ -137,6 +164,7 @@ public class MasterServerDatabase : IMasterServerDatabase
                             MatchId = match.MatchId,
                             PlayerId = player.PlayerId,
                             Sequence = presence.Sequence,
+                            TeamSlot = presence.TeamSlot,
                             JoinedAt = (long)presence.JoinedAt,
                             LeftAt = (long?)presence.LeftAt,
                             JoinKind = (int)presence.JoinKind,
@@ -182,6 +210,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         if (match == null) return null;
         var teams = await _playerDb.Table<ArchivedMatchTeamRecord>().Where(row => row.MatchId == matchId).ToListAsync();
         var players = await _playerDb.Table<ArchivedMatchPlayerRecord>().Where(row => row.MatchId == matchId).ToListAsync();
+        var playerDevices = await _playerDb.Table<ArchivedMatchPlayerDeviceRecord>().Where(row => row.MatchId == matchId).ToListAsync();
         var presences = await _playerDb.Table<ArchivedMatchPresenceRecord>().Where(row => row.MatchId == matchId).ToListAsync();
         var devices = new List<ArchivedMatchDeviceRecord>();
         var perks = new List<ArchivedMatchPerkRecord>();
@@ -192,7 +221,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             perks.AddRange(await _playerDb.Table<ArchivedMatchPerkRecord>()
                 .Where(row => row.PresenceId == presence.Id).ToListAsync());
         }
-        return new ArchivedMatchDetail(match, teams, players, presences, devices, perks);
+        return new ArchivedMatchDetail(match, teams, players, playerDevices, presences, devices, perks);
     }
 
     // Ranks are relative, so the ladder is rebuilt whenever a rating or a match count could have

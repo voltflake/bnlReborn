@@ -38,9 +38,23 @@ public sealed class ArchivedMatchPlayerRecord
     [Column("was_backfiller")] public bool WasBackfiller { get; set; }
     [Column("is_winner")] public bool IsWinner { get; set; }
     [Column("starting_rating_mean")] public double? StartingRatingMean { get; set; }
+    [Column("starting_rating_deviation")] public double? StartingRatingDeviation { get; set; }
     [Column("rating_delta")] public double? RatingDelta { get; set; }
+    [Column("rating_deviation_delta")] public double? RatingDeviationDelta { get; set; }
     [Column("total_score")] public int TotalScore { get; set; }
     [Column("stats")] public byte[] Stats { get; set; } = [];
+    [Column("raw_stats")] public byte[] RawStats { get; set; } = [];
+}
+
+[Table("MatchPlayerDevices")]
+public sealed class ArchivedMatchPlayerDeviceRecord
+{
+    [PrimaryKey, AutoIncrement, Column("id")] public long Id { get; set; }
+    [Indexed(Name = "IX_MatchPlayerDevices", Order = 1, Unique = true), Column("match_id")] public string MatchId { get; set; } = string.Empty;
+    [Indexed(Name = "IX_MatchPlayerDevices", Order = 2, Unique = true), Column("player_id")] public long PlayerId { get; set; }
+    [Indexed(Name = "IX_MatchPlayerDevices", Order = 3, Unique = true), Column("device_key")] public long DeviceKey { get; set; }
+    [Column("placed")] public int Placed { get; set; }
+    [Column("destroyed")] public int Destroyed { get; set; }
 }
 
 [Table("MatchPresences")]
@@ -50,6 +64,7 @@ public sealed class ArchivedMatchPresenceRecord
     [Indexed(Name = "IX_MatchPresences_Sequence", Order = 1, Unique = true), Column("match_id")] public string MatchId { get; set; } = string.Empty;
     [Indexed(Name = "IX_MatchPresences_Sequence", Order = 2, Unique = true), Column("player_id")] public long PlayerId { get; set; }
     [Indexed(Name = "IX_MatchPresences_Sequence", Order = 3, Unique = true), Column("sequence")] public int Sequence { get; set; }
+    [Column("team_slot")] public int TeamSlot { get; set; }
     [Column("joined_at_ms")] public long JoinedAt { get; set; }
     [Column("left_at_ms")] public long? LeftAt { get; set; }
     [Column("join_kind")] public int JoinKind { get; set; }
@@ -82,6 +97,7 @@ public sealed record ArchivedMatchDetail(
     ArchivedMatchRecord Match,
     List<ArchivedMatchTeamRecord> Teams,
     List<ArchivedMatchPlayerRecord> Players,
+    List<ArchivedMatchPlayerDeviceRecord> PlayerDevices,
     List<ArchivedMatchPresenceRecord> Presences,
     List<ArchivedMatchDeviceRecord> Devices,
     List<ArchivedMatchPerkRecord> Perks);

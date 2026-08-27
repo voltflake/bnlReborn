@@ -266,7 +266,7 @@ public partial class GameZone : Updater
             var kind = _matchParticipation.HasParticipant(playerId) ? MatchJoinKind.Reconnect : MatchJoinKind.Backfill;
             _matchParticipation.Join(joiningPlayer, DateTimeOffset.Now, kind,
                 _gameInitiator.IsPlayerBackfill(playerId),
-                Databases.PlayerDatabase.GetPlayerDataNoWait(playerId)?.Rating.Mean);
+                Databases.PlayerDatabase.GetPlayerDataNoWait(playerId)?.Rating);
         }
         zoneService.SendUpdateZone(GetInitialZoneUpdate());
         zoneService.SendUpdateBarriers(GetBarriersForPhase(_zoneData.Phase.PhaseType));
@@ -631,13 +631,13 @@ public partial class GameZone : Updater
         var startedAt = DateTimeOffset.Now;
         var (team1Ratings, team2Ratings) = _gameInitiator.GetTeamRatings();
         var startingRatings = team1Ratings.Concat(team2Ratings)
-            .ToDictionary(pair => pair.Key, pair => pair.Value.Mean);
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
         var initialPlayers = _playerLobbyInfo.Values
             .Where(player => !_gameInitiator.IsPlayerSpectator(player.PlayerId)).ToList();
         foreach (var player in initialPlayers)
         {
             if (!startingRatings.ContainsKey(player.PlayerId) &&
-                Databases.PlayerDatabase.GetPlayerDataNoWait(player.PlayerId)?.Rating.Mean is double rating)
+                Databases.PlayerDatabase.GetPlayerDataNoWait(player.PlayerId)?.Rating is { } rating)
                 startingRatings[player.PlayerId] = rating;
         }
         _matchParticipation.Start(startedAt, initialPlayers, startingRatings);
@@ -1067,12 +1067,14 @@ public partial class GameZone : Updater
         var archivedTotal = 0;
         if (player.Stats != null)
         {
+            player.UpdateStatsFromTimers();
             archivedStatInfo = _zoneData.MatchCard.Stats?.Stats?.ToDictionary(k => k.Key,
                 v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
             var archivedTotalInfo = _zoneData.MatchCard.Stats?.Total;
             archivedTotal = (int)(archivedTotalInfo?.Sum(
                 score => archivedStatInfo?[score.Key] * score.Value) ?? 0);
-            _matchParticipation.SetResult(playerId, false, archivedStatInfo, archivedTotal);
+            _matchParticipation.SetResult(playerId, false, archivedStatInfo, archivedTotal,
+                new Dictionary<ScoreType, float>(player.Stats), CloneDeviceStats(player.DeviceStats));
         }
 
         if (!_zoneData.MatchEnded && !_gameInitiator.IsMapEditor() && _zoneData.GameModeCard.ExitMatchBehaviour is ExitMatchBehaviourType.Demerit or ExitMatchBehaviourType.Restricted)
@@ -1458,7 +1460,8 @@ public partial class GameZone : Updater
                 v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
             var totalInfo = zoneDataMatchCard.Stats?.Total;
             _matchParticipation.SetResult(player.PlayerId.Value, player.Team == winner, statInfo,
-                (int)(totalInfo?.Sum(score => statInfo?[score.Key] * score.Value) ?? 0));
+                (int)(totalInfo?.Sum(score => statInfo?[score.Key] * score.Value) ?? 0),
+                new Dictionary<ScoreType, float>(player.Stats), CloneDeviceStats(player.DeviceStats));
 
             var playerInfo = _playerLobbyInfo.GetValueOrDefault(player.PlayerId.Value);
             matchStats.Add(new EndMatchPlayerData
@@ -1713,6 +1716,10 @@ public partial class GameZone : Updater
             Teams = teams,
             Players = _matchParticipation.Complete(endedAt)
         });
+
+    private static Dictionary<Key, CompletedMatchDeviceStats>? CloneDeviceStats(
+        Dictionary<Key, CompletedMatchDeviceStats>? stats) => stats?.ToDictionary(
+        pair => pair.Key, pair => new CompletedMatchDeviceStats { Placed = pair.Value.Placed, Destroyed = pair.Value.Destroyed });
 
     private DamageData ConvertToDamageData(Damage damage, Vector3 targetPos, Vector3 shotPos, Unit? source = null,
         bool splashDamage = false, bool crit = false,
