@@ -762,7 +762,7 @@ public sealed class ControlPanelServer : IDisposable
         {
             uptime = (DateTime.UtcNow - _startTime).ToString(@"d\.hh\:mm\:ss"),
             uptime_seconds = (long)(DateTime.UtcNow - _startTime).TotalSeconds,
-            is_master = Databases.ConfigDatabase.IsMaster(),
+            is_master = true,
             master_running = _masterServer?.IsStarted ?? false,
             region_running = _regionServer.IsStarted,
             match_running = _matchServer.IsStarted,

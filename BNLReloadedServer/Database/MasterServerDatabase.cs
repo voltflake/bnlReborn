@@ -18,7 +18,6 @@ public class MasterServerDatabase : IMasterServerDatabase
     // and callers get a copy so they cannot enumerate it while it is being edited.
     private readonly List<RegionInfo> _regionServers = [];
     private readonly Lock _regionServersLock = new();
-    private readonly ConcurrentDictionary<string, IServiceMasterServer> _regionServerConnections = new();
     private readonly ConcurrentDictionary<string, int> _regionPlayerCounts = new();
     private readonly SQLiteAsyncConnection _playerDb;
     
@@ -210,7 +209,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         lock (_regionServersLock) return [.._regionServers];
     }
 
-    public bool AddRegionServer(string id, string host, RegionGuiInfo regionGuiInfo, IServiceMasterServer? serviceMasterServer = null)
+    public bool AddRegionServer(string id, string host, RegionGuiInfo regionGuiInfo)
     {
         lock (_regionServersLock)
         {
@@ -224,9 +223,6 @@ public class MasterServerDatabase : IMasterServerDatabase
             });
         }
 
-        if (serviceMasterServer != null)
-            _regionServerConnections[id] = serviceMasterServer;
-
         ControlPanelEvents.Publish(ControlPanelEvent.Status);
         return true;
     }
@@ -234,8 +230,6 @@ public class MasterServerDatabase : IMasterServerDatabase
     public bool RemoveRegionServer(string id)
     {
         _regionPlayerCounts.TryRemove(id, out _);
-        if (!_regionServerConnections.Remove(id, out _)) return false;
-
         bool removed;
         lock (_regionServersLock) removed = _regionServers.RemoveAll(r => r.Id == id) > 0;
         if (removed) ControlPanelEvents.Publish(ControlPanelEvent.Status);
@@ -448,13 +442,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             if (record == null) return false;
             record.Username = username;
             await _playerDb.UpdateAsync(record);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate
-                {
-                    Nickname = username
-                });
-            }
+            Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { Nickname = username });
         }
         finally
         {
@@ -473,13 +461,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             record.LookingForFriends = lookingForFriends;
             
             await _playerDb.UpdateAsync(record);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate
-                {
-                    LookingForFriends = lookingForFriends
-                });
-            }
+            Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { LookingForFriends = lookingForFriends });
         }
         finally
         {
@@ -498,14 +480,8 @@ public class MasterServerDatabase : IMasterServerDatabase
             if (record == null) return false;
             record.LastPlayedHero = hero.GetCard<CardUnit>()?.Id;
             await _playerDb.UpdateAsync(record);
+            Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { LastPlayedHero = hero });
 
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate
-                {
-                    LastPlayedHero = hero
-                });
-            }
         }
         finally
         {
@@ -524,14 +500,8 @@ public class MasterServerDatabase : IMasterServerDatabase
             if (record == null) return false;
             record.BadgeInfo = PlayerData.WriteBadgeByteRecord(badges);
             await _playerDb.UpdateAsync(record);
+            Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { SelectedBadges = badges });
 
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate
-                {
-                    SelectedBadges = badges
-                });
-            }
         }
         finally
         {
@@ -555,10 +525,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             record = pData.ToPlayerRecord();
 
             await _playerDb.UpdateAsync(record);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendLobbyLoadout(playerId, newLoadouts);
-            }
+            Databases.PlayerDatabase.SetLoadout(playerId, newLoadouts);
         }
         finally
         {
@@ -680,17 +647,14 @@ public class MasterServerDatabase : IMasterServerDatabase
             // has to be rebuilt before their league is read back out of the record.
             await RefreshLadder();
             var league = LeagueRanker.Derive(record);
-            foreach (var regionServer in _regionServerConnections.Values)
+            Databases.PlayerDatabase.SetHeroStats(currPlayer.PlayerId, currPlayer.HeroStats);
+            Databases.PlayerDatabase.UpdatePlayer(currPlayer.PlayerId, new PlayerUpdate
             {
-                regionServer.SendHeroStats(currPlayer.PlayerId, currPlayer.HeroStats);
-                regionServer.SendPlayerUpdate(currPlayer.PlayerId, new PlayerUpdate
-                {
-                    Progression = currPlayer.Progression,
-                    League = league,
-                    TimeTrial = currPlayer.TimeTrial
-                });
-                regionServer.SendMatchHistory(currPlayer.PlayerId, currPlayer.MatchHistory);
-            }
+                Progression = currPlayer.Progression,
+                League = league,
+                TimeTrial = currPlayer.TimeTrial
+            });
+            Databases.PlayerDatabase.SetMatchHistory(currPlayer.PlayerId, currPlayer.MatchHistory);
         }
         finally
         {
@@ -741,16 +705,9 @@ public class MasterServerDatabase : IMasterServerDatabase
             await _playerDb.UpdateAllAsync(newRecords);
             await RefreshLadder();
             var leagues = newRecords.ToDictionary(r => r.PlayerId, LeagueRanker.Derive);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendRatingsUpdate(allPlayers.ToDictionary(p => p.PlayerId, p => p.Rating));
-                // The region caches a player's league, so a new rank only reaches the client if it
-                // is pushed alongside the rating it was derived from.
-                foreach (var (playerId, league) in leagues)
-                {
-                    regionServer.SendPlayerUpdate(playerId, new PlayerUpdate { League = league });
-                }
-            }
+            Databases.PlayerDatabase.SetRatings(allPlayers.ToDictionary(p => p.PlayerId, p => p.Rating));
+            foreach (var (playerId, league) in leagues)
+                Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { League = league });
         }
         finally
         {
@@ -794,11 +751,10 @@ public class MasterServerDatabase : IMasterServerDatabase
             recordSender = senderPlayer.ToPlayerRecord();
             List<PlayerRecord> recList = [recordReceiver, recordSender];
             await _playerDb.UpdateAllAsync(recList);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendFriendUpdate(receiverId, receiverPlayer.Friends, receiverPlayer.RequestsFromFriends, null);
-                regionServer.SendFriendUpdate(senderId, senderPlayer.Friends, null, senderPlayer.RequestsFromMe);
-            }
+            Databases.PlayerDatabase.SetFriendsInfo(receiverId, receiverPlayer.Friends,
+                receiverPlayer.RequestsFromFriends, null);
+            Databases.PlayerDatabase.SetFriendsInfo(senderId, senderPlayer.Friends, null,
+                senderPlayer.RequestsFromMe);
         }
         finally
         {
@@ -831,11 +787,8 @@ public class MasterServerDatabase : IMasterServerDatabase
             recordSender = senderPlayer.ToPlayerRecord();
             List<PlayerRecord> recList = [recordReceiver, recordSender];
             await _playerDb.UpdateAllAsync(recList);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendFriendUpdate(receiverId, null, receiverPlayer.RequestsFromFriends, null);
-                regionServer.SendFriendUpdate(senderId, null, null, senderPlayer.RequestsFromMe);
-            }
+            Databases.PlayerDatabase.SetFriendsInfo(receiverId, null, receiverPlayer.RequestsFromFriends, null);
+            Databases.PlayerDatabase.SetFriendsInfo(senderId, null, null, senderPlayer.RequestsFromMe);
         }
         finally
         {
@@ -845,19 +798,6 @@ public class MasterServerDatabase : IMasterServerDatabase
         return true;
     }
 
-    public void HaveRegionLoadPlayer(string regionServer, PlayerData playerData)
-    {
-        if (regionServer == "master")
-        {
-            Databases.PlayerDatabase.AddPlayer(playerData);
-            return;
-        }
-        
-        if (_regionServerConnections.TryGetValue(regionServer, out var connection))
-        {
-            connection.SendPlayerData(playerData);
-        }
-    }
 
     public async Task<ProfileData> GetProfileData(uint playerId)
     {
@@ -952,10 +892,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             // they passed is left to pick their new rank up on their next match or profile read.
             await RefreshLadder();
             var league = LeagueRanker.Derive(record);
-            foreach (var regionServer in _regionServerConnections.Values)
-            {
-                regionServer.SendPlayerUpdate(playerId, new PlayerUpdate { League = league });
-            }
+            Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { League = league });
         }
         finally
         {

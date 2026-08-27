@@ -7,7 +7,6 @@ namespace BNLReloadedServer.Servers;
 public class MasterServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress) : IServiceDispatcher
 {
     private readonly ServiceLogin _serviceLogin = new(sender, sessionId, peerAddress);
-    private readonly ServiceMasterServer _serviceMasterServer = new(sender, sessionId);
 
     private static bool OnUnsupported(ServiceId? serviceEnum, byte raw)
     {
@@ -28,8 +27,7 @@ public class MasterServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddr
 
         return serviceEnum switch
         {
-            ServiceId.ServiceLogin => _serviceLogin.Receive(reader),
-            ServiceId.ServiceServer => _serviceMasterServer.Receive(reader),
+            ServiceId.ServiceLogin => _serviceLogin.ReceiveMaster(reader),
             _ => OnUnsupported(serviceEnum, serviceId)
         };
     }

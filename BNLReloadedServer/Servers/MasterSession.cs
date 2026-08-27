@@ -17,6 +17,5 @@ internal class MasterSession : ServerSession
 
     protected override IServicePing? LivenessPing => null;
 
-    protected override void OnTeardown() =>
-        Databases.MasterServerDatabase.RemoveRegionServer(Id.ToString());
+    protected override void OnTeardown() { }
 }

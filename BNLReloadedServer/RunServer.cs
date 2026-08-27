@@ -9,19 +9,10 @@ using BNLReloadedServer.Service;
 using CouchDB.Driver;
 using CouchDB.Driver.Options;
 
-if (args is ["--hash-password", var passwordToHash])
-{
-    Console.WriteLine(PasswordHasher.Hash(passwordToHash));
-    return;
-}
-
 Log.Attach();
 
 var configs = Databases.ConfigDatabase;
 Log.MinLevel = configs.MinLogLevel();
-var masterMode = configs.IsMaster();
-var runServer = configs.DoRunServer();
-
 const int bufferSize = 2000000;  // 2MB
 
 var catalogueStore = new CouchCatalogueStore(
@@ -35,8 +26,6 @@ var catalogueStore = new CouchCatalogueStore(
     Path.Combine(Databases.CacheFolderPath, configs.ExportCdbName()),
     JsonHelper.DefaultSerializerSettings);
 
-if (runServer)
-{
     var loadedCards = catalogueStore.Load();
     ((ServerCatalogue)Databases.Catalogue).Replicate(loadedCards);
     Log.Info(LogCat.Catalogue, $"Replicated {loadedCards.Count} cards to server catalogue");
@@ -47,39 +36,26 @@ if (runServer)
                               "the server has nothing to put on a lobby ballot and would never start a match. Stopping.");
         return;
     }
-}
+    var server = new MasterServer(configs.MasterIp(), 28100);
+    server.OptionNoDelay = true;
+    server.OptionSendBufferSize = bufferSize;
+    server.OptionReceiveBufferSize = bufferSize;
+    server.Start();
 
-if (runServer)
-{
-    MasterServer? server = null;
-    if (masterMode)
-    {
-        // Create a new TCP server
-        server = new MasterServer(configs.MasterIp(), 28100);
-        server.OptionNoDelay = true;
-        server.OptionSendBufferSize = bufferSize;
-        server.OptionReceiveBufferSize = bufferSize;
-        
-        // Start the server
-        server.Start();
-    }
-
-    var regionServer = new RegionServer(configs.RegionIp(), 28101);
+    var regionServer = new RegionServer(configs.MasterIp(), 28101);
     regionServer.OptionNoDelay = true;
     regionServer.OptionSendBufferSize = bufferSize;
     regionServer.OptionReceiveBufferSize = bufferSize;
-    var regionClient = new RegionClient(configs.MasterHost(), 28100);
-    regionClient.OptionNoDelay = true;
-    regionClient.OptionSendBufferSize = bufferSize;
-    regionClient.OptionReceiveBufferSize = bufferSize;
-    var matchServer = new MatchServer(configs.RegionIp(), 28102);
+    var matchServer = new MatchServer(configs.MasterIp(), 28102);
     matchServer.OptionNoDelay = true;
     matchServer.OptionSendBufferSize = bufferSize;
     matchServer.OptionReceiveBufferSize = bufferSize;
     Databases.SetRegionDatabase(new RegionServerDatabase(regionServer, matchServer));
+    // Master, region and instances are one process.  Register the local region directly instead
+    // of opening a loopback TCP connection merely to exchange its own address and public key.
+    Databases.MasterServerDatabase.AddRegionServer("master", configs.MasterPublicHost(), configs.GetRegionInfo());
    
     regionServer.Start();
-    regionClient.ConnectAsync();
     matchServer.Start();
 
     var watcherCts = new CancellationTokenSource();
@@ -117,7 +93,10 @@ if (runServer)
     ControlPanelServer? controlPanel = null;
     if (Databases.ConfigDatabase.ControlPanelEnabled())
     {
-        var prefix = $"http://{Databases.ConfigDatabase.ControlPanelHost()}:{Databases.ConfigDatabase.ControlPanelPort()}/";
+        // The panel is often reached through a reverse proxy or an alternate DNS name.  Its
+        // listener must accept those Host headers; route and session authorization still happen
+        // inside ControlPanelServer.
+        var prefix = $"http://*:{Databases.ConfigDatabase.ControlPanelPort()}/";
         controlPanel = new ControlPanelServer(
             prefix,
             server,
@@ -128,71 +107,27 @@ if (runServer)
         controlPanel.Start();
     }
     
-    Log.Info(LogCat.Server, "Press Enter to stop the server or '!' to restart the server...");
+    Console.CancelKeyPress += (_, eventArgs) =>
+    {
+        // Keep Ctrl+C inside the normal shutdown path so listeners and the control panel are
+        // disposed cleanly instead of relying on abrupt process termination.
+        eventArgs.Cancel = true;
+        ShutdownSignal.Request();
+    };
+
+    Log.Info(LogCat.Server, "Server running; press Ctrl+C to stop.");
     try
     {
-        // Perform text input
-        while (true)
-        {
-            if (Databases.ConfigDatabase.DoReadline())
-            {
-                var line = Console.ReadLine();
-                if (string.IsNullOrEmpty(line))
-                    break;
-
-                switch (line)
-                {
-                    // Restart the server
-                    case "!":
-                    {
-                        Log.Info(LogCat.Server, "Restarting listeners...");
-                        server?.Restart();
-                        regionServer.Restart();
-                        regionClient.Disconnect();
-                        regionClient.Reconnect();
-                        matchServer.Restart();
-                        Log.Info(LogCat.Server, "Listeners restarted");
-                        break;
-                    }
-                    case "refreshCdbLoad" when Databases.Catalogue is ServerCatalogue serverCatalogue:
-                    {
-                        Log.Info(LogCat.Catalogue, "Refreshing catalogue...");
-                        try
-                        {
-                            var newCardList = catalogueStore.Load();
-                            serverCatalogue.Replicate(newCardList);
-                            var catalogueReplicator = new ServiceCatalogue(new ServerSender(regionServer));
-                            catalogueReplicator.SendReplicate(newCardList);
-                            Log.Info(LogCat.Catalogue, $"Refreshed: {newCardList.Count} cards replicated to connected clients");
-                        }
-                        catch (Exception e)
-                        {
-                            Log.Error(LogCat.Catalogue, "Catalogue refresh failed, keeping the current catalogue", e);
-                        }
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                await ShutdownSignal.WaitForShutdown;
-                break;
-            }
-        }
+        await ShutdownSignal.WaitForShutdown;
     }
     finally
     {
         // Stop the server
         Log.Info(LogCat.Server, "Server stopping...");
-        server?.Stop();
+        server.Stop();
         regionServer.Stop();
-        regionClient.DisconnectAndStop();
-        if (configs.IsMaster())
-        {
-            Databases.MasterServerDatabase.RemoveRegionServer("master");
-        }
+        Databases.MasterServerDatabase.RemoveRegionServer("master");
         matchServer.Stop();
         controlPanel?.Dispose();
         Log.Info(LogCat.Server, "Server stopped");
     }
-}

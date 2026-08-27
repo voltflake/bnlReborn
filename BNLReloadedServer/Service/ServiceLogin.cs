@@ -372,7 +372,9 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         
         if (!_masterServerDatabase.SetRegionForPlayer(player.PlayerId, region.Info?.Name?.Text ?? region.Id).Result) return;
         
-        _masterServerDatabase.HaveRegionLoadPlayer(region.Id, player);
+        // The region is local to this process, so loading a selected player is a direct cache
+        // insertion rather than a loopback packet.
+        Databases.PlayerDatabase.AddPlayer(player);
         SendEnterRegion(region, playerId);
     }
 
@@ -506,7 +508,11 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         }
     }
 
-    public bool Receive(BinaryReader reader)
+    public bool Receive(BinaryReader reader) => Receive(reader, masterListener: false);
+
+    public bool ReceiveMaster(BinaryReader reader) => Receive(reader, masterListener: true);
+
+    private bool Receive(BinaryReader reader, bool masterListener)
     {
         var serviceLoginId = reader.ReadByte();
         ServiceLoginId? loginEnum = null;
@@ -516,6 +522,12 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         }
 
         Log.Debug(LogCat.Net, $"Service Login ID: {Log.EnumName(loginEnum, serviceLoginId)}");
+
+        if (masterListener && loginEnum is ServiceLoginId.MessageLoginRegion or ServiceLoginId.MessageLoginInstance)
+        {
+            Log.Warn(LogCat.Net, $"Master listener rejected region-only login packet {Log.EnumName(loginEnum, serviceLoginId)}");
+            return false;
+        }
 
         switch (loginEnum)
         {

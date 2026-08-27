@@ -13,9 +13,6 @@ public interface IPlayerDatabase
     public string GetAuthTokenForPlayer(uint playerId);
     public uint? GetPlayerIdFromAuthTokenMaster(string authToken);
     public uint? GetPlayerIdFromAuthTokenRegion(string authToken);
-    public void SetMasterPublicKey(string publicKey);
-    public string GetPublicKey();
-    public void SetRegionServerService(IServiceRegionServer serviceRegionServer);
     public string GetPlayerName(uint playerId);
     public Task<PlayerData> GetPlayerData(uint playerId);
     public PlayerData? GetPlayerDataNoWait(uint playerId);

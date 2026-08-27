@@ -384,7 +384,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             case SceneType.Lobby:
             case SceneType.Zone:
                 if (enterInstance)
-                    sceneService.SendEnterInstance(Databases.ConfigDatabase.RegionPublicHost(), 28102,
+                    sceneService.SendEnterInstance(Databases.ConfigDatabase.MasterPublicHost(), 28102,
                         _playerDatabase.GetAuthTokenForPlayer(userId));
                 break;
             case SceneType.MainMenu when info.GameInstanceId != null:

@@ -15,6 +15,5 @@ public enum ServiceId : byte
     ServiceMatchmaker = 11,
     ServiceLeaderboard = 12,
     ServicePing = 13,
-    ServiceMediator = 14,
-    ServiceServer = 15
+    ServiceMediator = 14
 }

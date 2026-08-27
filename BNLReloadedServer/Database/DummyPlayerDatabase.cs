@@ -246,15 +246,6 @@ public class DummyPlayerDatabase : IPlayerDatabase
     public uint? GetPlayerIdFromAuthTokenMaster(string authToken) => uint.Parse(authToken);
 
     public uint? GetPlayerIdFromAuthTokenRegion(string authToken) => uint.Parse(authToken);
-    public void SetMasterPublicKey(string publicKey)
-    {
-    }
-
-    public string GetPublicKey() => "";
-    public void SetRegionServerService(IServiceRegionServer serviceRegionServer)
-    {
-    }
-
     public string GetPlayerName(uint playerId) => TestUserName;
     
     public Task<PlayerData> GetPlayerData(uint playerId)

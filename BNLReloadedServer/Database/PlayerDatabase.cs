@@ -22,10 +22,6 @@ public class PlayerDatabase : IPlayerDatabase
     
     private readonly RSA _tokenSigner = new RSACryptoServiceProvider();
     
-    private string? _rsaMasterPublicKey;
-    
-    private IServiceRegionServer _serviceRegionServer;
-    
     private readonly Dictionary<CurrencyType, float> _testCurrencies = new()
     {
         { CurrencyType.Virtual, 10000f },
@@ -66,6 +62,29 @@ public class PlayerDatabase : IPlayerDatabase
         inventory.AddRange(badgeCards.Select(badgeCard => new InventoryItem { Item = badgeCard.Key }).ToList());
         return inventory;
     }
+
+    // Persistent state and the active-player cache live in this process.  Keep the cache fresh
+    // after a write without routing the same payload through a loopback master connection.
+    private void PersistAndReload(Task operation, params uint[] playerIds) =>
+        _ = PersistAndReloadAsync(operation, playerIds);
+
+    private async Task PersistAndReloadAsync(Task operation, IReadOnlyCollection<uint> playerIds)
+    {
+        try
+        {
+            await operation;
+            foreach (var playerId in playerIds.Distinct())
+            {
+                var player = await Databases.MasterServerDatabase.GetPlayer(playerId);
+                if (player != null && _players.ContainsKey(playerId)) _players[playerId] = player;
+            }
+            ControlPanelEvents.Publish(ControlPanelEvent.Players);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(LogCat.Player, "Failed to persist local player state", ex);
+        }
+    }
     
     private static Dictionary<Key, GameModeState> GetGameModeStates()
     {
@@ -104,7 +123,7 @@ public class PlayerDatabase : IPlayerDatabase
             task.SetResult(player);
         }
 
-        _serviceRegionServer?.SendPlayerCount(_players.Count);
+        Databases.MasterServerDatabase.SetRegionPlayerCount("master", _players.Count);
         ControlPanelEvents.Publish(
             ControlPanelEvent.Players | ControlPanelEvent.Status | ControlPanelEvent.Activity);
         return true;
@@ -127,7 +146,7 @@ public class PlayerDatabase : IPlayerDatabase
             {
                 Log.Error(LogCat.Player, $"Failed to persist last-online time for player {playerId}", ex);
             }
-            _serviceRegionServer?.SendPlayerCount(_players.Count);
+            Databases.MasterServerDatabase.SetRegionPlayerCount("master", _players.Count);
             ControlPanelEvents.Publish(
                 ControlPanelEvent.Players | ControlPanelEvent.Status | ControlPanelEvent.Activity);
         }
@@ -180,25 +199,8 @@ public class PlayerDatabase : IPlayerDatabase
         var encodedBytes = encoder.GetBytes(token);
         var signatureBytes = Convert.FromBase64String(signature);
         
-        if (Databases.ConfigDatabase.IsMaster())
-        {
-            if (!_tokenSigner.VerifyData(encodedBytes, signatureBytes, HashAlgorithmName.SHA256,
-                    RSASignaturePadding.Pkcs1)) return null;
-        }
-        else
-        {
-            using var rsa = new RSACryptoServiceProvider();
-            try
-            {
-                rsa.ImportFromPem(_rsaMasterPublicKey);
-                if (!rsa.VerifyData(encodedBytes, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
-                    return null;
-            }
-            finally
-            {
-                rsa.PersistKeyInCsp = false;
-            }
-        }
+        if (!_tokenSigner.VerifyData(encodedBytes, signatureBytes, HashAlgorithmName.SHA256,
+                RSASignaturePadding.Pkcs1)) return null;
         
         var player = JsonSerializer.Deserialize<PlayerToken>(encodedBytes);
         return player?.Timestamp.AddMinutes(10) < DateTimeOffset.UtcNow ? null : player?.PlayerId;
@@ -223,19 +225,6 @@ public class PlayerDatabase : IPlayerDatabase
         
         var player = JsonSerializer.Deserialize<PlayerToken>(encodedBytes);
         return player?.Timestamp.AddMinutes(10) < DateTimeOffset.UtcNow ? null : player?.PlayerId;
-    }
-
-    public void SetMasterPublicKey(string publicKey)
-    {
-        _rsaMasterPublicKey = publicKey;
-    }
-
-    public string GetPublicKey() => _tokenSigner.ExportRSAPublicKeyPem();
-    
-    public void SetRegionServerService(IServiceRegionServer serviceRegionServer)
-    {
-        _serviceRegionServer = serviceRegionServer;
-        _serviceRegionServer.SendPlayerCount(_players.Count);
     }
 
     public string GetPlayerName(uint playerId) => _players.GetValueOrDefault(playerId)?.Nickname ?? string.Empty;
@@ -321,19 +310,7 @@ public class PlayerDatabase : IPlayerDatabase
     {
         if (!_players.TryGetValue(playerId, out var player))
         {
-            var profile = _serviceRegionServer.SendProfileDataRequest(playerId).Result;
-            if (profile != null)
-            {
-                return profile;
-            }
-            
-            return new ProfileData
-            {
-                MatchHistory = [],
-                HeroStats = [],
-                LookingForFriends = false,
-                FriendsCount = 0
-            };
+            return Databases.MasterServerDatabase.GetProfileData(playerId).Result;
         }
         
         return new ProfileData
@@ -435,10 +412,11 @@ public class PlayerDatabase : IPlayerDatabase
 
     public Dictionary<CurrencyType, float> GetCurrency(uint playerId) => _testCurrencies;
     
-    public async Task<List<string>?> GetRegions() => await _serviceRegionServer.SendRegionRequest();
+    public Task<List<string>?> GetRegions() => Task.FromResult<List<string>?>(
+        Databases.MasterServerDatabase.GetRegionServers().Select(region => region.Id ?? string.Empty).ToList());
 
     public async Task<List<SearchResult>?> GetSearchResults(string pattern) =>
-        await _serviceRegionServer.SendProfileSearchRequest(pattern);
+        await Databases.MasterServerDatabase.GetSearchResults(pattern);
     
     public async Task<List<FriendInfo>> GetFriends(uint playerId)
     {
@@ -448,8 +426,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
         
         var friends = new List<FriendInfo>();
-        var friendInfo = await _serviceRegionServer.SendFriendSearchRequest(player.Friends);
-        if (friendInfo == null) return friends;
+        var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.Friends);
         foreach (var friend in friendInfo)
         {
             var online = _players.TryGetValue(friend.PlayerId, out var friendData);
@@ -466,8 +443,7 @@ public class PlayerDatabase : IPlayerDatabase
 
         if (!_steamFriends.TryGetValue(playerId, out var steamFriends)) return friends;
         
-        var steamInfo = await _serviceRegionServer.SendFriendSearchSteamRequest(steamFriends);
-        if (steamInfo == null) return friends;
+        var steamInfo = await Databases.MasterServerDatabase.GetSearchResults(steamFriends);
         foreach (var friend in steamInfo)
         {
             var online = _players.TryGetValue(friend.PlayerId, out var friendData);
@@ -496,8 +472,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
         
         var friendsRequests = new List<FriendRequest>();
-        var friendInfo = await _serviceRegionServer.SendFriendSearchRequest(player.RequestsFromFriends);
-        if (friendInfo == null) return friendsRequests;
+        var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.RequestsFromFriends);
         friendsRequests.AddRange(friendInfo.Select(friend => new FriendRequest
             { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
 
@@ -512,8 +487,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
         
         var friendsRequests = new List<FriendRequest>();
-        var friendInfo = await _serviceRegionServer.SendFriendSearchRequest(player.RequestsFromMe);
-        if (friendInfo == null) return friendsRequests;
+        var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.RequestsFromMe);
         friendsRequests.AddRange(friendInfo.Select(friend => new FriendRequest
             { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
 
@@ -521,10 +495,10 @@ public class PlayerDatabase : IPlayerDatabase
     }
 
     public async Task<List<LeagueLeaderboardRecord>?> GetLeaderboard() =>
-        await _serviceRegionServer.SendLeagueLeaderboardRequest();
+        await Databases.MasterServerDatabase.GetLeaderboard();
 
     public async Task<Dictionary<Key, List<TtLeaderboardRecord>>?> GetTimeTrialLeaderboard() =>
-        await _serviceRegionServer.SendTimeTrialLeaderboardRequest();
+        await Databases.MasterServerDatabase.GetTimeTrialLeaderboard();
 
     public bool IsBanned(uint playerId)
     {
@@ -545,7 +519,7 @@ public class PlayerDatabase : IPlayerDatabase
             Databases.RegionServerDatabase.UpdateChatName(playerId, name);
         }
         
-        _serviceRegionServer.SendUsername(playerId, name);
+        PersistAndReload(Databases.MasterServerDatabase.SetUsernameForPlayer(playerId, name), playerId);
         ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
 
@@ -709,35 +683,35 @@ public class PlayerDatabase : IPlayerDatabase
     }
 
     public void UpdateLoadout(uint playerId, Key hero, LobbyLoadout loadout) =>
-        _serviceRegionServer.SendHeroLoadout(playerId, hero, loadout);
+        PersistAndReload(Databases.MasterServerDatabase.SetLoadoutForPlayer(playerId, hero, loadout), playerId);
 
     public void UpdateLookingForFriends(uint playerId, bool lookingForFriends) => 
-        _serviceRegionServer.SendLookingForFriends(playerId, lookingForFriends);
+        PersistAndReload(Databases.MasterServerDatabase.SetLookingForFriendsForPlayer(playerId, lookingForFriends), playerId);
 
     public void UpdateLastPlayedHero(uint playerId, Key heroKey) => 
-        _serviceRegionServer.SendLastPlayedHero(playerId, heroKey);
+        PersistAndReload(Databases.MasterServerDatabase.SetLastPlayedForPlayer(playerId, heroKey), playerId);
 
     public void UpdateBadges(uint playerId, Dictionary<BadgeType, List<Key>> badges) => 
-        _serviceRegionServer.SendBadges(playerId, badges);
+        PersistAndReload(Databases.MasterServerDatabase.SetBadgesForPlayer(playerId, badges), playerId);
 
     public void UpdateCurrency(uint playerId, Dictionary<CurrencyType, float> currencies)
     {
     }
 
     public void UpdateRatings(List<uint> winners, List<uint> losers, HashSet<uint> excluded) =>
-        _serviceRegionServer.SendUpdateRatings(winners, losers, excluded);
+        PersistAndReload(Databases.MasterServerDatabase.SetNewRatings(winners, losers, excluded), winners.Concat(losers).ToArray());
 
     public void UpdateMatchStats(EndMatchResults endMatchResults) =>
-        _serviceRegionServer.SendMatchEndedForPlayer(endMatchResults);
+        PersistAndReload(Databases.MasterServerDatabase.SetNewMatchDataForPlayer(endMatchResults), endMatchResults.PlayerId);
 
     public void StoreCompletedMatch(CompletedMatchRecord match) =>
-        _serviceRegionServer.SendCompletedMatch(match);
+        PersistAndReload(Databases.MasterServerDatabase.StoreCompletedMatch(match));
 
     public void UpdateFriends(uint receiverId, uint senderId, bool accepted) =>
-        _serviceRegionServer.SendFriendUpdate(receiverId, senderId, accepted);
+        PersistAndReload(Databases.MasterServerDatabase.SetFriends(receiverId, senderId, accepted), receiverId, senderId);
 
     public void UpdateFriendRequest(uint receiverId, uint senderId) =>
-        _serviceRegionServer.SendFriendRequest(receiverId, senderId);
+        PersistAndReload(Databases.MasterServerDatabase.SetFriendRequest(receiverId, senderId), receiverId, senderId);
 
     public IEnumerable<PlayerData> GetAllPlayers() => _players.Values;
 }
