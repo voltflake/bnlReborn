@@ -13,10 +13,6 @@ public enum ControlPanelEvent
     Logs = 16
 }
 
-/// <summary>
-/// Process-local invalidation bus for control-panel WebSockets. Publishers only set bits and
-/// release a waiter; snapshot construction and network I/O stay off gameplay threads.
-/// </summary>
 public static class ControlPanelEvents
 {
     private static long _nextId;

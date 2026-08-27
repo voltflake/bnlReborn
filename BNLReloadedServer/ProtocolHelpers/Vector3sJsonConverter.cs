@@ -8,9 +8,9 @@ public class Vector3sJsonConverter : JsonConverter<Vector3s>
 {
     public override Vector3s Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Null) 
+        if (reader.TokenType == JsonTokenType.Null)
             return default;
-        
+
         using var jsonDocument = JsonDocument.ParseValue(ref reader);
         var json = jsonDocument.RootElement;
         return new Vector3s(json.GetProperty("x").Deserialize<short>(), json.GetProperty("y").Deserialize<short>(), json.GetProperty("z").Deserialize<short>());

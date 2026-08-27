@@ -14,37 +14,37 @@ public class CardLeagueLogic : Card
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(Id != null, true, true, true).Write(writer);
-      if (Id != null)
-        writer.Write(Id);
-      writer.WriteByteEnum(Scope);
-      writer.Write(DecayStartDays);
-      writer.Write(DecayPointsPerDay);
+        new BitField(Id != null, true, true, true).Write(writer);
+        if (Id != null)
+            writer.Write(Id);
+        writer.WriteByteEnum(Scope);
+        writer.Write(DecayStartDays);
+        writer.Write(DecayPointsPerDay);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(4);
-      bitField.Read(reader);
-      Id = bitField[0] ? reader.ReadString() : null;
-      if (bitField[1])
-        Scope = reader.ReadByteEnum<ScopeType>();
-      if (bitField[2])
-        DecayStartDays = reader.ReadSingle();
-      if (!bitField[3])
-        return;
-      DecayPointsPerDay = reader.ReadInt32();
+        var bitField = new BitField(4);
+        bitField.Read(reader);
+        Id = bitField[0] ? reader.ReadString() : null;
+        if (bitField[1])
+            Scope = reader.ReadByteEnum<ScopeType>();
+        if (bitField[2])
+            DecayStartDays = reader.ReadSingle();
+        if (!bitField[3])
+            return;
+        DecayPointsPerDay = reader.ReadInt32();
     }
 
     public static void WriteRecord(BinaryWriter writer, CardLeagueLogic value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static CardLeagueLogic ReadRecord(BinaryReader reader)
     {
-      var cardLeagueLogic = new CardLeagueLogic();
-      cardLeagueLogic.Read(reader);
-      return cardLeagueLogic;
+        var cardLeagueLogic = new CardLeagueLogic();
+        cardLeagueLogic.Read(reader);
+        return cardLeagueLogic;
     }
 }

@@ -4,9 +4,11 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(5, 8, 12, .72);
+  background: rgba(5, 8, 12, 0.72);
 }
-.message-modal-backdrop.active { display: block; }
+.message-modal-backdrop.active {
+  display: block;
+}
 .message-modal {
   display: none;
   position: fixed;
@@ -17,9 +19,11 @@
   transform: translate(-50%, -50%);
   background: var(--panel);
   border: 1px solid var(--line);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
-.message-modal.active { display: block; }
+.message-modal.active {
+  display: block;
+}
 .message-modal-head {
   display: flex;
   align-items: flex-start;
@@ -28,9 +32,16 @@
   padding: 20px 22px 14px;
   border-bottom: 1px solid var(--line);
 }
-.message-modal-head h2 { margin: 0; }
-.message-modal-head p { margin: 5px 0 0; color: var(--ink-3); }
-.message-modal-body { padding: 18px 22px 22px; }
+.message-modal-head h2 {
+  margin: 0;
+}
+.message-modal-head p {
+  margin: 5px 0 0;
+  color: var(--ink-3);
+}
+.message-modal-body {
+  padding: 18px 22px 22px;
+}
 .message-toolbar {
   display: flex;
   align-items: center;
@@ -40,10 +51,23 @@
   color: var(--ink-3);
   font-size: 13px;
 }
-.format-btn { min-width: 32px; padding: 5px 9px; }
-.message-toolbar label { display: inline-flex; align-items: center; gap: 6px; }
-.message-toolbar input[type="color"] { width: 30px; height: 28px; padding: 2px; }
-.message-toolbar select { padding: 5px 8px; }
+.format-btn {
+  min-width: 32px;
+  padding: 5px 9px;
+}
+.message-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.message-toolbar input[type="color"] {
+  width: 30px;
+  height: 28px;
+  padding: 2px;
+}
+.message-toolbar select {
+  padding: 5px 8px;
+}
 #messageText {
   display: block;
   width: 100%;
@@ -56,7 +80,12 @@
   border: 1px solid var(--line);
   font: inherit;
 }
-.message-preview-label { margin: 16px 0 6px; color: var(--ink-3); font-size: 12px; text-transform: uppercase; }
+.message-preview-label {
+  margin: 16px 0 6px;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-transform: uppercase;
+}
 .message-preview {
   min-height: 54px;
   padding: 12px;
@@ -65,41 +94,78 @@
   border: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
-.message-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.message-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
 
 /* The nickname doubles as the link out, using the same compact Steam profile chrome. */
 .steam-btn {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 3px 9px 3px 10px;
-  font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-2);
   text-decoration: none;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
-  transition: background .12s, border-color .12s, color .12s;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 .steam-btn::after {
-  content: '\2197'; font-family: var(--sans); font-size: 13px; color: var(--ink-3);
-  transition: color .12s;
+  content: "\2197";
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-3);
+  transition: color 0.12s;
 }
-.steam-btn:hover { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
-.steam-btn:hover::after { color: var(--signal); }
+.steam-btn:hover {
+  background: var(--panel-3);
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+.steam-btn:hover::after {
+  color: var(--signal);
+}
 
 .role-badge {
   /* Fallback, so a role the panel doesn't have a colour for still renders as a badge
      rather than as an invalid color-mix. */
   --role: var(--ink-2);
-  display: inline-block; padding: 3px 9px;
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  border: 1px solid var(--line-2); border-radius: 2px; color: var(--ink-2);
+  display: inline-block;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  color: var(--ink-2);
 }
 /* One graded ramp, the way a game grades rarity: the colour alone tells you where in
    the order a role sits, without having to know the scale first. Four greys couldn't —
    you had to already know that fainter meant lower.
    Every shade is mixed from the single token per role, so retuning one is one value. */
-.role-User      { --role: var(--role-user); }
-.role-Moderator { --role: var(--role-mod); }
-.role-Admin     { --role: var(--role-admin); }
-.role-Core      { --role: var(--role-core); }
+.role-User {
+  --role: var(--role-user);
+}
+.role-Moderator {
+  --role: var(--role-mod);
+}
+.role-Admin {
+  --role: var(--role-admin);
+}
+.role-Core {
+  --role: var(--role-core);
+}
 
 /* Every step wears the same chip; only the hue changes. Core was filled solid, on the
    argument that the top of a ramp should read before you have identified any colour —
@@ -112,11 +178,24 @@
   background: color-mix(in srgb, var(--role) 14%, transparent);
 }
 
-.status-dot { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--ink-3); }
-.status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--dot-off); }
-.status-dot.online { color: var(--ink-2); }
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  color: var(--ink-3);
+}
+.status-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot-off);
+}
+.status-dot.online {
+  color: var(--ink-2);
+}
 .status-dot.online::before {
   background: var(--live);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 16%, transparent);
 }
-

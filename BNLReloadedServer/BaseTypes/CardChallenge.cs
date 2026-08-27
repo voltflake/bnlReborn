@@ -30,58 +30,58 @@ public class CardChallenge : Card
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(Id != null, true, Name != null, Description != null, true, true, true, Label != null,
-        Counters != null, true, Reward != null, true).Write(writer);
-      if (Id != null)
-        writer.Write(Id);
-      writer.WriteByteEnum(Scope);
-      if (Name != null)
-        LocalizedString.WriteRecord(writer, Name);
-      if (Description != null)
-        LocalizedString.WriteRecord(writer, Description);
-      writer.WriteByteEnum(ChallengeType);
-      writer.Write(FriendChallengeAllowed);
-      writer.Write(RandomWeight);
-      if (Label != null)
-        writer.Write(Label);
-      if (Counters != null)
-        writer.WriteList(Counters, MatchCounter.WriteVariant);
-      writer.Write(TotalValueRequired);
-      if (Reward != null)
-        writer.WriteMap(Reward, writer.WriteByteEnum, writer.Write);
-      writer.WriteMap(RubbleRewards, Key.WriteRecord, writer.Write);
+        new BitField(Id != null, true, Name != null, Description != null, true, true, true, Label != null,
+          Counters != null, true, Reward != null, true).Write(writer);
+        if (Id != null)
+            writer.Write(Id);
+        writer.WriteByteEnum(Scope);
+        if (Name != null)
+            LocalizedString.WriteRecord(writer, Name);
+        if (Description != null)
+            LocalizedString.WriteRecord(writer, Description);
+        writer.WriteByteEnum(ChallengeType);
+        writer.Write(FriendChallengeAllowed);
+        writer.Write(RandomWeight);
+        if (Label != null)
+            writer.Write(Label);
+        if (Counters != null)
+            writer.WriteList(Counters, MatchCounter.WriteVariant);
+        writer.Write(TotalValueRequired);
+        if (Reward != null)
+            writer.WriteMap(Reward, writer.WriteByteEnum, writer.Write);
+        writer.WriteMap(RubbleRewards, Key.WriteRecord, writer.Write);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(12);
-      bitField.Read(reader);
-      Id = bitField[0] ? reader.ReadString() : null;
-      if (bitField[1])
-        Scope = reader.ReadByteEnum<ScopeType>();
-      Name = bitField[2] ? LocalizedString.ReadRecord(reader) : null;
-      Description = bitField[3] ? LocalizedString.ReadRecord(reader) : null;
-      if (bitField[4])
-        ChallengeType = reader.ReadByteEnum<ChallengeType>();
-      if (bitField[5])
-        FriendChallengeAllowed = reader.ReadBoolean();
-      if (bitField[6])
-        RandomWeight = reader.ReadSingle();
-      Label = bitField[7] ? reader.ReadString() : null;
-      Counters = bitField[8] ? reader.ReadList<MatchCounter, List<MatchCounter>>(MatchCounter.ReadVariant) : null;
-      if (bitField[9])
-        TotalValueRequired = reader.ReadSingle();
-      Reward = bitField[10] ? reader.ReadMap<CurrencyType, float, Dictionary<CurrencyType, float>>(reader.ReadByteEnum<CurrencyType>, reader.ReadSingle): null;
-      if (bitField[11])
-        RubbleRewards = reader.ReadMap<Key, int, Dictionary<Key, int>>(Key.ReadRecord, reader.ReadInt32);
+        var bitField = new BitField(12);
+        bitField.Read(reader);
+        Id = bitField[0] ? reader.ReadString() : null;
+        if (bitField[1])
+            Scope = reader.ReadByteEnum<ScopeType>();
+        Name = bitField[2] ? LocalizedString.ReadRecord(reader) : null;
+        Description = bitField[3] ? LocalizedString.ReadRecord(reader) : null;
+        if (bitField[4])
+            ChallengeType = reader.ReadByteEnum<ChallengeType>();
+        if (bitField[5])
+            FriendChallengeAllowed = reader.ReadBoolean();
+        if (bitField[6])
+            RandomWeight = reader.ReadSingle();
+        Label = bitField[7] ? reader.ReadString() : null;
+        Counters = bitField[8] ? reader.ReadList<MatchCounter, List<MatchCounter>>(MatchCounter.ReadVariant) : null;
+        if (bitField[9])
+            TotalValueRequired = reader.ReadSingle();
+        Reward = bitField[10] ? reader.ReadMap<CurrencyType, float, Dictionary<CurrencyType, float>>(reader.ReadByteEnum<CurrencyType>, reader.ReadSingle) : null;
+        if (bitField[11])
+            RubbleRewards = reader.ReadMap<Key, int, Dictionary<Key, int>>(Key.ReadRecord, reader.ReadInt32);
     }
 
     public static void WriteRecord(BinaryWriter writer, CardChallenge value) => value.Write(writer);
 
     public static CardChallenge ReadRecord(BinaryReader reader)
     {
-      var cardChallenge = new CardChallenge();
-      cardChallenge.Read(reader);
-      return cardChallenge;
+        var cardChallenge = new CardChallenge();
+        cardChallenge.Read(reader);
+        return cardChallenge;
     }
 }

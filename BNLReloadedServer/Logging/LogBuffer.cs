@@ -5,11 +5,6 @@ using BNLReloadedServer.Database;
 
 namespace BNLReloadedServer.Logging;
 
-/// <summary>
-/// The in-memory tail of the log plus its file on disk. Records are appended, never mutated, and
-/// handed to readers by sequence number — <see cref="Since"/> lets the control-panel event stream
-/// push only the lines that actually happened rather than the whole buffer.
-/// </summary>
 public static class LogBuffer
 {
     private const int MaxLines = 10000;
@@ -28,10 +23,6 @@ public static class LogBuffer
     private static StreamWriter? _file;
     private static long _seq;
 
-    /// <summary>
-    /// Identifies this process run. Sequence numbers restart from 1 when the server does, so a
-    /// reader that sees a new boot id knows its cursor means nothing and refetches from scratch.
-    /// </summary>
     public static long Boot { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     static LogBuffer()
@@ -82,7 +73,6 @@ public static class LogBuffer
         if (appended) ControlPanelEvents.Publish(ControlPanelEvent.Logs);
     }
 
-    /// <summary>Everything newer than <paramref name="seq"/>. Pass 0 for the whole buffer.</summary>
     public static List<LogRecord> Since(long seq)
     {
         lock (LockObj)
@@ -113,11 +103,6 @@ public static class LogBuffer
         detail = r.Detail
     }, JsonOptions);
 
-    /// <summary>
-    /// Restores the tail of the previous run so the panel is not blank after a restart. Sequence
-    /// numbers are reassigned as the lines are read back: the old ones belong to a boot that is
-    /// over, and this run needs them to start at 1 and only ever grow.
-    /// </summary>
     private static void Reload()
     {
         if (!File.Exists(LogFilePath)) return;
@@ -145,11 +130,6 @@ public static class LogBuffer
         }
     }
 
-    /// <summary>
-    /// Opens the log for appending, rolling a full one over to console.1.jsonl first. The old
-    /// buffer truncated the file to whatever happened to be in memory instead, so 5 MB of history
-    /// collapsed to 10 000 lines every time it filled up.
-    /// </summary>
     private static void OpenLogFile()
     {
         if (File.Exists(LogFilePath) && new FileInfo(LogFilePath).Length > MaxFileBytes)

@@ -21,7 +21,7 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
     private DateTimeOffset? _firstSlotFreed;
 
     public string? GameInstanceId { get; set; }
-    
+
     public void StartIntoMatch()
     {
     }
@@ -71,10 +71,10 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
     }
 
     public TeamType GetTeamForPlayer(uint playerId) =>
-        _team1.Any(p => p.PlayerId == playerId) 
-            ? TeamType.Team1 
-            : _team2.Any(p => p.PlayerId == playerId) 
-                ? TeamType.Team2 
+        _team1.Any(p => p.PlayerId == playerId)
+            ? TeamType.Team1
+            : _team2.Any(p => p.PlayerId == playerId)
+                ? TeamType.Team2
                 : TeamType.Neutral;
 
     public bool IsPlayerSpectator(uint playerId)
@@ -132,7 +132,7 @@ public class MatchmakerInitiator(CardGameMode gameMode, List<PlayerQueueData> te
                                    _backfillReady && (_firstSlotFreed is null ||
                                                       (DateTimeOffset.Now - _firstSlotFreed.Value).TotalSeconds >=
                                                       SlotSettleSeconds);
-    
+
     public void SetBackfillReady(bool backfillReady) => _backfillReady = backfillReady;
 
     public (Dictionary<uint, Rating> team1, Dictionary<uint, Rating> team2) GetTeamRatings() => (

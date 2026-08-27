@@ -12,7 +12,7 @@ public class ConfigDatabase : IConfigDatabase
     private readonly Configs _configs;
     private readonly IReadOnlyList<ControlPanelUser> _controlPanelUsers;
     private readonly IPAddress _masterIp;
-    
+
     public ConfigDatabase()
     {
         var configs = JsonSerializer.Deserialize<Configs>(File.ReadAllText(Databases.ConfigsFilePath),
@@ -58,10 +58,6 @@ public class ConfigDatabase : IConfigDatabase
 
     public string CouchDbDatabaseName() => _configs.CouchDbDatabaseName ?? string.Empty;
 
-    /// <summary>
-    /// log_level when it is set, otherwise the old debug_mode flag: existing configs keep the
-    /// verbosity they already had without being edited.
-    /// </summary>
     public LogLevel MinLogLevel() => string.IsNullOrWhiteSpace(_configs.LogLevel)
         ? _configs.DebugMode ? LogLevel.Debug : LogLevel.Info
         : LogNames.ParseLevel(_configs.LogLevel);
@@ -69,7 +65,7 @@ public class ConfigDatabase : IConfigDatabase
     public bool UseMaxDeviceLevel() => _configs.UseMaxDeviceLevel;
 
     public bool UseRaycastExplosions() => _configs.UseRaycastExplosions;
-    
+
     public int ReconnectGraceSeconds() => _configs.ReconnectGraceSeconds;
 
     public int PingIntervalSeconds() => _configs.PingIntervalSeconds;
@@ -77,7 +73,7 @@ public class ConfigDatabase : IConfigDatabase
     public int MaxMissedPings() => _configs.MaxMissedPings;
 
     public bool ControlPanelEnabled() => _configs.ControlPanelEnabled;
-    
+
     public int ControlPanelPort() => _configs.ControlPanelPort;
 
     public IReadOnlyList<ControlPanelUser> ControlPanelUsers() => _controlPanelUsers;

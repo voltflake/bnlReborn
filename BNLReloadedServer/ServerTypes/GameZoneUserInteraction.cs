@@ -10,7 +10,7 @@ namespace BNLReloadedServer.ServerTypes;
 public partial class GameZone
 {
     private const ulong StaleRequestTimeout = 3000;
-    
+
     public void ReceivedMoveRequest(uint unitId, ulong time, ZoneTransform transform)
     {
         if (!_units.TryGetValue(unitId, out var unit))
@@ -36,7 +36,7 @@ public partial class GameZone
             builderService.SendStartBuild(rpcId, false);
             return;
         }
-        
+
         if (player.IsRecall)
         {
             player.EndRecall();
@@ -47,11 +47,11 @@ public partial class GameZone
         {
             player.SpawnProtectionTime = null;
         }
-        
+
         player.CurrentBuildInfo = buildInfo;
         builderService.SendStartBuild(rpcId, true);
         _unbufferedZone.SendDoStartBuild(playerUnitId, buildInfo);
-        
+
         var devCard = Databases.Catalogue.GetCard<CardDevice>(buildInfo.DeviceKey);
         var itemCard = devCard?.DeviceKeyAtLevel((byte)player.DeviceLevels[devCard.GroupKey]);
         var activateEffects = false;
@@ -87,7 +87,7 @@ public partial class GameZone
 
         player.CurrentBuildInfo = null;
         _unbufferedZone.SendDoCancelBuild(playerUnitId);
-        
+
         var buildEffects = player.ActiveEffects.GetEffectsOfType<ConstEffectOnBuilding>();
         foreach (var buildEffect in buildEffects)
         {
@@ -120,21 +120,21 @@ public partial class GameZone
         {
             return;
         }
-        
+
         var gear = player.GetGearByKey(gearKey);
         if (gear is null || gear.IsOutOfAmmo())
         {
             switcherService.SendSwitchGear(rpcId, false);
             return;
         }
-        
+
         if (player.HasSpawnProtection && _zoneData.MatchCard.RespawnLogic?.BreakProtectionOnAction is true)
         {
             player.SpawnProtectionTime = null;
         }
-        
+
         switcherService.SendSwitchGear(rpcId, true);
-        
+
         if (player.CurrentGear?.Card.EquipEffects is { Count: > 0 } effects1)
         {
             player.RemoveEffects(effects1.Select(e => new ConstEffectInfo(e, null)), player.Team, player.GetSelfSource());
@@ -145,7 +145,7 @@ public partial class GameZone
             var impact = player.CreateImpactData();
             player.AddEffects(effects2.Select(e => new ConstEffectInfo(e)), player.Team, player.GetSelfSource(impact));
         }
-        
+
         player.SetGear(gearKey);
     }
 
@@ -162,15 +162,15 @@ public partial class GameZone
             reloaderService.SendStartReload(rpcId, false);
             return;
         }
-        
+
         if (player.HasSpawnProtection && _zoneData.MatchCard.RespawnLogic?.BreakProtectionOnAction is true)
         {
             player.SpawnProtectionTime = null;
         }
-        
+
         reloaderService.SendStartReload(rpcId, true);
         _unbufferedZone.SendDoStartReload(playerUnitId);
-        
+
         var reloadEffects = player.ActiveEffects.GetEffectsOfType<ConstEffectOnReload>();
         var impact = player.CreateImpactData();
         var source = player.GetSelfSource(impact);
@@ -180,14 +180,14 @@ public partial class GameZone
             {
                 ApplyInstEffect(source, [player], startEffect, impact);
             }
-            
+
             if (reloadEffect.ConstantEffects is { } constantEffects)
             {
                 player.AddEffects(constantEffects.Select(k => new ConstEffectInfo(k)), player.Team, source);
             }
         }
     }
-    
+
     public void ReceivedReloadRequest(ushort rpcId, uint playerId, IServiceZone reloaderService)
     {
         if (!_playerIdToUnitId.TryGetValue(playerId, out var playerUnitId) ||
@@ -203,9 +203,9 @@ public partial class GameZone
             {
                 player.UpdateData(new UnitUpdate
                 {
-                    Ammo = new Dictionary<Key, List<Ammo>> 
+                    Ammo = new Dictionary<Key, List<Ammo>>
                     {
-                        { 
+                        {
                             player.CurrentGear.Key,
                             player.CurrentGear.Ammo
                                 .Select(ammo => new Ammo { Index = ammo.AmmoIndex, Mag = ammo.Mag, Pool = ammo.Pool }).ToList()
@@ -221,7 +221,7 @@ public partial class GameZone
             reloaderService.SendReload(rpcId, true);
             player.ReloadAmmo();
         }
-        
+
         var reloadEffects = player.ActiveEffects.GetEffectsOfType<ConstEffectOnReload>();
         foreach (var reloadEffect in reloadEffects)
         {
@@ -231,7 +231,7 @@ public partial class GameZone
             {
                 ApplyInstEffect(playerSource, [player], endEffect, impact);
             }
-            
+
             if (reloadEffect.ConstantEffects is { } constantEffects)
             {
                 player.RemoveEffects(constantEffects.Select(k => new ConstEffectInfo(k)), player.Team, player.GetSelfSource());
@@ -245,10 +245,10 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _unbufferedZone.SendDoEndReload(playerUnitId);
     }
-    
+
     public void ReceivedReloadCancelRequest(uint playerId)
     {
         if (!_playerIdToUnitId.TryGetValue(playerId, out var playerUnitId) ||
@@ -266,7 +266,7 @@ public partial class GameZone
             {
                 ApplyInstEffect(playerSource, [player], endEffect, impact);
             }
-            
+
             if (reloadEffect.ConstantEffects is { } constantEffects)
             {
                 player.RemoveEffects(constantEffects.Select(k => new ConstEffectInfo(k)), player.Team, player.GetSelfSource());
@@ -277,13 +277,13 @@ public partial class GameZone
     public void ReceivedProjCreateRequest(ulong shotId, ProjectileInfo projectileInfo, Guid? creatingSession)
     {
         _keepShotAlive.Add(shotId);
-        
+
         if (projectileInfo.ProjectileKey.GetCard<CardProjectile>() is
             { Behaviour: ProjectileBehaviourGrenade { CollisionMask.Ground: true } })
         {
             _checkForWater.Add(shotId);
         }
-        
+
         _unbufferedZone.SendCreateProjectile(shotId, projectileInfo, creatingSession);
     }
 
@@ -435,7 +435,7 @@ public partial class GameZone
             {
                 player.UpdateData(new UnitUpdate
                 {
-                    Ammo = new Dictionary<Key, List<Ammo>> { {player.CurrentGear.Key, [ammoUpdate]} }
+                    Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate] } }
                 });
             }
             if (channelData.TargetUnit.HasValue && channel.ConstantEffects is { Count: > 0 } &&
@@ -459,7 +459,7 @@ public partial class GameZone
             return;
         }
 
-        if (player.CurrentChannelData is {} channelData)
+        if (player.CurrentChannelData is { } channelData)
         {
             _unbufferedZone.SendDoEndChannel(playerUnitId, channelData.ToolIndex);
             if (player.CurrentGear?.Tools[channelData.ToolIndex] is { Tool: ToolChannel channel } &&
@@ -467,7 +467,7 @@ public partial class GameZone
                 _units.TryGetValue(channelData.TargetUnit.Value, out var unit))
             {
                 unit.RemoveEffects(channel.ConstantEffects.Select(k => new ConstEffectInfo(k, null)),
-                    player.Team, player.GetSelfSource());    
+                    player.Team, player.GetSelfSource());
             }
         }
 
@@ -498,7 +498,7 @@ public partial class GameZone
             _unbufferedZone.SendToolEndChargeFail(rpcId, "not a player");
             return;
         }
-        
+
         if (player.CurrentGear?.Tools[toolIndex].Tool is ToolCharge)
         {
             chargeService.SendToolEndChargeSuccess(rpcId, true, player.LengthOfCharge);
@@ -508,7 +508,7 @@ public partial class GameZone
         {
             chargeService.SendToolEndChargeSuccess(rpcId, false, null);
         }
-        
+
         player.StartChargeTime = null;
     }
 
@@ -538,7 +538,7 @@ public partial class GameZone
             dashService.SendDashEndChargeFail(rpcId, "not a player");
             return;
         }
-        
+
         if (player.CurrentGear?.Tools[toolIndex].Tool is ToolDash tool)
         {
             player.LastDashChargeMax = player.LengthOfCharge >= tool.MaxChargeTime - DashImprecision;
@@ -549,7 +549,7 @@ public partial class GameZone
         {
             dashService.SendDashEndChargeFail(rpcId, "not a dash tool");
         }
-        
+
         player.StartChargeTime = null;
     }
 
@@ -560,11 +560,11 @@ public partial class GameZone
         {
             return;
         }
-        
+
         var tool = player.CurrentGear?.Tools[toolIndex];
-        
+
         if (tool?.Tool is not ToolDash toolDash || !tool.IsEnoughAmmoToUse() || player.IsBuff(BuffType.Root)) return;
-        
+
         if (player.IsRecall)
         {
             player.EndRecall();
@@ -574,14 +574,14 @@ public partial class GameZone
         {
             player.SpawnProtectionTime = null;
         }
-        
+
         _serviceZone.SendCast(playerUnitId, new CastData
         {
             ShotPos = player.Transform.Position,
             ToolIndex = toolIndex,
             Shots = []
         });
-        
+
         var ammoUpdate = tool.TakeAmmoUpdate(toolDash.Ammo?.Rate *
                                              (player.LastDashChargeMax
                                                  ? toolDash.MaxAmmoRateMultiplier
@@ -590,7 +590,7 @@ public partial class GameZone
         {
             player.UpdateData(new UnitUpdate
             {
-                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate]}}
+                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate] } }
             });
         }
     }
@@ -606,13 +606,13 @@ public partial class GameZone
         if (player.CurrentGear?.Tools[toolIndex].Tool is not ToolDash tool) return;
         var impactData = player.CreateImpactData(hitData.InsidePoint, player.Transform.Position, hitData.Normal,
             hitData.Crit ?? false, player.CurrentGear.Key);
-            
+
         Unit? hitTarget = null;
         if (hitData.TargetId is not null && _units.TryGetValue(hitData.TargetId.Value, out var target))
         {
             hitTarget = target;
         }
-            
+
         if (player.LastDashChargeMax && tool is { MaxHitEffect: not null })
         {
             ApplyInstEffect(player.GetSelfSource(impactData), hitTarget is not null ? [hitTarget] : [],
@@ -633,11 +633,11 @@ public partial class GameZone
         {
             return;
         }
-        
+
         var tool = player.CurrentGear?.Tools[toolIndex];
-        
+
         if (tool?.Tool is not ToolGroundSlam toolSlam || !tool.IsEnoughAmmoToUse()) return;
-        
+
         if (player.IsRecall)
         {
             player.EndRecall();
@@ -649,13 +649,13 @@ public partial class GameZone
         }
 
         _serviceZone.SendDoGroundSlamCast(playerUnitId, toolIndex);
-        
+
         var ammoUpdate = tool.TakeAmmoUpdate(toolSlam.Ammo?.Rate);
         if (ammoUpdate is not null && player.CurrentGear is not null)
         {
             player.UpdateData(new UnitUpdate
             {
-                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate]}}
+                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate] } }
             });
         }
     }
@@ -671,13 +671,13 @@ public partial class GameZone
         if (player.CurrentGear?.Tools[toolIndex].Tool is not ToolGroundSlam tool) return;
         var impactData = player.CreateImpactData(hitData.InsidePoint, player.Transform.Position, hitData.Normal,
             hitData.Crit ?? false, player.CurrentGear.Key);
-            
+
         Unit? hitTarget = null;
         if (hitData.TargetId is not null && _units.TryGetValue(hitData.TargetId.Value, out var target))
         {
             hitTarget = target;
         }
-            
+
         if (tool is { HitEffect: not null })
         {
             ApplyInstEffect(player.GetSelfSource(impactData), hitTarget is not null ? [hitTarget] : [],
@@ -718,7 +718,7 @@ public partial class GameZone
             {
                 player.SpawnProtectionTime = null;
             }
-            
+
             abilityService.SendCastAbility(rpcId, true);
             _serviceZone.SendDoCastAbility(playerUnitId, castData);
             switch (aCard.Behavior)
@@ -737,7 +737,7 @@ public partial class GameZone
                                         castData.ShotPos ?? player.Transform.Position, player);
                                 });
                                 break;
-                            
+
                             default:
                                 shots.ForEach(shot =>
                                 {
@@ -826,7 +826,7 @@ public partial class GameZone
         {
             hitTarget = target;
         }
-        
+
         var impactData = skybeam.CreateImpactDataExact(insidePoint: hitData.InsidePoint, normal: hitData.Normal,
             crit: hitData.Crit ?? false);
 
@@ -842,7 +842,7 @@ public partial class GameZone
         {
             return;
         }
-        
+
         if (player.IsRecall)
         {
             player.EndRecall();
@@ -852,20 +852,20 @@ public partial class GameZone
         {
             player.SpawnProtectionTime = null;
         }
-        
+
         if (player.IsBuff(BuffType.Disarm))
         {
             return;
         }
-        
+
         _serviceZone.SendCast(playerUnitId, castData);
 
         if (castData.Shots is not { Count: > 0 } shots) return;
-        
+
         var tool = player.CurrentGear?.Tools[castData.ToolIndex];
-        
+
         if (!tool?.IsEnoughAmmoToUse() ?? false) return;
-        
+
         shots.ForEach(shot =>
         {
             if (castData.UnitProjectileSpeed is not null)
@@ -875,24 +875,24 @@ public partial class GameZone
                     case ToolBurst { Bullet.Count: > 0 } toolBurst when toolBurst.Bullet[0] is ToolBulletUnitProjectile burstBullet:
                         CreateProjectileUnit(burstBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
-                    
+
                     case ToolCharge { MaxOptions.Bullet: ToolBulletUnitProjectile chargeBullet } toolChargeMax
                         when player.LengthOfCharge >= toolChargeMax.MaxChargeTime:
                         CreateProjectileUnit(chargeBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
-                    
+
                     case ToolCharge { MinOptions.Bullet: ToolBulletUnitProjectile chargeBullet }:
                         CreateProjectileUnit(chargeBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
-                    
+
                     case ToolShot { Bullet: ToolBulletUnitProjectile shotBullet }:
                         CreateProjectileUnit(shotBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
-                    
+
                     case ToolSpinup { Bullet: ToolBulletUnitProjectile spinupBullet }:
                         CreateProjectileUnit(spinupBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
-                    
+
                     case ToolThrow { Bullet: ToolBulletUnitProjectile throwBullet }:
                         CreateProjectileUnit(throwBullet.UnitProjectileKey, castData.UnitProjectileSpeed.Value, shot, castData.ShotPos, player);
                         break;
@@ -910,13 +910,13 @@ public partial class GameZone
                 };
             }
         });
-        
+
         var ammoUpdate = tool?.TakeAmmoUpdate();
         if (ammoUpdate is not null && player.CurrentGear is not null)
         {
             player.UpdateData(new UnitUpdate
             {
-                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate]}}
+                Ammo = new Dictionary<Key, List<Ammo>> { { player.CurrentGear.Key, [ammoUpdate] } }
             });
         }
 
@@ -959,7 +959,7 @@ public partial class GameZone
             var impactData = shot.Caster.CreateImpactDataExact(hitData.InsidePoint, shot.ShotPos, hitData.Normal,
                 hitData.Crit ?? false, shot.SourceGear?.Key ?? shot.SourceAbility);
             var casterSource = shot.Caster.GetSelfSource(impactData);
-            
+
             Unit? hitTarget = null;
             if (hitData.TargetId is not null && _units.TryGetValue(hitData.TargetId.Value, out var target))
             {
@@ -977,7 +977,7 @@ public partial class GameZone
                         {
                             continue;
                         }
-    
+
                         var buildInfo = shot.Caster.CurrentBuildInfo;
                         var devCard = Databases.Catalogue.GetCard<CardDevice>(buildInfo.DeviceKey);
                         var devData = shot.Caster.Devices.Values.First(d => d.DeviceKey == buildInfo.DeviceKey);
@@ -988,12 +988,12 @@ public partial class GameZone
                             TotalCost = devData.TotalCost,
                             Level = shot.Caster.DeviceLevels.GetValueOrDefault(devCard?.GroupKey ?? Key.None, 1)
                         };
-    
+
                         ApplyInstEffect(casterSource, [], instEffect, impactData, hitData.OutsideShift,
                             buildInfo.Direction);
                         shot.Caster.CurrentBuildInfo = null;
                         break;
-                    
+
                     case ToolBurst toolBurst:
                         if (toolBurst.HitEffect is null)
                         {
@@ -1003,7 +1003,7 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolBurst.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     case ToolCharge toolCharge:
                         if (shot.ChargeLength >= toolCharge.MaxChargeTime && toolCharge.MaxOptions.HitEffect is not null)
                         {
@@ -1013,10 +1013,10 @@ public partial class GameZone
                         else if (toolCharge.MinOptions.HitEffect is not null)
                         {
                             ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
-                                toolCharge.MinOptions.HitEffect, impactData, hitData.OutsideShift, hitData.Direction); 
+                                toolCharge.MinOptions.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         }
                         break;
-                    
+
                     case ToolGroundSlam toolGroundSlam:
                         if (toolGroundSlam.HitEffect is null)
                         {
@@ -1026,9 +1026,9 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolGroundSlam.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     case ToolMelee toolMelee:
-                        if (toolMelee.HitEffect is null || 
+                        if (toolMelee.HitEffect is null ||
                             Vector3.DistanceSquared(shot.ShotPos, hitData.InsidePoint) > MathF.Pow(toolMelee.Range + 1, 2))
                         {
                             continue;
@@ -1037,7 +1037,7 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolMelee.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     case ToolShot toolShot:
                         if (toolShot.HitEffect is null)
                         {
@@ -1047,7 +1047,7 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolShot.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     case ToolSpinup toolSpinup:
                         if (toolSpinup.HitEffect is null)
                         {
@@ -1057,7 +1057,7 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolSpinup.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     case ToolThrow toolThrow:
                         if (toolThrow.HitEffect is null)
                         {
@@ -1067,7 +1067,7 @@ public partial class GameZone
                         ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
                             toolThrow.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         break;
-                    
+
                     default:
                         continue;
                 }
@@ -1107,7 +1107,7 @@ public partial class GameZone
 
         foreach (var (shotId, _) in hits)
         {
-            if (!_keepShotAlive.Contains(shotId)) 
+            if (!_keepShotAlive.Contains(shotId))
                 _shotInfo.Remove(shotId);
         }
     }
@@ -1144,7 +1144,7 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _serviceZone.SendPickupTaken(playerId, pickup.Key);
         pickup.PickupTaken(player);
     }
@@ -1157,7 +1157,7 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _zoneData.UpdatePlayerSelectedSpawn(playerId, spawnId);
     }
 
@@ -1166,12 +1166,12 @@ public partial class GameZone
         if (!_units.TryGetValue(turretId, out var turret) || turret.TurretUnitData is null ||
             !_playerIdToUnitId.TryGetValue(playerId, out var playerUnitId) ||
             !_playerUnits.TryGetValue(playerUnitId, out var player) ||
-            (targetId != 0U && (!_units.TryGetValue(targetId, out var target) || 
+            (targetId != 0U && (!_units.TryGetValue(targetId, out var target) ||
                                 (turret.Controlled && targetId != player.Id))))
         {
             return;
         }
-        
+
         turret.SetTurretTarget(targetId);
     }
 
@@ -1185,11 +1185,11 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _serviceZone.SendTurretAttack(turretId, shotPos, shots);
-        
+
         if (shots is not { Count: > 0 }) return;
-        
+
         shots.ForEach(shot =>
         {
             if (shot.ShotId.HasValue)
@@ -1205,11 +1205,11 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _serviceZone.SendMortarAttack(mortarId, shotPos, shots);
-        
+
         if (shots is not { Count: > 0 }) return;
-        
+
         shots.ForEach(shot =>
         {
             if (shot.ShotId.HasValue)
@@ -1225,10 +1225,10 @@ public partial class GameZone
         {
             return;
         }
-        
+
         _serviceZone.SendDrillAttack(drillId, shotPos, shots);
         drill.HitCount += 1;
-        
+
         if (shots is not { Count: > 0 }) return;
         shots.ForEach(shot =>
         {
@@ -1245,15 +1245,15 @@ public partial class GameZone
         {
             return;
         }
-        
+
         var actualPropTeslas = teslasInRange.Select(t => _units.GetValueOrDefault(t)).OfType<Unit>()
             .Where(u => u.TeslaUnitData is not null).ToList();
-        
+
         var firstCharged = tesla.TeslaCharge is TeslaChargeType.SelfCharge or TeslaChargeType.FullSelfCharge
             ? tesla
             : actualPropTeslas.FirstOrDefault(u =>
                 u.TeslaCharge is TeslaChargeType.SelfCharge or TeslaChargeType.FullSelfCharge);
-        
+
         if (firstCharged is null) return;
 
         if (targetId is null && tesla.TeslaCharge == TeslaChargeType.NoCharge)
@@ -1269,7 +1269,7 @@ public partial class GameZone
             {
                 return;
             }
-            
+
             if (firstCharged.Id != tesla.Id)
             {
                 var noCharge = new UnitUpdate
@@ -1280,7 +1280,7 @@ public partial class GameZone
                 {
                     if (u.TeslaCharge is TeslaChargeType.RemoteCharge)
                     {
-                        tesla.UpdateData(noCharge); 
+                        tesla.UpdateData(noCharge);
                     }
 
                     if (u.TeslaUnitData?.PropagationEffect is null) return;
@@ -1288,10 +1288,10 @@ public partial class GameZone
                     var source = u.GetSelfSource(impact);
                     ApplyInstEffect(source, [u], u.TeslaUnitData.PropagationEffect, impact);
                 });
-                
+
                 if (tesla.TeslaCharge is TeslaChargeType.RemoteCharge)
                 {
-                    tesla.UpdateData(noCharge); 
+                    tesla.UpdateData(noCharge);
                 }
 
                 if (tesla.TeslaUnitData?.PropagationEffect is not null)
@@ -1301,7 +1301,7 @@ public partial class GameZone
                     ApplyInstEffect(source, [tesla], tesla.TeslaUnitData.PropagationEffect, impact);
                 }
             }
-            
+
             firstCharged.ChargeTesla(-1);
             if (firstCharged.TeslaUnitData?.AttackEffect is not null)
             {
@@ -1330,10 +1330,10 @@ public partial class GameZone
         {
             return;
         }
-        
+
         player.IsRecall = true;
         player.RecallTime = DateTimeOffset.Now.AddSeconds(_zoneData.MatchCard.RecallDuration);
-        _unbufferedZone.SendDoStartRecall(playerUnitId, _zoneData.MatchCard.RecallDuration, (ulong)player.RecallTime.Value.ToUnixTimeMilliseconds());  
+        _unbufferedZone.SendDoStartRecall(playerUnitId, _zoneData.MatchCard.RecallDuration, (ulong)player.RecallTime.Value.ToUnixTimeMilliseconds());
     }
 
     public void ReceivedSurrenderRequest(ushort rpcId, uint playerId, IServiceZone surrenderService)
@@ -1372,22 +1372,22 @@ public partial class GameZone
         foreach (var vote in _zoneData.SurrenderVotes.Keys.ToList())
         {
             if (!_playerIdToUnitId.TryGetValue(playerId, out var pUnitId) ||
-                !_playerUnits.TryGetValue(playerUnitId, out var p) || 
+                !_playerUnits.TryGetValue(playerUnitId, out var p) ||
                 p.Team == player.Team)
             {
                 _zoneData.SurrenderVotes[vote] = null;
             }
         }
-        
+
         _serviceZone.SendSurrenderProgress(_zoneData.SurrenderVotes);
         surrenderService.SendSurrenderStart(rpcId, SurrenderStartResultType.Accepted);
         var surrenderEnd = (ulong)endTime.ToUnixTimeMilliseconds();
-        
+
         foreach (var teammate in _playerUnits.Values.Where(u => u.Team == player.Team))
         {
             teammate.ZoneService?.SendSurrenderBegin(surrenderEnd);
         }
-        
+
         ReceivedSurrenderVoteRequest(playerId, true);
     }
 
@@ -1403,7 +1403,7 @@ public partial class GameZone
         _zoneData.SurrenderVotes[playerId] = accept;
         _serviceZone.SendSurrenderProgress(_zoneData.SurrenderVotes);
         if (_zoneData.MatchCard.SurrenderLogic?.MinVotes is null) return;
-        
+
         var yesCount = 0;
         var noCount = 0;
 
@@ -1422,7 +1422,7 @@ public partial class GameZone
                 }
             }
         }
-        
+
         var maxLogic = _zoneData.MatchCard.SurrenderLogic.MinVotes.Max(k => k.Key);
         var playerCount = _playerUnits.Values.Count(p => p.Team == player.Team);
         var voteCount = _zoneData.MatchCard.SurrenderLogic.MinVotes[maxLogic];
@@ -1430,7 +1430,7 @@ public partial class GameZone
         {
             voteCount = actVoteCount;
         }
-        
+
         if (yesCount >= voteCount)
         {
             _serviceZone.SendSurrenderEnd(player.Team, true);
@@ -1443,7 +1443,7 @@ public partial class GameZone
                 TeamType.Team2 => TeamType.Team1,
                 _ => TeamType.Neutral
             }, MatchEndReason.Surrender);
-            
+
             _units.Values.Where(u => u.Team == player.Team && u.UnitCard?.IsBase is true).ToList().ForEach(DropUnit);
         }
         else if (noCount > playerCount - voteCount)

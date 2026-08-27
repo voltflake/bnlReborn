@@ -14,16 +14,16 @@ public class ServiceChat(ISender sender) : IServiceChat
         MessageIgnore = 1,
         MessageRoomAdd = 2,
         MessageRoomRemove = 3,
-        MessageReceivePrivateMessage = 4, 
+        MessageReceivePrivateMessage = 4,
         MessageSendPrivateMessage = 5,
         MessagePrivateMessageFailed = 6,
         MessageReceiveRoomMessage = 7,
-        MessageSendRoomMessage = 8, 
+        MessageSendRoomMessage = 8,
         MessageSendServiceMessage = 9
     }
-    
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -35,7 +35,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendIgnores(List<ChatPlayer> players)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageIgnores);
+        writer.Write((byte)ServiceChatId.MessageIgnores);
         writer.WriteList(players, ChatPlayer.WriteRecord);
         sender.Send(writer);
     }
@@ -51,7 +51,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendRoomAdd(RoomId room)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageRoomAdd);
+        writer.Write((byte)ServiceChatId.MessageRoomAdd);
         RoomId.WriteVariant(writer, room);
         sender.Send(writer);
     }
@@ -59,7 +59,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendRoomRemove(RoomId room)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageRoomRemove);
+        writer.Write((byte)ServiceChatId.MessageRoomRemove);
         RoomId.WriteVariant(writer, room);
         sender.Send(writer);
     }
@@ -67,7 +67,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendPrivateMessage(ChatPlayer from, ChatPlayer to, string message)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageSendPrivateMessage);
+        writer.Write((byte)ServiceChatId.MessageSendPrivateMessage);
         ChatPlayer.WriteRecord(writer, from);
         ChatPlayer.WriteRecord(writer, to);
         writer.Write(message);
@@ -89,7 +89,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendPrivateMessageFailed(uint toId, PrivateMessageFailReason reason)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessagePrivateMessageFailed);
+        writer.Write((byte)ServiceChatId.MessagePrivateMessageFailed);
         writer.Write(toId);
         writer.WriteByteEnum(reason);
         sender.Send(writer);
@@ -98,7 +98,7 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendRoomMessage(RoomId roomId, ChatPlayer player, string message, List<Guid>? excluded = null)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageSendRoomMessage);
+        writer.Write((byte)ServiceChatId.MessageSendRoomMessage);
         RoomId.WriteVariant(writer, roomId);
         ChatPlayer.WriteRecord(writer, player);
         writer.Write(message);
@@ -119,14 +119,14 @@ public class ServiceChat(ISender sender) : IServiceChat
     public void SendServiceMessage(RoomId? roomId, string message, bool isLocalized, Dictionary<string, string> arguments)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceChatId.MessageSendServiceMessage);
+        writer.Write((byte)ServiceChatId.MessageSendServiceMessage);
         writer.WriteOption(roomId, item => RoomId.WriteVariant(writer, item));
         writer.Write(message);
         writer.Write(isLocalized);
         writer.WriteMap(arguments, writer.Write, writer.Write);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceChatId = reader.ReadByte();
@@ -153,7 +153,7 @@ public class ServiceChat(ISender sender) : IServiceChat
                 Log.Warn(LogCat.Net, $"Unknown service chat id {Log.EnumName(chatEnum, serviceChatId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

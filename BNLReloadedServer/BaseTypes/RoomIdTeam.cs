@@ -44,9 +44,9 @@ public class RoomIdTeam : RoomId
 
     public override bool Equals(object? obj)
     {
-        if (obj == null || obj.GetType() != typeof (RoomIdTeam))
+        if (obj == null || obj.GetType() != typeof(RoomIdTeam))
             return false;
-        var roomIdTeam = (RoomIdTeam) obj;
+        var roomIdTeam = (RoomIdTeam)obj;
         return Team == roomIdTeam.Team && LobbyId == roomIdTeam.LobbyId && InstanceId == roomIdTeam.InstanceId;
     }
 

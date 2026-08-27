@@ -18,43 +18,43 @@ public class SupplyDropsLogic
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(Sequence != null, RepeatSequence != null, true, true, true, true).Write(writer);
-      if (Sequence != null)
-        writer.WriteList(Sequence, SupplySequenceItem.WriteRecord);
-      if (RepeatSequence != null)
-        writer.WriteList(RepeatSequence, SupplySequenceItem.WriteRecord);
-      writer.Write(WarningSeconds);
-      writer.Write(MinimapWarningSeconds);
-      writer.Write(RandomPosOffset);
-      writer.Write(SpawnHeight);
+        new BitField(Sequence != null, RepeatSequence != null, true, true, true, true).Write(writer);
+        if (Sequence != null)
+            writer.WriteList(Sequence, SupplySequenceItem.WriteRecord);
+        if (RepeatSequence != null)
+            writer.WriteList(RepeatSequence, SupplySequenceItem.WriteRecord);
+        writer.Write(WarningSeconds);
+        writer.Write(MinimapWarningSeconds);
+        writer.Write(RandomPosOffset);
+        writer.Write(SpawnHeight);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(6);
-      bitField.Read(reader);
-      Sequence = bitField[0] ? reader.ReadList<SupplySequenceItem, List<SupplySequenceItem>>(SupplySequenceItem.ReadRecord) : null;
-      RepeatSequence = bitField[1] ? reader.ReadList<SupplySequenceItem, List<SupplySequenceItem>>(SupplySequenceItem.ReadRecord) : null;
-      if (bitField[2])
-        WarningSeconds = reader.ReadSingle();
-      if (bitField[3])
-        MinimapWarningSeconds = reader.ReadSingle();
-      if (bitField[4])
-        RandomPosOffset = reader.ReadSingle();
-      if (!bitField[5])
-        return;
-      SpawnHeight = reader.ReadSingle();
+        var bitField = new BitField(6);
+        bitField.Read(reader);
+        Sequence = bitField[0] ? reader.ReadList<SupplySequenceItem, List<SupplySequenceItem>>(SupplySequenceItem.ReadRecord) : null;
+        RepeatSequence = bitField[1] ? reader.ReadList<SupplySequenceItem, List<SupplySequenceItem>>(SupplySequenceItem.ReadRecord) : null;
+        if (bitField[2])
+            WarningSeconds = reader.ReadSingle();
+        if (bitField[3])
+            MinimapWarningSeconds = reader.ReadSingle();
+        if (bitField[4])
+            RandomPosOffset = reader.ReadSingle();
+        if (!bitField[5])
+            return;
+        SpawnHeight = reader.ReadSingle();
     }
 
     public static void WriteRecord(BinaryWriter writer, SupplyDropsLogic value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static SupplyDropsLogic ReadRecord(BinaryReader reader)
     {
-      var supplyDropsLogic = new SupplyDropsLogic();
-      supplyDropsLogic.Read(reader);
-      return supplyDropsLogic;
+        var supplyDropsLogic = new SupplyDropsLogic();
+        supplyDropsLogic.Read(reader);
+        return supplyDropsLogic;
     }
 }

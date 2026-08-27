@@ -20,7 +20,7 @@ public class MasterServerDatabase : IMasterServerDatabase
     private readonly Lock _regionServersLock = new();
     private readonly ConcurrentDictionary<string, int> _regionPlayerCounts = new();
     private readonly SQLiteAsyncConnection _playerDb;
-    
+
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
 
     public MasterServerDatabase()
@@ -79,66 +79,89 @@ public class MasterServerDatabase : IMasterServerDatabase
 
             await _playerDb.RunInTransactionAsync(db =>
             {
-        // A region can retransmit after losing its master connection. Replacing the complete
-        // aggregate makes the operation idempotent without leaving stale child rows behind.
-        var oldPresenceIds = db.Table<ArchivedMatchPresenceRecord>()
-            .Where(p => p.MatchId == match.MatchId).Select(p => p.Id).ToList();
-        foreach (var presenceId in oldPresenceIds)
-        {
-            db.Execute("DELETE FROM MatchPresenceDevices WHERE presence_id = ?", presenceId);
-            db.Execute("DELETE FROM MatchPresencePerks WHERE presence_id = ?", presenceId);
-        }
-        db.Execute("DELETE FROM MatchPresences WHERE match_id = ?", match.MatchId);
-        db.Execute("DELETE FROM MatchPlayers WHERE match_id = ?", match.MatchId);
-        db.Execute("DELETE FROM MatchTeams WHERE match_id = ?", match.MatchId);
+                // A region can retransmit after losing its master connection. Replacing the complete
+                // aggregate makes the operation idempotent without leaving stale child rows behind.
+                var oldPresenceIds = db.Table<ArchivedMatchPresenceRecord>()
+                    .Where(p => p.MatchId == match.MatchId).Select(p => p.Id).ToList();
+                foreach (var presenceId in oldPresenceIds)
+                {
+                    db.Execute("DELETE FROM MatchPresenceDevices WHERE presence_id = ?", presenceId);
+                    db.Execute("DELETE FROM MatchPresencePerks WHERE presence_id = ?", presenceId);
+                }
+                db.Execute("DELETE FROM MatchPresences WHERE match_id = ?", match.MatchId);
+                db.Execute("DELETE FROM MatchPlayers WHERE match_id = ?", match.MatchId);
+                db.Execute("DELETE FROM MatchTeams WHERE match_id = ?", match.MatchId);
 
-        db.InsertOrReplace(new ArchivedMatchRecord
-        {
-            Id = match.MatchId, MapKey = match.MapKey.Hash, GameModeKey = match.GameModeKey.Hash,
-            StartedAt = (long)match.StartedAt, EndedAt = (long)match.EndedAt, Winner = (int)match.Winner,
-            EndReason = (int)match.EndReason
-        });
-        foreach (var team in match.Teams) db.Insert(new ArchivedMatchTeamRecord
-        {
-            MatchId = match.MatchId, Team = (int)team.Team, IsWinner = team.IsWinner,
-            CubesAtStart = team.CubesAtStart, CubesRemaining = team.CubesRemaining,
-            BaseDestroyed = team.BaseDestroyed
-        });
-        foreach (var player in match.Players)
-        {
-            using var statStream = new MemoryStream();
-            using (var writer = new BinaryWriter(statStream, System.Text.Encoding.UTF8, true))
-                writer.WriteMap(player.Stats, writer.WriteByteEnum, writer.Write);
-            db.Insert(new ArchivedMatchPlayerRecord
-            {
-                MatchId = match.MatchId, PlayerId = player.PlayerId, Nickname = player.Nickname,
-                SquadId = player.SquadId?.ToString(), WasInitial = player.WasInitial,
-                WasBackfiller = player.WasBackfiller, IsWinner = player.IsWinner,
-                StartingRatingMean = player.StartingRatingMean, RatingDelta = player.RatingDelta,
-                TotalScore = player.TotalScore, Stats = statStream.ToArray()
+                db.InsertOrReplace(new ArchivedMatchRecord
+                {
+                    Id = match.MatchId,
+                    MapKey = match.MapKey.Hash,
+                    GameModeKey = match.GameModeKey.Hash,
+                    StartedAt = (long)match.StartedAt,
+                    EndedAt = (long)match.EndedAt,
+                    Winner = (int)match.Winner,
+                    EndReason = (int)match.EndReason
+                });
+                foreach (var team in match.Teams) db.Insert(new ArchivedMatchTeamRecord
+                {
+                    MatchId = match.MatchId,
+                    Team = (int)team.Team,
+                    IsWinner = team.IsWinner,
+                    CubesAtStart = team.CubesAtStart,
+                    CubesRemaining = team.CubesRemaining,
+                    BaseDestroyed = team.BaseDestroyed
+                });
+                foreach (var player in match.Players)
+                {
+                    using var statStream = new MemoryStream();
+                    using (var writer = new BinaryWriter(statStream, System.Text.Encoding.UTF8, true))
+                        writer.WriteMap(player.Stats, writer.WriteByteEnum, writer.Write);
+                    db.Insert(new ArchivedMatchPlayerRecord
+                    {
+                        MatchId = match.MatchId,
+                        PlayerId = player.PlayerId,
+                        Nickname = player.Nickname,
+                        SquadId = player.SquadId?.ToString(),
+                        WasInitial = player.WasInitial,
+                        WasBackfiller = player.WasBackfiller,
+                        IsWinner = player.IsWinner,
+                        StartingRatingMean = player.StartingRatingMean,
+                        RatingDelta = player.RatingDelta,
+                        TotalScore = player.TotalScore,
+                        Stats = statStream.ToArray()
+                    });
+                    foreach (var presence in player.Presences)
+                    {
+                        var row = new ArchivedMatchPresenceRecord
+                        {
+                            MatchId = match.MatchId,
+                            PlayerId = player.PlayerId,
+                            Sequence = presence.Sequence,
+                            JoinedAt = (long)presence.JoinedAt,
+                            LeftAt = (long?)presence.LeftAt,
+                            JoinKind = (int)presence.JoinKind,
+                            LeaveKind = (int?)presence.LeaveKind,
+                            Team = (int)presence.Team,
+                            HeroKey = presence.HeroKey.Hash,
+                            SkinKey = presence.SkinKey.Hash
+                        };
+                        db.Insert(row);
+                        foreach (var device in presence.Devices) db.Insert(new ArchivedMatchDeviceRecord
+                        {
+                            PresenceId = row.Id,
+                            Slot = device.Key,
+                            DeviceKey = device.Value.Hash,
+                            DeviceLevel = presence.DeviceLevels.GetValueOrDefault(device.Value)
+                        });
+                        for (var slot = 0; slot < presence.Perks.Count; slot++) db.Insert(new ArchivedMatchPerkRecord
+                        {
+                            PresenceId = row.Id,
+                            Slot = slot,
+                            PerkKey = presence.Perks[slot].Hash
+                        });
+                    }
+                }
             });
-            foreach (var presence in player.Presences)
-            {
-                var row = new ArchivedMatchPresenceRecord
-                {
-                    MatchId = match.MatchId, PlayerId = player.PlayerId, Sequence = presence.Sequence,
-                    JoinedAt = (long)presence.JoinedAt, LeftAt = (long?)presence.LeftAt,
-                    JoinKind = (int)presence.JoinKind, LeaveKind = (int?)presence.LeaveKind,
-                    Team = (int)presence.Team, HeroKey = presence.HeroKey.Hash, SkinKey = presence.SkinKey.Hash
-                };
-                db.Insert(row);
-                foreach (var device in presence.Devices) db.Insert(new ArchivedMatchDeviceRecord
-                {
-                    PresenceId = row.Id, Slot = device.Key, DeviceKey = device.Value.Hash,
-                    DeviceLevel = presence.DeviceLevels.GetValueOrDefault(device.Value)
-                });
-                for (var slot = 0; slot < presence.Perks.Count; slot++) db.Insert(new ArchivedMatchPerkRecord
-                {
-                    PresenceId = row.Id, Slot = slot, PerkKey = presence.Perks[slot].Hash
-                });
-            }
-        }
-        });
         }
         finally
         {
@@ -206,7 +229,7 @@ public class MasterServerDatabase : IMasterServerDatabase
 
     public List<RegionInfo> GetRegionServers()
     {
-        lock (_regionServersLock) return [.._regionServers];
+        lock (_regionServersLock) return [.. _regionServers];
     }
 
     public bool AddRegionServer(string id, string host, RegionGuiInfo regionGuiInfo)
@@ -459,7 +482,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             var record = await _playerDb.Table<PlayerRecord>().Where(x => x.PlayerId == playerId).FirstOrDefaultAsync();
             if (record == null) return false;
             record.LookingForFriends = lookingForFriends;
-            
+
             await _playerDb.UpdateAsync(record);
             Databases.PlayerDatabase.UpdatePlayer(playerId, new PlayerUpdate { LookingForFriends = lookingForFriends });
         }
@@ -674,7 +697,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             {
                 return true;
             }
-            
+
             var winnerRecords =
                 await _playerDb.Table<PlayerRecord>().Where(x => winners.Contains(x.PlayerId)).ToListAsync() ?? [];
             var loserRecords =
@@ -713,7 +736,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         {
             _asyncLock.Release();
         }
-        
+
         return true;
     }
 
@@ -727,7 +750,7 @@ public class MasterServerDatabase : IMasterServerDatabase
             var recordSender = await _playerDb.Table<PlayerRecord>().Where(x => x.PlayerId == senderId)
                 .FirstOrDefaultAsync();
             if (recordReceiver == null || recordSender == null) return false;
-            
+
             var receiverPlayer = PlayerData.FromPlayerRecord(recordReceiver);
             var senderPlayer = PlayerData.FromPlayerRecord(recordSender);
 
@@ -746,7 +769,7 @@ public class MasterServerDatabase : IMasterServerDatabase
                 receiverPlayer.Friends.Remove(senderId);
                 senderPlayer.Friends.Remove(receiverId);
             }
-            
+
             recordReceiver = receiverPlayer.ToPlayerRecord();
             recordSender = senderPlayer.ToPlayerRecord();
             List<PlayerRecord> recList = [recordReceiver, recordSender];
@@ -760,7 +783,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         {
             _asyncLock.Release();
         }
-        
+
         return true;
     }
 
@@ -774,15 +797,15 @@ public class MasterServerDatabase : IMasterServerDatabase
             var recordSender = await _playerDb.Table<PlayerRecord>().Where(x => x.PlayerId == senderId)
                 .FirstOrDefaultAsync();
             if (recordReceiver == null || recordSender == null) return false;
-            
+
             var receiverPlayer = PlayerData.FromPlayerRecord(recordReceiver);
             var senderPlayer = PlayerData.FromPlayerRecord(recordSender);
-            
+
             if (!receiverPlayer.RequestsFromFriends.Contains(senderId))
                 receiverPlayer.RequestsFromFriends.Add(senderId);
             if (!senderPlayer.RequestsFromMe.Contains(receiverId))
                 senderPlayer.RequestsFromMe.Add(receiverId);
-            
+
             recordReceiver = receiverPlayer.ToPlayerRecord();
             recordSender = senderPlayer.ToPlayerRecord();
             List<PlayerRecord> recList = [recordReceiver, recordSender];
@@ -794,7 +817,7 @@ public class MasterServerDatabase : IMasterServerDatabase
         {
             _asyncLock.Release();
         }
-        
+
         return true;
     }
 
@@ -818,7 +841,7 @@ public class MasterServerDatabase : IMasterServerDatabase
                 FriendsCount = player.Friends.Count
             };
         }
-        
+
         return new ProfileData
         {
             MatchHistory = [],

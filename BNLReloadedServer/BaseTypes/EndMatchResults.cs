@@ -57,7 +57,7 @@ public class EndMatchResults
             MatchData = EndMatchData.ReadRecord(reader);
         }
     }
-    
+
     public static void WriteRecord(BinaryWriter writer, EndMatchResults value) => value.Write(writer);
 
     public static EndMatchResults ReadRecord(BinaryReader reader)

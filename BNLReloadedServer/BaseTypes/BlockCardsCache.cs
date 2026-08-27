@@ -12,7 +12,7 @@ public static class BlockCardsCache
     private static CardBlock[] InitCache()
     {
         var dictionary = new Dictionary<ushort, CardBlock>();
-        foreach (var card in Databases.Catalogue.All.Where((Func<Card, bool>) (a => a is CardBlock)))
+        foreach (var card in Databases.Catalogue.All.Where((Func<Card, bool>)(a => a is CardBlock)))
         {
             var cardBlock = (CardBlock)card;
             dictionary[cardBlock.BlockId] = cardBlock;
@@ -21,7 +21,7 @@ public static class BlockCardsCache
         var cache = new CardBlock[65536];
         for (var key = 0; key < cache.Length; ++key)
         {
-            if (dictionary.TryGetValue((ushort) key, out var cardBlock))
+            if (dictionary.TryGetValue((ushort)key, out var cardBlock))
                 cache[key] = cardBlock;
         }
         return cache;

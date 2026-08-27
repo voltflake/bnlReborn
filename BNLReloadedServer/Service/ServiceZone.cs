@@ -110,13 +110,13 @@ public class ServiceZone(ISender sender) : IServiceZone
         MessageSkybeamHit = 96,
         MessageExecuteMapEditorCommand = 97
     }
-    
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
     private IGameInstance? GameInstance => Databases.RegionServerDatabase.GetGameInstance(sender.AssociatedPlayerId);
-    
+
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceZone);
         return writer;
@@ -178,7 +178,7 @@ public class ServiceZone(ISender sender) : IServiceZone
 
     private void ReceiveFinishTutorial(BinaryReader reader)
     {
-        
+
     }
 
     public void SendKickPlayer(uint playerId, KickReason reason)
@@ -426,7 +426,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -454,7 +454,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -481,7 +481,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -524,7 +524,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -539,7 +539,7 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         var rpcId = reader.ReadUInt16();
         var data = ChannelData.ReadRecord(reader);
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             GameInstance?.CreateChannel(rpcId, sender.AssociatedPlayerId.Value, data, this);
@@ -568,7 +568,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         using var writer = CreateWriter();
         writer.Write((byte)ServiceZoneId.MessageDashEndCharge);
         writer.Write(rpcId);
-        writer.Write((byte) 0);
+        writer.Write((byte)0);
         writer.WriteOptionValue(isMaxCharge, writer.Write);
         sender.Send(writer);
     }
@@ -628,7 +628,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         using var writer = CreateWriter();
         writer.Write((byte)ServiceZoneId.MessageToolEndCharge);
         writer.Write(rpcId);
-        writer.Write((byte) 0);
+        writer.Write((byte)0);
         writer.Write(accepted);
         writer.WriteOptionValue(charge, writer.Write);
         sender.Send(writer);
@@ -648,7 +648,7 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         var rpcId = reader.ReadUInt16();
         var toolIndex = reader.ReadByte();
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             GameInstance?.ToolChargeEnd(rpcId, sender.AssociatedPlayerId.Value, toolIndex, this);
@@ -669,7 +669,7 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         var toolIndex = reader.ReadByte();
         var data = HitData.ReadRecord(reader);
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             GameInstance?.GroundSlamHit(sender.AssociatedPlayerId.Value, toolIndex, data);
@@ -683,7 +683,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -719,7 +719,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (accepted.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -740,7 +740,7 @@ public class ServiceZone(ISender sender) : IServiceZone
             GameInstance?.AbilityCast(rpcId, sender.AssociatedPlayerId.Value, data, this);
         }
     }
-    
+
     public void SendDoCastAbility(uint unitId, AbilityCastData data)
     {
         using var writer = CreateWriter();
@@ -749,7 +749,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         AbilityCastData.WriteRecord(writer, data);
         sender.Send(writer);
     }
-    
+
     private void ReceiveCreateProjectile(BinaryReader reader)
     {
         var shotId = reader.ReadUInt64();
@@ -773,7 +773,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         var shotId = reader.ReadUInt64();
         GameInstance?.DropProj(shotId);
     }
-    
+
     public void SendCreateProjectile(ulong shotId, ProjectileInfo info, Guid? creatingSession = null)
     {
         using var writer = CreateWriter();
@@ -827,7 +827,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         var unitId = reader.ReadUInt32();
         var height = reader.ReadSingle();
         var force = reader.ReadBoolean();
-        
+
         GameInstance?.Fall(unitId, height, force);
     }
 
@@ -992,7 +992,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         writer.Write(rpcId);
         if (result != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteByteEnum(result.Value);
         }
         else
@@ -1090,7 +1090,7 @@ public class ServiceZone(ISender sender) : IServiceZone
     {
         var mortarId = reader.ReadUInt32();
         var shotPos = reader.ReadVector3();
-        var shots =  reader.ReadList<ShotData, List<ShotData>>(ShotData.ReadRecord);
+        var shots = reader.ReadList<ShotData, List<ShotData>>(ShotData.ReadRecord);
         GameInstance?.MortarAttack(mortarId, shotPos, shots);
     }
 
@@ -1109,7 +1109,7 @@ public class ServiceZone(ISender sender) : IServiceZone
         var teslaId = reader.ReadUInt32();
         var targetId = reader.ReadOptionValue(reader.ReadUInt32);
         var teslasInRange = reader.ReadList<uint, List<uint>>(reader.ReadUInt32);
-        
+
         GameInstance?.UpdateTesla(teslaId, targetId, teslasInRange);
     }
 
@@ -1163,7 +1163,7 @@ public class ServiceZone(ISender sender) : IServiceZone
             GameInstance?.EditorCommand(sender.AssociatedPlayerId.Value, command, false);
         }
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceZoneId = reader.ReadByte();
@@ -1319,7 +1319,7 @@ public class ServiceZone(ISender sender) : IServiceZone
                 Log.Warn(LogCat.Net, $"Zone service received unsupported serviceId: {Log.EnumName(zoneEnum, serviceZoneId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

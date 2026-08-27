@@ -18,7 +18,7 @@ public static class JsonHelper
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = true
         };
-        
+
         DefaultSerializerSettings.Converters.Add(new KeyJsonConverter());
         DefaultSerializerSettings.Converters.Add(new ColorJsonConverter());
         DefaultSerializerSettings.Converters.Add(new ColorFloatJsonConverter());
@@ -30,9 +30,9 @@ public static class JsonHelper
         DefaultSerializerSettings.Converters.Add(new Vector3sJsonConverter());
         DefaultSerializerSettings.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower, false));
     }
-    
+
     public static T? Deserialize<T>(this string json)
-    {       
+    {
         return JsonSerializer.Deserialize<T>(json, DefaultSerializerSettings);
     }
 

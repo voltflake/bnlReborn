@@ -22,15 +22,15 @@ public struct Key(string id) : IEquatable<Key>
 
     public override int GetHashCode() => Hash.GetHashCode();
 
-    public override bool Equals(object? obj) => obj is Key key && (int) Hash == (int) key.Hash;
+    public override bool Equals(object? obj) => obj is Key key && (int)Hash == (int)key.Hash;
 
     public T? GetCard<T>() where T : class => Databases.Catalogue.GetCard<T>(this);
 
     public override string ToString() => Hash.ToString();
 
-    public static bool operator ==(Key a, Key b) => (int) a.Hash == (int) b.Hash;
+    public static bool operator ==(Key a, Key b) => (int)a.Hash == (int)b.Hash;
 
-    public static bool operator !=(Key a, Key b) => (int) a.Hash != (int) b.Hash;
+    public static bool operator !=(Key a, Key b) => (int)a.Hash != (int)b.Hash;
 
     public bool Equals(Key other)
     {

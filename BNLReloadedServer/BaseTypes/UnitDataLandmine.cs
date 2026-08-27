@@ -18,39 +18,39 @@ public class UnitDataLandmine : UnitData
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(Timeout.HasValue, true, true, true, TriggerEffect != null).Write(writer);
-      if (Timeout.HasValue)
-        writer.Write(Timeout.Value);
-      writer.Write(TriggerRadius);
-      writer.Write(BeepRadius);
-      writer.Write(HitOnTimeout);
-      if (TriggerEffect != null)
-        InstEffect.WriteVariant(writer, TriggerEffect);
+        new BitField(Timeout.HasValue, true, true, true, TriggerEffect != null).Write(writer);
+        if (Timeout.HasValue)
+            writer.Write(Timeout.Value);
+        writer.Write(TriggerRadius);
+        writer.Write(BeepRadius);
+        writer.Write(HitOnTimeout);
+        if (TriggerEffect != null)
+            InstEffect.WriteVariant(writer, TriggerEffect);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(5);
-      bitField.Read(reader);
-      Timeout = bitField[0] ? reader.ReadSingle() : null;
-      if (bitField[1])
-        TriggerRadius = reader.ReadSingle();
-      if (bitField[2])
-        BeepRadius = reader.ReadSingle();
-      if (bitField[3])
-        HitOnTimeout = reader.ReadBoolean();
-      TriggerEffect = bitField[4] ? InstEffect.ReadVariant(reader) : null;
+        var bitField = new BitField(5);
+        bitField.Read(reader);
+        Timeout = bitField[0] ? reader.ReadSingle() : null;
+        if (bitField[1])
+            TriggerRadius = reader.ReadSingle();
+        if (bitField[2])
+            BeepRadius = reader.ReadSingle();
+        if (bitField[3])
+            HitOnTimeout = reader.ReadBoolean();
+        TriggerEffect = bitField[4] ? InstEffect.ReadVariant(reader) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, UnitDataLandmine value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static UnitDataLandmine ReadRecord(BinaryReader reader)
     {
-      var unitDataLandmine = new UnitDataLandmine();
-      unitDataLandmine.Read(reader);
-      return unitDataLandmine;
+        var unitDataLandmine = new UnitDataLandmine();
+        unitDataLandmine.Read(reader);
+        return unitDataLandmine;
     }
 }

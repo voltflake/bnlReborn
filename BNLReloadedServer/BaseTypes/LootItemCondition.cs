@@ -12,31 +12,31 @@ public class LootItemCondition : LootItem
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(ItemsByCondition != null, OpponentItemsByCondition != null).Write(writer);
-      if (ItemsByCondition != null)
-        writer.WriteMap(ItemsByCondition, writer.WriteByteEnum, LootItemUnit.WriteRecord);
-      if (OpponentItemsByCondition == null)
-        return;
-      writer.WriteMap(OpponentItemsByCondition, writer.WriteByteEnum, LootItemUnit.WriteRecord);
+        new BitField(ItemsByCondition != null, OpponentItemsByCondition != null).Write(writer);
+        if (ItemsByCondition != null)
+            writer.WriteMap(ItemsByCondition, writer.WriteByteEnum, LootItemUnit.WriteRecord);
+        if (OpponentItemsByCondition == null)
+            return;
+        writer.WriteMap(OpponentItemsByCondition, writer.WriteByteEnum, LootItemUnit.WriteRecord);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(2);
-      bitField.Read(reader);
-      ItemsByCondition = bitField[0] ? reader.ReadMap<LootConditionType, LootItemUnit, Dictionary<LootConditionType, LootItemUnit>>(reader.ReadByteEnum<LootConditionType>, LootItemUnit.ReadRecord) : null;
-      OpponentItemsByCondition = bitField[1] ? reader.ReadMap<LootConditionType, LootItemUnit, Dictionary<LootConditionType, LootItemUnit>>(reader.ReadByteEnum<LootConditionType>, LootItemUnit.ReadRecord) : null;
+        var bitField = new BitField(2);
+        bitField.Read(reader);
+        ItemsByCondition = bitField[0] ? reader.ReadMap<LootConditionType, LootItemUnit, Dictionary<LootConditionType, LootItemUnit>>(reader.ReadByteEnum<LootConditionType>, LootItemUnit.ReadRecord) : null;
+        OpponentItemsByCondition = bitField[1] ? reader.ReadMap<LootConditionType, LootItemUnit, Dictionary<LootConditionType, LootItemUnit>>(reader.ReadByteEnum<LootConditionType>, LootItemUnit.ReadRecord) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, LootItemCondition value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static LootItemCondition ReadRecord(BinaryReader reader)
     {
-      var lootItemCondition = new LootItemCondition();
-      lootItemCondition.Read(reader);
-      return lootItemCondition;
+        var lootItemCondition = new LootItemCondition();
+        lootItemCondition.Read(reader);
+        return lootItemCondition;
     }
 }

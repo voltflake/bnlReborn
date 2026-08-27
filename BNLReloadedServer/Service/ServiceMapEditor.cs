@@ -17,17 +17,17 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         MessageSaveMap = 1,
         MessageLoadMetadata = 2,
         MessageEncodeMap = 3,
-        MessageDecodeMap = 4, 
+        MessageDecodeMap = 4,
         MessageCheckMap = 5,
         MessagePlayMapData = 6,
         MessagePlayMapKey = 7
     }
-    
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
-    
+
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceMapEditor);
         return writer;
@@ -40,7 +40,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (map != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             MapData.WriteRecord(writer, map);
             writer.WriteOption(blocks, writer.WriteBinary);
             writer.WriteOption(colors, writer.WriteBinary);
@@ -69,7 +69,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else
         {
@@ -113,7 +113,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (metadata != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             HerculesMetadata.WriteRecord(writer, metadata);
         }
         else
@@ -137,12 +137,12 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (signedMap != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(signedMap);
         }
         else if (mapValidation != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EMapValidation.WriteRecord(writer, mapValidation);
         }
         else
@@ -166,7 +166,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (map != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             MapData.WriteRecord(writer, map);
             writer.WriteOption(blocks, writer.WriteBinary);
             writer.WriteOption(colors, writer.WriteBinary);
@@ -186,12 +186,12 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
 
         var handler = new JsonWebTokenHandler();
         var jsonWebToken = handler.ReadJsonWebToken(signedMap);
-            
+
         var rawPayload = jsonWebToken.EncodedPayload;
         var mapJson = Base64UrlEncoder.Decode(rawPayload);
-            
+
         var mapData = JsonSerializer.Deserialize<MapData>(mapJson, JsonHelper.DefaultSerializerSettings);
-        
+
         SendDecodeMap(rpcId, mapData, mapData?.BlocksData, mapData?.ColorsData);
     }
 
@@ -202,11 +202,11 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (mapValidation == null && error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else if (mapValidation != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EMapValidation.WriteRecord(writer, mapValidation);
         }
         else
@@ -232,11 +232,11 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
         writer.Write(rpcId);
         if (mapValidation == null && error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else if (mapValidation != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EMapValidation.WriteRecord(writer, mapValidation);
         }
         else
@@ -273,7 +273,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
             _serverDatabase.StartMapEditorGame(sender.AssociatedPlayerId.Value, mapData, hero, team);
         }
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceMapEditorId = reader.ReadByte();
@@ -313,7 +313,7 @@ public class ServiceMapEditor(ISender sender) : IServiceMapEditor
                 Log.Warn(LogCat.Net, $"Unknown service MapEditor id {Log.EnumName(mapEditorEnum, serviceMapEditorId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

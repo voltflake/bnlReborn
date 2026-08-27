@@ -12,7 +12,7 @@ public class TimeTrigger
     {
         new BitField(true, Time != null).Write(writer);
         writer.WriteByteEnum(Day);
-        if (Time != null) 
+        if (Time != null)
             writer.Write(Time);
     }
 

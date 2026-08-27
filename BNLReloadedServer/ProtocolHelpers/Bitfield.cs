@@ -9,8 +9,8 @@ public class BitField
     {
         Count = count;
         _byteCount = (count >> 3) + (count % 8 == 0 ? 0 : 1);
-        _bytes = new byte[_byteCount]; 
-    } 
+        _bytes = new byte[_byteCount];
+    }
 
     public BitField(params bool[] values) : this(values.Length)
     {
@@ -31,9 +31,9 @@ public class BitField
         {
             var index1 = index >> 3;
             if (value)
-                _bytes[index1] |= (byte) Mask(index);
+                _bytes[index1] |= (byte)Mask(index);
             else
-                _bytes[index1] &= (byte) ~Mask(index);
+                _bytes[index1] &= (byte)~Mask(index);
         }
     }
 

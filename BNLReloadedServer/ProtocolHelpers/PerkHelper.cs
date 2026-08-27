@@ -16,10 +16,10 @@ public static class PerkHelper
                 if (mod is PerkModGear gearMod && gearList.Contains(gearMod.ReplaceFrom) && result.Contains(gearMod.ReplaceFrom))
                 {
                     result[result.IndexOf(gearMod.ReplaceFrom)] = gearMod.ReplaceTo;
-                }        
+                }
             }
         }
-        
+
         return result;
     }
 
@@ -38,16 +38,16 @@ public static class PerkHelper
                     if (card is null) continue;
                     if (effectResult.ContainsKey(effect))
                     {
-                        effectResult[effect] += (ulong?) card.Duration;
+                        effectResult[effect] += (ulong?)card.Duration;
                     }
                     else
                     {
-                        effectResult.Add(effect, (ulong?) card.Duration);
+                        effectResult.Add(effect, (ulong?)card.Duration);
                     }
                 }
             }
         }
-        
+
         return effectResult;
     }
 
@@ -60,7 +60,7 @@ public static class PerkHelper
             if (Databases.Catalogue.GetCard<CardPerk>(perk) is not { PerkMods: not null } cp) continue;
             foreach (var mod in cp.PerkMods)
             {
-                if (mod is not PerkModPassive { ReplaceEffects: not null }passive) continue;
+                if (mod is not PerkModPassive { ReplaceEffects: not null } passive) continue;
                 foreach (var pass in passive.ReplaceEffects)
                 {
                     if (replIdx >= result.Count)
@@ -75,7 +75,7 @@ public static class PerkHelper
                 }
             }
         }
-        
+
         return result;
     }
 
@@ -90,7 +90,7 @@ public static class PerkHelper
                 return abilityMod.ReplaceAbility;
             }
         }
-        
+
         return ability;
     }
 
@@ -105,22 +105,22 @@ public static class PerkHelper
                 if (mod is not PerkModDevice { ReplaceFrom: not null } deviceMod) continue;
                 if (deviceMod.ReplaceFrom is { Count: > 0 })
                 {
-                   var keyCount = 0;
-                   foreach (var device in deviceMod.ReplaceFrom.Where(device => devices.ContainsValue(device) && result.ContainsValue(device)))
-                   {
-                       foreach (var devs in result.Where(kv => kv.Value == device).OrderBy(kv => kv.Key))
-                       {
-                           if (keyCount == 0)
-                           {
-                               result[devs.Key] = deviceMod.ReplaceTo;
-                           }
-                           else
-                           {
-                               result.Remove(devs.Key);
-                           }
-                           keyCount++;
-                       }
-                   } 
+                    var keyCount = 0;
+                    foreach (var device in deviceMod.ReplaceFrom.Where(device => devices.ContainsValue(device) && result.ContainsValue(device)))
+                    {
+                        foreach (var devs in result.Where(kv => kv.Value == device).OrderBy(kv => kv.Key))
+                        {
+                            if (keyCount == 0)
+                            {
+                                result[devs.Key] = deviceMod.ReplaceTo;
+                            }
+                            else
+                            {
+                                result.Remove(devs.Key);
+                            }
+                            keyCount++;
+                        }
+                    }
                 }
                 else
                 {
@@ -128,7 +128,7 @@ public static class PerkHelper
                 }
             }
         }
-        
+
         return result;
     }
 }

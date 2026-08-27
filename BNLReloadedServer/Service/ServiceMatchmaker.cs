@@ -14,11 +14,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
         MessageLeaveQueue = 1,
         MessageEnableBackfilling = 2,
         MessageEnableNewHeroLeagueProtection = 3,
-        MessageConfirmMatch = 4, 
+        MessageConfirmMatch = 4,
         MessageMatchmakerUpdate = 5,
         MessageQueueLeft = 6,
         MessageGetCustomGamesList = 7,
-        MessageJoinCustomGame = 8, 
+        MessageJoinCustomGame = 8,
         MessageSpectateCustomGame = 9,
         MessageCreateCustomGame = 10,
         MessageStartCustomGame = 11,
@@ -35,9 +35,9 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
         MessageRegisterCustomGame = 22,
         MessageJoinCustomGameBySteam = 23
     }
-    
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -85,11 +85,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
             _serverDatabase.ConfirmMatch(sender.AssociatedPlayerId.Value, confirmMatch, this);
         }
     }
-    
+
     public void SendMatchmakerUpdate(MatchmakerUpdate matchmakerUpdate)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageMatchmakerUpdate);
+        writer.Write((byte)ServiceMatchmakerId.MessageMatchmakerUpdate);
         MatchmakerUpdate.WriteRecord(writer, matchmakerUpdate);
         sender.Send(writer);
     }
@@ -97,7 +97,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendQueueLeft(uint actorId)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageQueueLeft);
+        writer.Write((byte)ServiceMatchmakerId.MessageQueueLeft);
         writer.Write(actorId);
         sender.Send(writer);
     }
@@ -105,11 +105,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendCustomGamesList(ushort rpcId, List<CustomGameInfo> customGamesList, string? error = null)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageGetCustomGamesList);
+        writer.Write((byte)ServiceMatchmakerId.MessageGetCustomGamesList);
         writer.Write(rpcId);
         if (error == null)
-        { 
-            writer.Write((byte) 0);
+        {
+            writer.Write((byte)0);
             writer.WriteList(customGamesList, CustomGameInfo.WriteRecord);
         }
         else
@@ -129,11 +129,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendJoinCustomGame(ushort rpcId, CustomGameJoinResult result, string? error = null)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageJoinCustomGame);
+        writer.Write((byte)ServiceMatchmakerId.MessageJoinCustomGame);
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteByteEnum(result);
         }
         else
@@ -161,11 +161,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendSpectateCustomGame(ushort rpcId, CustomGameSpectateResult result, string? error = null)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageSpectateCustomGame);
+        writer.Write((byte)ServiceMatchmakerId.MessageSpectateCustomGame);
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteByteEnum(result);
         }
         else
@@ -228,20 +228,20 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     private void ReceiveApplyCustomGameSettings(BinaryReader reader)
     {
         var customGameSettings = CustomGameSettings.ReadRecord(reader);
-        if(sender.AssociatedPlayerId.HasValue)
+        if (sender.AssociatedPlayerId.HasValue)
             _serverDatabase.UpdateCustomSettings(sender.AssociatedPlayerId.Value, customGameSettings);
     }
 
     private void ReceiveSwitchTeam(BinaryReader reader)
     {
-        if(sender.AssociatedPlayerId.HasValue)
+        if (sender.AssociatedPlayerId.HasValue)
             _serverDatabase.SwitchTeam(sender.AssociatedPlayerId.Value);
     }
 
     private void ReceiveKickPlayer(BinaryReader reader)
     {
         var playerId = reader.ReadUInt32();
-        if(sender.AssociatedPlayerId.HasValue)
+        if (sender.AssociatedPlayerId.HasValue)
             _serverDatabase.KickFromCustomGame(playerId, sender.AssociatedPlayerId.Value);
     }
 
@@ -259,11 +259,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
         if (sender.AssociatedPlayerId.HasValue)
             _serverDatabase.RestartTimeTrialGame(sender.AssociatedPlayerId.Value);
     }
-    
+
     public void SendUpdateCustomGame(CustomGameUpdate update)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageUpdateCustomGame);
+        writer.Write((byte)ServiceMatchmakerId.MessageUpdateCustomGame);
         CustomGameUpdate.WriteRecord(writer, update);
         sender.Send(writer);
     }
@@ -271,7 +271,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendCustomGamePlayerKicked(uint playerId)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageCustomGamePlayerKicked);
+        writer.Write((byte)ServiceMatchmakerId.MessageCustomGamePlayerKicked);
         writer.Write(playerId);
         sender.Send(writer);
     }
@@ -279,7 +279,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendExitCustomGame()
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageExitCustomGame);
+        writer.Write((byte)ServiceMatchmakerId.MessageExitCustomGame);
         sender.Send(writer);
     }
 
@@ -291,11 +291,11 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
     public void SendJoinCustomGameBySteam(ushort rpcId, CustomGameJoinResult result, string? error = null)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceMatchmakerId.MessageJoinCustomGameBySteam);
+        writer.Write((byte)ServiceMatchmakerId.MessageJoinCustomGameBySteam);
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteByteEnum(result);
         }
         else
@@ -311,7 +311,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
         var rpcId = reader.ReadUInt16();
         var gameId = reader.ReadUInt64();
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceMatchmakerId = reader.ReadByte();
@@ -386,7 +386,7 @@ public class ServiceMatchmaker(ISender sender) : IServiceMatchmaker
                 Log.Warn(LogCat.Net, $"Unknown service matchmaker id {Log.EnumName(matchEnum, serviceMatchmakerId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

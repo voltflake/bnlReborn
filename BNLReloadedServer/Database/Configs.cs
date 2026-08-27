@@ -13,11 +13,8 @@ public class Configs
     public string? CouchDbUsername { get; init; }
     public string? CouchDbPassword { get; init; }
     public string? CouchDbDatabaseName { get; init; }
-    /// <summary>Superseded by <see cref="LogLevel"/>, and only read when that is unset.</summary>
     public bool DebugMode { get; init; }
 
-    /// <summary>debug, info, warn or error. Unset falls back to debug_mode, which is what it
-    /// replaces — that flag was the one-bit version of this setting.</summary>
     public string? LogLevel { get; init; }
 
     public bool UseMaxDeviceLevel { get; init; }

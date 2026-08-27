@@ -12,27 +12,27 @@ public class UnitDataCloud : UnitData
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(true, InsideEffects != null).Write(writer);
-      writer.Write(Range);
-      if (InsideEffects != null)
-        writer.WriteList(InsideEffects, Key.WriteRecord);
+        new BitField(true, InsideEffects != null).Write(writer);
+        writer.Write(Range);
+        if (InsideEffects != null)
+            writer.WriteList(InsideEffects, Key.WriteRecord);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(2);
-      bitField.Read(reader);
-      if (bitField[0])
-        Range = reader.ReadSingle();
-      InsideEffects = bitField[1] ? reader.ReadList<Key, List<Key>>(Key.ReadRecord) : null;
+        var bitField = new BitField(2);
+        bitField.Read(reader);
+        if (bitField[0])
+            Range = reader.ReadSingle();
+        InsideEffects = bitField[1] ? reader.ReadList<Key, List<Key>>(Key.ReadRecord) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, UnitDataCloud value) => value.Write(writer);
 
     public static UnitDataCloud ReadRecord(BinaryReader reader)
     {
-      var unitDataCloud = new UnitDataCloud();
-      unitDataCloud.Read(reader);
-      return unitDataCloud;
+        var unitDataCloud = new UnitDataCloud();
+        unitDataCloud.Read(reader);
+        return unitDataCloud;
     }
 }

@@ -3,13 +3,6 @@ using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.ControlPanel;
 
-/// <summary>
-/// Catches whatever still writes to Console instead of <see cref="Log"/> and files it as a
-/// <see cref="LogCat.Raw"/> record. Output is accumulated until a newline arrives rather than
-/// logged per call: a Console.Write followed by a Console.WriteLine is one line on the terminal,
-/// and it used to become two entries in the panel with two different timestamps. Char writes were
-/// dropped entirely.
-/// </summary>
 public sealed class BroadcastingTextWriter(TextWriter inner) : TextWriter
 {
     private readonly StringBuilder _pending = new();

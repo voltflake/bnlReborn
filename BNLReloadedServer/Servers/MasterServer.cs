@@ -13,6 +13,6 @@ public class MasterServer(IPAddress address, int port) : AsyncTaskTcpServer(addr
 
     protected override void OnStarted() => Log.Info(LogCat.Server, "Master server started");
 
-    protected override void OnError(SocketError error) => 
+    protected override void OnError(SocketError error) =>
         Log.Error(LogCat.Server, $"Master server socket error: {error}");
 }

@@ -8,9 +8,9 @@ public class Vector2sJsonConverter : JsonConverter<Vector2s>
 {
     public override Vector2s Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Null) 
+        if (reader.TokenType == JsonTokenType.Null)
             return default;
-        
+
         using var jsonDocument = JsonDocument.ParseValue(ref reader);
         var json = jsonDocument.RootElement;
         return new Vector2s(json.GetProperty("x").Deserialize<short>(), json.GetProperty("y").Deserialize<short>());

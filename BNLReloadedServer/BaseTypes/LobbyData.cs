@@ -27,7 +27,7 @@ public class LobbyData
 
     public PlayerLobbyState? GetPlayer(uint playerId) => Players.GetValueOrDefault(playerId);
 
-    public List<PlayerLobbyState> GetTeam(TeamType team) => Players.Values.Where((Func<PlayerLobbyState, bool>) (i => i.Team == team)).ToList();
+    public List<PlayerLobbyState> GetTeam(TeamType team) => Players.Values.Where((Func<PlayerLobbyState, bool>)(i => i.Team == team)).ToList();
 
     public List<PlayerLobbyState> GetTeam1() => GetTeam(TeamType.Team1);
 
@@ -41,7 +41,7 @@ public class LobbyData
         var ulongList = new List<ulong>();
         foreach (var playerLobbyState in GetTeam(player.Team))
         {
-            if (playerLobbyState.SquadId.HasValue && !ulongList.Contains(playerLobbyState.SquadId.Value)) 
+            if (playerLobbyState.SquadId.HasValue && !ulongList.Contains(playerLobbyState.SquadId.Value))
                 ulongList.Add(playerLobbyState.SquadId.Value);
         }
         return ulongList.IndexOf(player.SquadId.Value);
@@ -63,7 +63,7 @@ public class LobbyData
         {
             foreach (var player in update.Players)
             {
-              Players[player.PlayerId] = player;
+                Players[player.PlayerId] = player;
             }
         }
         if (update.Timer != null)
@@ -98,6 +98,6 @@ public class LobbyData
         {
             PlayersProgress[player] = playersProgress[player];
         }
-      
+
     }
 }

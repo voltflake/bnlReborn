@@ -34,11 +34,11 @@ public class ChatRoom(RoomId roomId, ISender sender)
 
     public void SendMessage(ChatPlayer player, string message, List<Guid>? excluded = null) =>
         _chatService.SendRoomMessage(RoomId, player, message, excluded);
-    
-    public void SendServiceMessage(string message, bool isLocalized, Dictionary<string, string> args) => 
+
+    public void SendServiceMessage(string message, bool isLocalized, Dictionary<string, string> args) =>
         _chatService.SendServiceMessage(RoomId, message, isLocalized, args);
-    
-    public void SendServiceMessage(string message, bool isLocalized = false) => 
+
+    public void SendServiceMessage(string message, bool isLocalized = false) =>
         _chatService.SendServiceMessage(RoomId, message, isLocalized, new Dictionary<string, string>());
 
     public void ClearRoom()

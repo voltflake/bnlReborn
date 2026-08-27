@@ -13,7 +13,7 @@ public class ServicePing(ISender sender) : IServicePing
         MessageClientPing = 2,
         MessageClientPong = 3
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -21,7 +21,7 @@ public class ServicePing(ISender sender) : IServicePing
         writer.Write((byte)ServiceId.ServicePing);
         return writer;
     }
-    
+
     private int _missedProbes;
 
     public void SendServerPing()
@@ -54,7 +54,7 @@ public class ServicePing(ISender sender) : IServicePing
         writer.Write((byte)ServicePingId.MessageClientPong);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var servicePingId = reader.ReadByte();
@@ -78,7 +78,7 @@ public class ServicePing(ISender sender) : IServicePing
                 Log.Warn(LogCat.Net, $"Unknown service ping id {Log.EnumName(pingEnum, servicePingId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

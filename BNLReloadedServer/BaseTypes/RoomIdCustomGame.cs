@@ -37,7 +37,7 @@ public class RoomIdCustomGame : RoomId
 
     public override bool Equals(object? obj)
     {
-        return obj != null && obj.GetType() == typeof (RoomIdCustomGame) && (long) CustomGameId == (long) ((RoomIdCustomGame) obj).CustomGameId;
+        return obj != null && obj.GetType() == typeof(RoomIdCustomGame) && (long)CustomGameId == (long)((RoomIdCustomGame)obj).CustomGameId;
     }
 
     public override int GetHashCode() => Type.GetHashCode() ^ CustomGameId.GetHashCode();

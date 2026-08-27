@@ -6,6 +6,7 @@ using BNLReloadedServer.Servers;
 using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Service;
+
 public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress) : IServiceLogin
 {
     private enum ServiceLoginId : byte
@@ -32,7 +33,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
     private const int ProtocolVersion = 310;
     private const int ProtocolHash = 0;
     private const string LoginToken = "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwtest";
-    
+
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
     private readonly IMasterServerDatabase _masterServerDatabase = Databases.MasterServerDatabase;
     private readonly IRegionServerDatabase _regionServerDatabase = Databases.RegionServerDatabase;
@@ -57,7 +58,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
 
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceLogin);
         return writer;
@@ -70,7 +71,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (accepted)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted);
             new BitField(true, true).Write(writer);
             writer.Write(ProtocolVersion);
@@ -83,27 +84,27 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         }
         sender.Send(writer);
     }
-    
+
     private void ReceiveCheckVersion(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
         var bitfield = new BitField(2);
         bitfield.Read(reader);
         if (bitfield[0])
-        { 
-            var version = reader.ReadInt32(); 
+        {
+            var version = reader.ReadInt32();
             if (version != ProtocolVersion)
-            { 
+            {
                 SendCheckVersion(rpcId, false, $"client version doesn't match server version: {version}");
                 return;
             }
         }
         else
         {
-            SendCheckVersion(rpcId, false, "missing client version");    
+            SendCheckVersion(rpcId, false, "missing client version");
             return;
         }
-        
+
         if (bitfield[1])
         {
             var hash = reader.ReadInt32();
@@ -111,14 +112,14 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
             {
                 SendCheckVersion(rpcId, false, $"client hash doesn't match server hash: {hash}");
                 return;
-            }    
+            }
         }
         else
         {
-            SendCheckVersion(rpcId, false, "missing client hash");   
+            SendCheckVersion(rpcId, false, "missing client hash");
             return;
         }
-        
+
         SendCheckVersion(rpcId, true);
     }
 
@@ -129,7 +130,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
 
     public void SendPong()
     {
-        using var writer = CreateWriter();    
+        using var writer = CreateWriter();
         writer.Write((byte)ServiceLoginId.MessagePong);
         sender.Send(writer);
     }
@@ -141,12 +142,12 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (node != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(node);
         }
         else if (authFailed != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EAuthFailed.WriteRecord(writer, authFailed);
         }
         else
@@ -168,7 +169,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         using var writer = CreateWriter();
         writer.Write((byte)ServiceLoginId.MessageLoginMaster);
         writer.Write(rpcId);
-        writer.Write((byte) 0);
+        writer.Write((byte)0);
         var bitfield = new BitField(serverMaintenance != null, steamToken != null);
         bitfield.Write(writer);
         if (serverMaintenance != null)
@@ -193,7 +194,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         var rpcId = reader.ReadUInt16();
         var token = reader.ReadString();
         if (token != LoginToken)
-        {  
+        {
             SendLoginMasterError(rpcId, $"invalid login token {token}");
         }
         else
@@ -201,7 +202,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
             SendLoginMasterSuccess(rpcId, false, true);
         }
     }
-    
+
     public void SendLoginMasterDebug(ushort rpcId, uint? id2, EAuthFailed? authFailed = null, string? error = null)
     {
         using var writer = CreateWriter();
@@ -209,12 +210,12 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (id2.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(id2.Value);
         }
         else if (authFailed != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EAuthFailed.WriteRecord(writer, authFailed);
         }
         else
@@ -231,7 +232,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         var name = reader.ReadString();
         var token = reader.ReadString();
     }
-    
+
     public void SendLoginMasterSteam(ushort rpcId, uint? playerId, EAuthFailed? authFailed = null, EContentAuthFailed? contentAuthFailed = null, string? error = null)
     {
         using var writer = CreateWriter();
@@ -239,17 +240,17 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (playerId != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(playerId.Value);
         }
         else if (authFailed != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EAuthFailed.WriteRecord(writer, authFailed);
         }
         else if (contentAuthFailed != null)
         {
-            writer.Write((byte) 2);
+            writer.Write((byte)2);
             EContentAuthFailed.WriteRecord(writer, contentAuthFailed);
         }
         else
@@ -284,7 +285,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
             SendRegions(regionServers);
         }
     }
-    
+
     private void ReceiveLoginMasterSteam(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
@@ -296,7 +297,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         RecordLoginAddress(sender.AssociatedPlayerId.Value);
         SendLoginMasterSteam(rpcId, sender.AssociatedPlayerId);
     }
-    
+
     public void SendLoginMasterXxx(ushort rpcId, uint? id2, EAuthFailed? authFailed = null, string? error = null)
     {
         using var writer = CreateWriter();
@@ -304,12 +305,12 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (id2.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(id2.Value);
         }
         else if (authFailed != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EAuthFailed.WriteRecord(writer, authFailed);
         }
         else
@@ -326,7 +327,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         var id = reader.ReadString();
         var token = reader.ReadString();
     }
-    
+
     public void SendLoginMasterPpp(ushort rpcId, uint? id2, EAuthFailed? authFailed = null, string? error = null)
     {
         using var writer = CreateWriter();
@@ -334,12 +335,12 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (id2.HasValue)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(id2.Value);
         }
         else if (authFailed != null)
         {
-            writer.Write((byte) 1);
+            writer.Write((byte)1);
             EAuthFailed.WriteRecord(writer, authFailed);
         }
         else
@@ -349,14 +350,14 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         }
         sender.Send(writer);
     }
-    
+
     private void ReceiveLoginMasterPpp(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
         var id = reader.ReadBinary();
         var token = reader.ReadString();
     }
-    
+
     public void SendRegions(List<RegionInfo> regions, string? selected = null)
     {
         using var writer = CreateWriter();
@@ -369,9 +370,9 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
     private void EnterRegion(uint playerId, RegionInfo region)
     {
         if (region.Id == null || _masterServerDatabase.GetPlayer(playerId).Result is not { } player) return;
-        
+
         if (!_masterServerDatabase.SetRegionForPlayer(player.PlayerId, region.Info?.Name?.Text ?? region.Id).Result) return;
-        
+
         // The region is local to this process, so loading a selected player is a direct cache
         // insertion rather than a loopback packet.
         Databases.PlayerDatabase.AddPlayer(player);
@@ -388,14 +389,14 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
             EnterRegion(sender.AssociatedPlayerId.Value, regionToEnter);
         }
     }
-    
+
     public void SendEnterRegion(RegionInfo region, uint playerId)
     {
         if (region.Host == null)
         {
             return;
         }
-        
+
         using var writer = CreateWriter();
         writer.Write((byte)ServiceLoginId.MessageEnterRegion);
         writer.Write(region.Host);
@@ -411,7 +412,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(rpcId);
         if (role != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteByteEnum(role.Value);
         }
         else if (authFailed != null)
@@ -445,7 +446,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         var catalogue = CatalogueBlob.Current;
         SendCatalogue(catalogueHash != catalogue.Hash ? catalogue.Data : null);
     }
-    
+
     public void SendWait(float waitTime)
     {
         using var writer = CreateWriter();
@@ -453,7 +454,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         writer.Write(waitTime);
         sender.Send(writer);
     }
-    
+
     public void SendLoggedIn()
     {
         using var writer = CreateWriter();
@@ -531,7 +532,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
 
         switch (loginEnum)
         {
-            case ServiceLoginId.MessageCheckVersion: 
+            case ServiceLoginId.MessageCheckVersion:
                 ReceiveCheckVersion(reader);
                 break;
             case ServiceLoginId.MessagePing:
@@ -548,7 +549,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
                 break;
             case ServiceLoginId.MessageLoginMasterSteam:
                 ReceiveLoginMasterSteam(reader);
-                break;            
+                break;
             case ServiceLoginId.MessageLoginMasterXxx:
                 ReceiveLoginMasterXxx(reader);
                 break;
@@ -568,7 +569,7 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
                 Log.Warn(LogCat.Net, $"Login service received unsupported serviceId: {Log.EnumName(loginEnum, serviceLoginId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

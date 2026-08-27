@@ -21,43 +21,43 @@ public class DamageInfo
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(true, SourceUnitId.HasValue, SourcePosition.HasValue, Impact.HasValue, true, true, true).Write(writer);
-      writer.Write(TargetUnitId);
-      if (SourceUnitId.HasValue)
-        writer.Write(SourceUnitId.Value);
-      if (SourcePosition.HasValue)
-        writer.Write(SourcePosition.Value);
-      if (Impact.HasValue)
-        Key.WriteRecord(writer, Impact.Value);
-      writer.Write(Damage);
-      writer.Write(InitialDamage);
-      writer.Write(Crit);
+        new BitField(true, SourceUnitId.HasValue, SourcePosition.HasValue, Impact.HasValue, true, true, true).Write(writer);
+        writer.Write(TargetUnitId);
+        if (SourceUnitId.HasValue)
+            writer.Write(SourceUnitId.Value);
+        if (SourcePosition.HasValue)
+            writer.Write(SourcePosition.Value);
+        if (Impact.HasValue)
+            Key.WriteRecord(writer, Impact.Value);
+        writer.Write(Damage);
+        writer.Write(InitialDamage);
+        writer.Write(Crit);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(7);
-      bitField.Read(reader);
-      if (bitField[0])
-        TargetUnitId = reader.ReadUInt32();
-      SourceUnitId = bitField[1] ? reader.ReadUInt32() : null;
-      SourcePosition = bitField[2] ? reader.ReadVector3() : null;
-      Impact = bitField[3] ? Key.ReadRecord(reader) : null;
-      if (bitField[4])
-        Damage = reader.ReadSingle();
-      if (bitField[5])
-        InitialDamage = reader.ReadSingle();
-      if (!bitField[6])
-        return;
-      Crit = reader.ReadBoolean();
+        var bitField = new BitField(7);
+        bitField.Read(reader);
+        if (bitField[0])
+            TargetUnitId = reader.ReadUInt32();
+        SourceUnitId = bitField[1] ? reader.ReadUInt32() : null;
+        SourcePosition = bitField[2] ? reader.ReadVector3() : null;
+        Impact = bitField[3] ? Key.ReadRecord(reader) : null;
+        if (bitField[4])
+            Damage = reader.ReadSingle();
+        if (bitField[5])
+            InitialDamage = reader.ReadSingle();
+        if (!bitField[6])
+            return;
+        Crit = reader.ReadBoolean();
     }
 
     public static void WriteRecord(BinaryWriter writer, DamageInfo value) => value.Write(writer);
 
     public static DamageInfo ReadRecord(BinaryReader reader)
     {
-      var damageInfo = new DamageInfo();
-      damageInfo.Read(reader);
-      return damageInfo;
+        var damageInfo = new DamageInfo();
+        damageInfo.Read(reader);
+        return damageInfo;
     }
 }

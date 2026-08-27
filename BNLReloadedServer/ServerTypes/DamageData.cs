@@ -30,7 +30,7 @@ public record DamageData(
             TeamObjectiveDamage = float.Max(TeamObjectiveDamage - amount, 0),
             EnemyObjectiveDamage = float.Max(EnemyObjectiveDamage - amount, 0)
         };
-    
+
     public DamageData ReduceByPercent(float amount)
     {
         var reductionAmt = float.Max(1 - amount, 0);
@@ -46,7 +46,7 @@ public record DamageData(
             EnemyObjectiveDamage = EnemyObjectiveDamage * reductionAmt
         };
     }
-    
+
     public DamageData ReduceByPercent(float unitAmount, float blockAmount)
     {
         var reductionUnitAmt = float.Max(1 - unitAmount, 0);

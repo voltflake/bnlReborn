@@ -57,7 +57,7 @@ public partial class Unit
                     AddResource(value * multiplier, ResourceType.General, unitUpdate);
                     hasUpdate = hasUpdate || unitUpdate.Resource != null;
                     break;
-                
+
                 case (BuffType.HealthRegen, _):
                     var healAmount = AddHealth(value * multiplier, unitUpdate);
 
@@ -69,7 +69,7 @@ public partial class Unit
                             return eCard.Effect is ConstEffectBuff { Buffs: not null } eff &&
                                    eff.Buffs.ContainsKey(buffKey);
                         });
-                        
+
                         if (healSource is not null)
                         {
                             var sourceList = _effectSources.GetValueOrDefault(healSource.Key);
@@ -85,17 +85,17 @@ public partial class Unit
                     }
                     hasUpdate = hasUpdate || unitUpdate.Health != null;
                     break;
-                
+
                 case (BuffType.ForcefieldRegen, _):
                     AddForcefield(value * multiplier, unitUpdate);
                     hasUpdate = hasUpdate || unitUpdate.Forcefield != null;
                     break;
-                
+
                 case (BuffType.AmmoRegen, _):
                     AddAmmo(value * multiplier, unitUpdate);
                     hasUpdate = hasUpdate || unitUpdate.Ammo != null;
                     break;
-                
+
                 case (BuffType.Bleeding, HealthType.Player or HealthType.World):
                 case (BuffType.Burning, HealthType.Player):
                 case (BuffType.Poisoned, HealthType.Player):
@@ -106,13 +106,13 @@ public partial class Unit
                         return eCard.Effect is ConstEffectBuff { Buffs: not null } eff &&
                                eff.Buffs.ContainsKey(buffKey);
                     });
-                    
+
                     EffectSource? source = null;
                     if (effectSource is not null)
                     {
                         source = _effectSources.GetValueOrDefault(effectSource.Key)?.FirstOrDefault();
                     }
-                    
+
                     TakeDamage(value * multiplier, source, unitUpdate);
                     hasUpdate = hasUpdate || unitUpdate.Health != null || unitUpdate.Forcefield != null || unitUpdate.Ammo != null;
                     break;
@@ -139,7 +139,7 @@ public partial class Unit
             {
                 var gearAmmo = gear.Ammo[i];
                 ammoUpdate[gear.Key].Add(new Ammo
-                    { Index = gearAmmo.AmmoIndex, Mag = gearAmmo.Mag, Pool = gearAmmo.Pool });
+                { Index = gearAmmo.AmmoIndex, Mag = gearAmmo.Mag, Pool = gearAmmo.Pool });
                 if (gearAmmo.Pool >= gearAmmo.PoolSize) continue;
                 if (ammoData[i].Pool is not { } pool) continue;
                 var newPool = Math.Min(float.FusedMultiplyAdd(this.AmmoGainAmount(amount), pool.BaseRegen, gearAmmo.Pool),
@@ -149,7 +149,7 @@ public partial class Unit
                 sendUpdate = true;
             }
         }
-        
+
         if (sendUpdate)
         {
             update.Ammo = ammoUpdate;
@@ -163,7 +163,7 @@ public partial class Unit
         var update = new UnitUpdate();
         AddAmmo(amount, update);
         if (update.Ammo != null)
-        { 
+        {
             UpdateData(update);
         }
     }
@@ -181,7 +181,7 @@ public partial class Unit
             {
                 var gearAmmo = gear.Ammo[i];
                 ammoUpdate[gear.Key].Add(new Ammo
-                    { Index = gearAmmo.AmmoIndex, Mag = gearAmmo.Mag, Pool = gearAmmo.Pool });
+                { Index = gearAmmo.AmmoIndex, Mag = gearAmmo.Mag, Pool = gearAmmo.Pool });
                 if (gearAmmo.Pool >= gearAmmo.PoolSize) continue;
                 if (ammoData[i].Pool is not { } pool) continue;
                 ammoUpdate[gear.Key][i].Pool =
@@ -210,7 +210,7 @@ public partial class Unit
     {
         if (Gears.Count == 0 || _currentGearIndex == -1) return;
         var currentGear = GetGearByIndex(_currentGearIndex);
-        if (currentGear?.Card.Ammo is null ) return;
+        if (currentGear?.Card.Ammo is null) return;
         var ammoUpdate = new Dictionary<Key, List<Ammo>> { { currentGear.Key, [] } };
         var sendUpdate = false;
         for (var i = 0; i < currentGear.Ammo.Count; i++)
@@ -224,10 +224,10 @@ public partial class Unit
                 case false when gearAmmo.Mag == 0:
                     continue;
                 case true:
-                {
-                    ammoUpdate[currentGear.Key][i].Pool = Math.Max(gearAmmo.Pool - amount, 0);
-                    break;
-                }
+                    {
+                        ammoUpdate[currentGear.Key][i].Pool = Math.Max(gearAmmo.Pool - amount, 0);
+                        break;
+                    }
                 default:
                     ammoUpdate[currentGear.Key][i].Mag = Math.Max(gearAmmo.Mag - amount, 0);
                     break;
@@ -241,13 +241,13 @@ public partial class Unit
             update.Ammo = ammoUpdate;
         }
     }
-    
+
     public void TakeAmmo(float amount, bool fromMag)
     {
         var update = new UnitUpdate();
         TakeAmmo(amount, fromMag, update);
         if (update.Ammo != null)
-        { 
+        {
             UpdateData(update);
         }
     }
@@ -271,10 +271,10 @@ public partial class Unit
             }
         }
         if (buffedAmount == 0 || (buffedAmount > 0 && currResource >= _updater.GetResourceCap()) || (buffedAmount < 0 && currResource <= 0)) return;
-        
+
         var resourceAmount = float.Min(buffedAmount + currResource, _updater.GetResourceCap());
         update.Resource = resourceAmount;
-        
+
         EarnedResource(resourceAmount - currResource, source is ResourceType.Mining);
     }
 
@@ -310,7 +310,7 @@ public partial class Unit
     private float AddHealth(float amount, UnitUpdate update)
     {
         var currHealth = update.Health ?? _health;
-        if (amount <= 0 || UnitCard?.Health?.Health is not {} health || currHealth >= this.UnitMaxHealth(health.MaxHealth)) return 0;
+        if (amount <= 0 || UnitCard?.Health?.Health is not { } health || currHealth >= this.UnitMaxHealth(health.MaxHealth)) return 0;
 
         var newHealth = MathF.Min(currHealth + this.HealthGainAmount(amount), this.UnitMaxHealth(health.MaxHealth));
         update.Health = newHealth;
@@ -332,7 +332,7 @@ public partial class Unit
     private void AddForcefield(float amount, UnitUpdate update)
     {
         var currForcefield = update.Forcefield ?? _forcefield;
-        if (amount <= 0 || UnitCard?.Health?.Forcefield is not {} forcefield || currForcefield >= this.UnitMaxForcefield(forcefield.MaxAmount)) return;
+        if (amount <= 0 || UnitCard?.Health?.Forcefield is not { } forcefield || currForcefield >= this.UnitMaxForcefield(forcefield.MaxAmount)) return;
 
         update.Forcefield = MathF.Min(currForcefield + amount, this.UnitMaxForcefield(forcefield.MaxAmount));
     }
@@ -361,7 +361,7 @@ public partial class Unit
         {
             AddForcefield(forceBuff, update);
         }
-        
+
         var ammoBuff = amount * GetBuff(BuffType.SupplyAmmo);
         if (ammoBuff > 0.0f)
         {
@@ -398,15 +398,15 @@ public partial class Unit
             ShotPos = GetMidpoint(),
             Crit = false
         };
-        
+
         _updater.OnUnitDamaged(this, amount, impact);
-        
+
         if ((update.Health ?? _health) <= 0.0f)
         {
             Killed(impact, false, update);
         }
     }
-    
+
     private void TakeDamage(DamageData damage, ImpactData impact, bool splash, Unit? attacker, TeamType? attackingTeam, UnitUpdate update)
     {
         if (!IsHealth || IsDead) return;
@@ -417,7 +417,7 @@ public partial class Unit
         {
             return;
         }
-        
+
         var attTeam = attackingTeam ?? attacker?.Team;
 
         float dmg;
@@ -546,7 +546,7 @@ public partial class Unit
 
         (float Health, float Forcefield, float Shield) status = (update.Health ?? _health,
             update.Forcefield ?? _forcefield, update.Shield ?? _shield);
-        
+
         switch (status, damage)
         {
             case ({ Forcefield: > 0 }, _):
@@ -562,7 +562,7 @@ public partial class Unit
                         : forcefield.EmptyRechargeDelay);
                 }
                 break;
-            
+
             case ({ Shield: > 0 }, { IgnoreDefences: false }):
                 var currShield = status.Shield;
                 var newShield = Math.Max(0.0f, currShield - dmg);
@@ -574,25 +574,25 @@ public partial class Unit
                     update.Health = new2Health;
                 }
                 _updater.OnUnitDamaged(this, dmg, impact);
-                
+
                 if (_rechargeForcefieldTime is not null && UnitCard?.Health?.Forcefield is { } force)
                 {
                     _rechargeForcefieldTime = DateTimeOffset.Now.AddSeconds(force.EmptyRechargeDelay);
                 }
                 break;
-            
+
             case ({ Health: > 0 }, _):
                 var currHealth = status.Health;
                 var newHealth = Math.Max(0.0f, currHealth - dmg);
                 update.Health = newHealth;
-                _updater.OnUnitDamaged(this, dmg, impact); 
-                
+                _updater.OnUnitDamaged(this, dmg, impact);
+
                 if (_rechargeForcefieldTime is not null && UnitCard?.Health?.Forcefield is { } frc)
                 {
                     _rechargeForcefieldTime = DateTimeOffset.Now.AddSeconds(frc.EmptyRechargeDelay);
                 }
                 break;
-            
+
             default:
                 return;
         }
@@ -609,7 +609,7 @@ public partial class Unit
         {
             impact.SourceKey = CatalogueHelper.AntimatterSource;
         }
-        
+
         // Check if unit has died
         if (UnitCard?.Data is UnitDataBomb { TriggerOnDamage: true })
         {
@@ -641,7 +641,7 @@ public partial class Unit
             UpdateData(update);
         }
     }
-    
+
     private void Killed(ImpactData impact, bool mining, UnitUpdate update)
     {
         if (IsDead) return;
@@ -659,20 +659,20 @@ public partial class Unit
                     dataDamageCapture.ZoneEffects.Select(e => new ConstEffectInfo(e)),
                     Team, GetSelfSource(selfImpact)));
         }
-        
+
         OnDestroyed?.Invoke();
         _updater.OnUnitKilled(this, impact, mining);
         IsDead = true;
         LastMoveTime = null;
-        
+
         if (IsActive && PlayerId != null)
         {
             TimeRespawning.Start();
         }
-        
+
         if (IsHealth)
         {
-           update.Health = 0.0f; 
+            update.Health = 0.0f;
         }
 
         _returnOnRevive =
@@ -697,7 +697,7 @@ public partial class Unit
         var oldCharges = _charges;
         _charges = int.Clamp(_charges + chargeAmount, 0, TeslaUnitData.MaxCharges);
         if (_charges == oldCharges) return;
-        
+
         if (_charges == 0)
         {
             update.TeslaCharge = TeslaChargeType.NoCharge;
@@ -736,7 +736,7 @@ public partial class Unit
 
         currCharges -= 1;
         UpdateStat(ScoreType.AbilityUsed, 1);
-        
+
         update.AbilityCharges = currCharges;
         TimeTillNextAbilityCharge ??= DateTimeOffset.Now.AddSeconds(this.AbilityCooldownTime(aCard.Charges.ChargeCooldown));
         if (update.AbilityCharges < aCard.Charges.MaxCharges)
@@ -786,7 +786,7 @@ public partial class Unit
         {
             TurretTargetId = targetId
         };
-        
+
         UpdateData(update);
     }
 
@@ -811,7 +811,7 @@ public partial class Unit
         {
             _updater.LinkPortal(this, true);
         }
-        
+
         _disabledTime = DateTimeOffset.Now;
         if (_bombTimeoutEnd is not null)
             _updater.OnUnitUpdate(this, new UnitUpdate { BombTimeoutEnd = 0UL });
@@ -849,7 +849,7 @@ public partial class Unit
             });
             _disabledTime = null;
         }
-        
+
     }
 
     private void OnConfused(Unit confuser)
@@ -857,7 +857,7 @@ public partial class Unit
         OwnerPlayerId = confuser.OwnerPlayerId;
         var impact = CreateImpactData();
         var source = GetSelfSource(impact);
-        
+
         foreach (var effect in UnitsInAuraSinceLastUpdate.Keys)
         {
             var unitList = UnitsInAuraSinceLastUpdate[effect];
@@ -877,7 +877,7 @@ public partial class Unit
             }
             UnitsInAuraSinceLastUpdate[effect] = [];
         }
-        
+
         WinningTeam = TeamType.Neutral;
         UpdateData(new UnitUpdate
         {
@@ -892,7 +892,7 @@ public partial class Unit
         OwnerPlayerId = PermaOwnerPlayerId;
         var impact = CreateImpactData();
         var source = GetSelfSource(impact);
-        
+
         foreach (var effect in UnitsInAuraSinceLastUpdate.Keys)
         {
             var unitList = UnitsInAuraSinceLastUpdate[effect];
@@ -912,7 +912,7 @@ public partial class Unit
             }
             UnitsInAuraSinceLastUpdate[effect] = [];
         }
-        
+
 
         WinningTeam = TeamType.Neutral;
         UpdateData(new UnitUpdate
@@ -931,14 +931,14 @@ public partial class Unit
         _minPullForce = pull.Force;
         _lastPullTime = DateTimeOffset.Now;
         _activePuller = puller.Id;
-        
+
         return true;
     }
 
     public void OnFall(float height, bool force, float min, float max, bool doFallDamage)
     {
         var fallPoint = GetFallPosition();
-        
+
         var selfImpact = CreateImpactData(insidePoint: fallPoint, shotPos: fallPoint);
         foreach (var effect in ActiveEffects.GetEffectsOfType<ConstEffectOnFall>().Where(dth => dth.Effect != null))
         {
@@ -955,9 +955,9 @@ public partial class Unit
                 BombTimeoutEnd = (ulong)DateTimeOffset.Now.AddSeconds(bombData.Timeout).ToUnixTimeMilliseconds()
             });
         }
-        
+
         if (!doFallDamage || unitCard?.FallHitModifier is 0 || height < min || IsDead || unitCard?.Health?.Health is null) return;
-        
+
         var fallNormal = Vector3.UnitY;
         var fallImpact = CreateImpactData(insidePoint: Transform.Position + fallNormal, normal: (Vector3s)fallNormal,
             shotPos: Transform.Position + fallNormal, sourceKey: CatalogueHelper.FallSource);
@@ -1001,7 +1001,7 @@ public partial class Unit
         }
 
         var initData = GetInitData();
-        
+
         var startingEffects = InitialEffects.ToDictionary();
 
         foreach (var effect in _updater.GetTeamEffects(Team).Where(e => DoesEffectApply(e, Team)))
@@ -1035,7 +1035,7 @@ public partial class Unit
                     startingEffects.Add(effect.Key, effect.TimestampEnd);
                 }
             }
-            
+
             foreach (var (effect, source) in _returnOnRevive)
             {
                 if (_effectSources.TryGetValue(effect.Key, out var sourceEffects))
@@ -1052,13 +1052,13 @@ public partial class Unit
         _returnOnRevive = null;
 
         ActiveEffects = ConstEffectInfo.Convert(startingEffects);
-        
+
         foreach (var ammo in Gears.SelectMany(gear => gear.Ammo))
         {
             ammo.Mag = ammo.MagSize;
             ammo.Pool = ammo.PoolSize;
         }
-        
+
         Dictionary<Key, List<Ammo>> updateAmmo = [];
         foreach (var gear in Gears)
         {
@@ -1068,9 +1068,9 @@ public partial class Unit
         }
 
         var uCard = UnitCard;
-        
+
         TimeRespawning.Stop();
-        
+
         _updater.OnRespawn(this, initData, ZoneService);
         IsDropped = false;
         UpdateData(new UnitUpdate
@@ -1093,7 +1093,7 @@ public partial class Unit
             Effects = ActiveEffects.ToInfoDictionary(),
             Devices = Devices
         }, unbuffered: true);
-        
+
         return true;
     }
 

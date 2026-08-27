@@ -21,39 +21,39 @@ public class GameInstance : IGameInstance
         public ZoneLoadStage LoadStage { get; set; } = ZoneLoadStage.None;
         public ulong? SquadId { get; } = squadId;
     }
-    
+
     private AsyncTaskTcpServer Server { get; }
-    
+
     public string GameInstanceId { get; }
 
     private IGameInitiator GameInitiator { get; }
-    
+
     public bool IsStarted { get; private set; }
     public bool? HasEnded => Zone?.HasEnded;
-    
+
     private Key MatchKey { get; set; }
     private MapInfo? MapInfo { get; set; }
     private MapData? MapData { get; set; }
 
     private GameLobby? Lobby { get; set; }
-    
+
     private GameZone? Zone { get; set; }
 
     private readonly ConcurrentBag<Action> _preZoneActions = [];
-    
+
     private readonly ConcurrentDictionary<uint, MatchConnectionInfo> _connectedUsers = new();
 
     private readonly ConcurrentDictionary<uint, PlayerLobbyState> _zonePlayerInfo = new();
-    
+
     private readonly SessionSender _lobbySender;
     private readonly SessionSender _zoneSender;
-    
+
     // Removed from during session teardown on arbitrary threads, read from the lobby and zone
     // action queues. Inner dictionaries are built once at registration and only read afterwards.
     private readonly ConcurrentDictionary<Guid, Dictionary<ServiceId, IService>> _services = new();
 
     private InstanceChatRooms ChatRooms { get; }
-    
+
     private Timer? _startGameTimer;
 
     // Set when this instance replaces one the player just restarted out of, so the client
@@ -151,7 +151,7 @@ public class GameInstance : IGameInstance
                 });
         }
     }
-    
+
     public void UserEnteredLobby(uint userId)
     {
         if (!_connectedUsers.TryGetValue(userId, out var value) || Lobby == null) return;
@@ -170,7 +170,7 @@ public class GameInstance : IGameInstance
                 }
             });
         }
-        
+
         var playerGuid = value.Guid;
         _lobbySender.Subscribe(playerGuid);
         _services.TryGetValue(playerGuid, out var services);
@@ -256,14 +256,14 @@ public class GameInstance : IGameInstance
         var wasSpectator = GameInitiator.IsPlayerSpectator(userId);
         var spectatorName = wasSpectator ? Databases.PlayerDatabase.GetPlayerName(userId) : null;
         RemoveFromChat(player);
-        
+
         IServiceLobby? serviceLobby = null;
         if (player?.Guid is not null && HasLobby() && _services.TryGetValue(player.Guid, out var services) &&
             services.TryGetValue(ServiceId.ServiceLobby, out var lobby) && lobby is IServiceLobby lobbyService)
         {
             serviceLobby = lobbyService;
         }
-        
+
         Lobby?.EnqueueAction(() =>
         {
             if (player?.Guid is not null)
@@ -294,10 +294,10 @@ public class GameInstance : IGameInstance
                 if (Zone?.HasEnded is true) return;
 
                 ChatRooms.BothTeamsRoom.SendServiceMessage(
-                    reason is KickReason.MatchInactivity 
+                    reason is KickReason.MatchInactivity
                         ? CatalogueStringHelper.OnInactivity
-                        : reason is KickReason.Cheating or KickReason.Admin 
-                            ? CatalogueStringHelper.OnKicked 
+                        : reason is KickReason.Cheating or KickReason.Admin
+                            ? CatalogueStringHelper.OnKicked
                             : CatalogueStringHelper.OnQuit,
                         true, messageArgs);
             }
@@ -380,7 +380,7 @@ public class GameInstance : IGameInstance
     {
         var gameMode = Databases.Catalogue.GetCard<CardGameMode>(gameModeKey);
         if (gameMode == null) return;
-        
+
         List<MapInfo> maps = [];
         if (mapInfo != null)
         {
@@ -414,7 +414,7 @@ public class GameInstance : IGameInstance
         {
             MatchKey = gameMode.MatchMode;
         }
-        
+
         Lobby = new GameLobby(new ServiceLobby(_lobbySender), this, GameInstanceId, MatchKey, gameModeKey, maps);
     }
 
@@ -453,9 +453,9 @@ public class GameInstance : IGameInstance
     public void DeselectPerk(uint playerId, Key perkKey) => Lobby?.EnqueueAction(() => Lobby?.DeselectPerk(playerId, perkKey));
 
     public void SelectSkin(uint playerId, Key skinKey) => Lobby?.EnqueueAction(() => Lobby?.SelectSkin(playerId, skinKey));
-    
+
     public void SelectRole(uint playerId, PlayerRoleType role) => Lobby?.EnqueueAction(() => Lobby?.SelectRole(playerId, role));
-    
+
     public void VoteForMap(uint playerId, Key mapKey) => Lobby?.EnqueueAction(() => Lobby?.VoteForMap(playerId, mapKey));
 
     public void PlayerReady(uint playerId) => Lobby?.EnqueueAction(() => Lobby?.PlayerReady(playerId));
@@ -467,7 +467,7 @@ public class GameInstance : IGameInstance
     {
         if (!_connectedUsers.TryGetValue(playerId, out var player)) return;
         player.LoadStage = ZoneLoadStage.InitZone;
-        UploadZoneData(playerId, player);   
+        UploadZoneData(playerId, player);
     }
 
     public void PlayerZoneReady(uint playerId)
@@ -503,7 +503,7 @@ public class GameInstance : IGameInstance
         {
             mapKey = mapInfoCard.MapKey;
         }
-        
+
         Zone = new GameZone(new ServiceZone(bufferedSender), new ServiceZone(_zoneSender), bufferedSender, _zoneSender,
             MapData, GameInitiator, _zonePlayerInfo, mapKey);
 
@@ -561,7 +561,7 @@ public class GameInstance : IGameInstance
                 _zonePlayerInfo[playerId] = lobbyData.Clone();
             }
         }
-        
+
         var scene = new SceneZone
         {
             GameMode = GameInitiator.GetGameMode(),
@@ -600,7 +600,7 @@ public class GameInstance : IGameInstance
                     {
                         return;
                     }
-                    
+
                     var tempSessionSender = new SessionSender(Server, playerGuid, senderTask);
                     Zone?.SendLoadZone(new ServiceZone(tempBufferedSender), zoneService, playerId);
                     tempBufferedSender.UseBuffer(tempSessionSender.Send);
@@ -613,7 +613,7 @@ public class GameInstance : IGameInstance
                         {
                             zoneService.SendBlockUpdates(Zone.BeginningZoneInitData.Updates);
                         }
-                            
+
                         Zone?.JoinedInProgress(playerId, zoneService);
                     }
                     else
@@ -639,7 +639,7 @@ public class GameInstance : IGameInstance
     public void CancelBuildRequest(uint playerId) => Zone?.EnqueueAction(() => Zone?.ReceivedCancelBuildRequest(playerId));
 
     public void EventBroadcast(ZoneEvent zoneEvent) => Zone?.EnqueueAction(() => Zone?.ReceivedEventBroadcast(zoneEvent));
-    
+
     public void SwitchGear(ushort rpcId, uint playerId, Key gearKey, IServiceZone switcherService) =>
         Zone?.EnqueueAction(() => Zone?.ReceivedSwitchGearRequest(rpcId, playerId, gearKey, switcherService));
 
@@ -711,7 +711,7 @@ public class GameInstance : IGameInstance
         Zone?.EnqueueAction(() => Zone?.ReceivedHit(time, hits));
 
     public void Fall(uint unitId, float height, bool force) =>
-        Zone?.EnqueueAction(() => Zone?.ReceivedFall(unitId, height, force)); 
+        Zone?.EnqueueAction(() => Zone?.ReceivedFall(unitId, height, force));
 
     public void Pickup(uint playerId, uint pickupId) =>
         Zone?.EnqueueAction(() => Zone?.ReceivedPickup(playerId, pickupId));
@@ -754,12 +754,12 @@ public class GameInstance : IGameInstance
 
     private void OnLoadTimerElapsed(object? sender, ElapsedEventArgs e)
     {
-        if(_startGameTimer == null) return;
+        if (_startGameTimer == null) return;
         _startGameTimer.Stop();
         _startGameTimer.Dispose();
         _startGameTimer = null;
         if (IsStarted) return;
-        
+
         Zone?.EnqueueAction(BeginGame);
     }
 }

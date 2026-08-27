@@ -63,13 +63,13 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         MessageOpenCrate = 50,
         MessageMarkItemAsShown = 51
     }
-    
+
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
-    
+
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServicePlayer);
         return writer;
@@ -101,7 +101,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
             ShopEnabled = false,
             TimeAssaultEnabled = true
         });
-        
+
         var scene = _serverDatabase.GetLastScene(sender.AssociatedPlayerId.Value);
         _serverDatabase.UpdateScene(sender.AssociatedPlayerId.Value, scene, serviceScene, scene is not SceneMainMenu);
         _serverDatabase.SendIgnoresTo(sender.AssociatedPlayerId.Value);
@@ -113,7 +113,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     public void SendPlayerUpdate(PlayerUpdate playerUpdate)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServicePlayerId.MessagePlayerUpdate);
+        writer.Write((byte)ServicePlayerId.MessagePlayerUpdate);
         PlayerUpdate.WriteRecord(writer, playerUpdate);
         sender.Send(writer);
     }
@@ -123,7 +123,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var clientRevision = reader.ReadString();
         SendServerRevision("952");
     }
-    
+
     public void SendServerRevision(string revision)
     {
         using var writer = CreateWriter();
@@ -137,7 +137,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var gameMode = Key.ReadRecord(reader);
         var receiverId = reader.ReadUInt32();
         var steamLobbyId = reader.ReadUInt64();
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             _serverDatabase.SendSquadInvite(receiverId, sender.AssociatedPlayerId.Value, gameMode);
@@ -243,12 +243,12 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
 
     private void ReceiveJoinSquadFinder(BinaryReader reader)
     {
-        
+
     }
 
     private void ReceiveLeaveSquadFinder(BinaryReader reader)
     {
-        
+
     }
 
     public void SendSearchUser(ushort rpcId, List<SearchResult>? data, string? error = null)
@@ -258,7 +258,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (data != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteList(data, SearchResult.WriteRecord);
         }
         else
@@ -273,7 +273,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     {
         var rpcId = reader.ReadUInt16();
         var pattern = reader.ReadString();
-        
+
         var results = _playerDatabase.GetSearchResults(pattern).Result;
         if (results != null)
         {
@@ -299,7 +299,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     {
         var playerId = reader.ReadUInt32();
         var accept = reader.ReadBoolean();
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             _playerDatabase.UpdateFriends(sender.AssociatedPlayerId.Value, playerId, accept);
@@ -309,7 +309,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     private void ReceiveFriendRemove(BinaryReader reader)
     {
         var playerId = reader.ReadUInt32();
-        
+
         if (sender.AssociatedPlayerId.HasValue)
         {
             _playerDatabase.UpdateFriends(playerId, sender.AssociatedPlayerId.Value, false);
@@ -323,7 +323,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else
         {
@@ -362,10 +362,10 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     private void ReceiveSelectBadge(BinaryReader reader)
     {
         var badgeKey = Key.ReadRecord(reader);
-        
+
         var badgeCard = badgeKey.GetCard<CardBadge>();
         if (!sender.AssociatedPlayerId.HasValue || badgeCard is null) return;
-        
+
         var playerData = _playerDatabase.GetPlayerData(sender.AssociatedPlayerId.Value).Result;
         if (badgeKey != CatalogueHelper.SpecialBadge || playerData.Role is PlayerRole.Core)
         {
@@ -380,7 +380,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
                 {
                     badgeList.Add(badgeKey);
                 }
-                
+
                 currBadges[badgeCard.BadgeType] = badgeList;
                 _playerDatabase.UpdateBadges(sender.AssociatedPlayerId.Value, currBadges);
             }
@@ -389,7 +389,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
                 currBadges[badgeCard.BadgeType] = [badgeKey];
                 _playerDatabase.UpdateBadges(sender.AssociatedPlayerId.Value, currBadges);
             }
-            
+
             SendPlayerUpdate(new PlayerUpdate
             {
                 SelectedBadges = currBadges
@@ -400,9 +400,9 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     private void ReceiveDeselectBadge(BinaryReader reader)
     {
         var badgeType = reader.ReadByteEnum<BadgeType>();
-        
+
         if (!sender.AssociatedPlayerId.HasValue) return;
-        
+
         var playerData = _playerDatabase.GetPlayerData(sender.AssociatedPlayerId.Value).Result;
         playerData.Badges.Remove(badgeType);
         _playerDatabase.UpdateBadges(sender.AssociatedPlayerId.Value, playerData.Badges);
@@ -419,7 +419,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (profile != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             ProfileData.WriteRecord(writer, profile);
         }
         else
@@ -429,7 +429,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         }
         sender.Send(writer);
     }
-    
+
     private void ReceiveRequestProfile(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
@@ -437,7 +437,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var profileData = _playerDatabase.GetPlayerProfile(playerId);
         SendRequestProfile(rpcId, profileData);
     }
-    
+
     public void SendGetLoadout(ushort rpcId, LobbyLoadout? loadout, string? error = null)
     {
         using var writer = CreateWriter();
@@ -445,7 +445,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (loadout != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             LobbyLoadout.WriteRecord(writer, loadout);
         }
         else
@@ -478,7 +478,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (regions != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteList(regions, writer.Write);
             writer.Write(currentRegion!);
             writer.Write(remember!.Value);
@@ -514,7 +514,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (accepted != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -530,7 +530,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var rpcId = reader.ReadUInt16();
         var region = reader.ReadString();
         var remember = reader.ReadBoolean();
-        
+
         SendSwitchRegion(rpcId, true);
     }
 
@@ -560,9 +560,9 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
 
     private void ReceiveGameForceClosed(BinaryReader reader)
     {
-        
+
     }
-    
+
     private void ReceiveTrackUiAction(BinaryReader reader)
     {
         var action = reader.ReadByteEnum<UiId>();
@@ -570,7 +570,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var duration = reader.ReadSingle();
         if (enter && sender.AssociatedPlayerId.HasValue)
         {
-           _serverDatabase.UserUiChanged(sender.AssociatedPlayerId.Value, action, duration);
+            _serverDatabase.UserUiChanged(sender.AssociatedPlayerId.Value, action, duration);
         }
     }
 
@@ -583,9 +583,9 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
 
     private void ReceiveTutorialVideo(BinaryReader reader)
     {
-        
+
     }
-    
+
     public void SendDailyLogin(int days)
     {
         using var writer = CreateWriter();
@@ -596,7 +596,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
 
     private void ReceiveStartTutorial(BinaryReader reader)
     {
-        
+
     }
 
     private void ReceiveRefuseChallenge(BinaryReader reader)
@@ -609,23 +609,23 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         using var writer = CreateWriter();
         writer.Write((byte)ServicePlayerId.MessageSteamCurrency);
         writer.Write(rpcId);
-        writer.Write((byte) 0);
+        writer.Write((byte)0);
         writer.Write(currency);
         sender.Send(writer);
     }
-    
+
     private void ReceiveSteamCurrency(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
         SendSteamCurrency(rpcId, "USD");
     }
-    
+
     public void SendSteamMicroTxnInitSuccess(ushort rpcId, ulong? orderId)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServicePlayerId.MessageSteamMicroTxnInit);
+        writer.Write((byte)ServicePlayerId.MessageSteamMicroTxnInit);
         writer.Write(rpcId);
-        writer.Write((byte) 0);
+        writer.Write((byte)0);
         writer.WriteOptionValue(orderId, writer.Write);
         sender.Send(writer);
     }
@@ -633,7 +633,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     public void SendSteamMicroTxnInitFailed(ushort rpcId, string error)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServicePlayerId.MessageSteamMicroTxnInit);
+        writer.Write((byte)ServicePlayerId.MessageSteamMicroTxnInit);
         writer.Write(rpcId);
         writer.Write(byte.MaxValue);
         writer.Write(error);
@@ -645,7 +645,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var rpcId = reader.ReadUInt16();
         var item = Key.ReadRecord(reader);
         var locale = reader.ReadByteEnum<Locale>();
-        
+
         SendSteamMicroTxnInitSuccess(rpcId, null);
     }
 
@@ -662,7 +662,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (accepted != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(accepted.Value);
         }
         else
@@ -678,7 +678,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         var rpcId = reader.ReadUInt16();
         var item = Key.ReadRecord(reader);
         var isRealPrice = reader.ReadBoolean();
-        
+
         SendBuyShopItem(rpcId, false);
     }
 
@@ -689,7 +689,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else
         {
@@ -703,13 +703,13 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     {
         var rpcId = reader.ReadUInt16();
         var groupKey = Key.ReadRecord(reader);
-        
+
         SendUpgradeDevice(rpcId);
     }
 
     private void ReceiveFreeCrate(BinaryReader reader)
     {
-        
+
     }
 
     public void SendOpenCrate(ushort rpcId, List<LootCrateResult>? items, string? error = null)
@@ -734,7 +734,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     {
         var rpcId = reader.ReadUInt16();
         var crateKey = Key.ReadRecord(reader);
-        
+
         SendOpenCrate(rpcId, []);
     }
 
@@ -742,7 +742,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
     {
         var itemKey = Key.ReadRecord(reader);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var servicePlayerId = reader.ReadByte();
@@ -889,7 +889,7 @@ public class ServicePlayer(ISender sender, IServiceScene serviceScene, IServiceT
                 Log.Warn(LogCat.Net, $"Player service received unsupported serviceId: {Log.EnumName(playerEnum, servicePlayerId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

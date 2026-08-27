@@ -13,6 +13,6 @@ public class MatchServer(IPAddress address, int port) : AsyncTaskTcpServer(addre
 
     protected override void OnStarted() => Log.Info(LogCat.Server, "Match server started");
 
-    protected override void OnError(SocketError error) => 
+    protected override void OnError(SocketError error) =>
         Log.Error(LogCat.Server, $"Match server socket error: {error}");
 }

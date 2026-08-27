@@ -25,7 +25,7 @@ public static class CatalogueHelper
     public static CardShopLogic ShopLogic => Databases.Catalogue.GetCard<CardShopLogic>("shop_logic")!;
 
     public static CardRewardsLogic RewardsLogic => Databases.Catalogue.GetCard<CardRewardsLogic>("rewards_logic")!;
-    
+
     public static TimeTrialLogic TimeTrialLogic => GlobalLogic.TimeTrial!;
 
     // The client sizes squads by the game mode's own cap and only falls back to the global one,
@@ -41,7 +41,7 @@ public static class CatalogueHelper
 
     public static List<T> GetCards<T>(CardCategory category) where T : Card
     {
-        return Databases.Catalogue.All.Where(x => x.Category == category).Select(x => (T) x).ToList();
+        return Databases.Catalogue.All.Where(x => x.Category == category).Select(x => (T)x).ToList();
     }
 
     public static CardGameMode? GetMode(GameRankingType type)
@@ -55,7 +55,7 @@ public static class CatalogueHelper
     {
         if (type != MatchType.ShieldRush2)
             return GetCards<CardMatch>(CardCategory.Match).Find(x => x.Data?.Type == type);
-        
+
         var madMode = ModeMad;
         var rankedMode = ModeRanked;
         if (gameMode == rankedMode.Key)
@@ -160,12 +160,12 @@ public static class CatalogueHelper
     {
         public T GetCategory<T>() where T : ShopCategory
         {
-            return shop.Categories.Find((Predicate<ShopCategory>) (c => c is T)) as T;
+            return shop.Categories.Find((Predicate<ShopCategory>)(c => c is T)) as T;
         }
 
         public List<T> GetCategories<T>() where T : ShopCategory
         {
-            return shop.Categories.FindAll((Predicate<ShopCategory>) (c => c is T)).ConvertAll((Converter<ShopCategory, T>) (c => c as T));
+            return shop.Categories.FindAll((Predicate<ShopCategory>)(c => c is T)).ConvertAll((Converter<ShopCategory, T>)(c => c as T));
         }
     }
 
@@ -211,7 +211,7 @@ public static class CatalogueHelper
 
     public static bool InTime(this InventoryItem item)
     {
-        return !item.EndTime.HasValue || (long) item.EndTime.Value - DateTimeOffset.Now.ToUnixTimeMilliseconds() > 0.0;
+        return !item.EndTime.HasValue || (long)item.EndTime.Value - DateTimeOffset.Now.ToUnixTimeMilliseconds() > 0.0;
     }
 
     public static List<Key> GetSkinsInShop(Key hero)
@@ -224,8 +224,8 @@ public static class CatalogueHelper
         }
         return skinsInShop;
     }
-    
-    public static PlayerProgression GetDefaultProgression() => 
+
+    public static PlayerProgression GetDefaultProgression() =>
         new()
         {
             PlayerProgress = new XpInfo
@@ -255,18 +255,18 @@ public static class CatalogueHelper
 
     public static float PlayerXpForLevel(int level)
     {
-        if (level <= 1) 
+        if (level <= 1)
             return 0.0f;
         var playerXp = GlobalLogic.XpLogic?.PlayerXp;
-        return (float) (playerXp.FlatCoeff + playerXp.MultCoeff * Math.Pow((float) (level - 1), playerXp.PowerCoeff));
+        return (float)(playerXp.FlatCoeff + playerXp.MultCoeff * Math.Pow((float)(level - 1), playerXp.PowerCoeff));
     }
-    
+
     public static float HeroXpForLevel(int level)
     {
         if (level <= 1)
             return 0.0f;
         var heroXp = GlobalLogic.XpLogic?.HeroXp;
-        return (float) (heroXp.FlatCoeff + heroXp.MultCoeff * Math.Pow((float) (level - 1), heroXp.PowerCoeff));
+        return (float)(heroXp.FlatCoeff + heroXp.MultCoeff * Math.Pow((float)(level - 1), heroXp.PowerCoeff));
     }
 
     public static XpInfo LeveLUp(XpInfo xpInfo, float xpAmount)
@@ -278,7 +278,7 @@ public static class CatalogueHelper
             LevelXp = xpInfo.LevelXp,
             XpForNextLevel = xpInfo.XpForNextLevel
         };
-        
+
         while (newXp.LevelXp + xp >= newXp.XpForNextLevel)
         {
             xp -= newXp.XpForNextLevel - newXp.LevelXp;
@@ -290,7 +290,7 @@ public static class CatalogueHelper
         newXp.LevelXp += xp;
         return newXp;
     }
-    
+
     public static XpInfo LeveLUpHero(XpInfo xpInfo, float xpAmount)
     {
         var xp = xpAmount;
@@ -300,7 +300,7 @@ public static class CatalogueHelper
             LevelXp = xpInfo.LevelXp,
             XpForNextLevel = xpInfo.XpForNextLevel
         };
-        
+
         while (newXp.LevelXp + xp >= newXp.XpForNextLevel)
         {
             xp -= newXp.XpForNextLevel - newXp.LevelXp;
@@ -308,7 +308,7 @@ public static class CatalogueHelper
             newXp.LevelXp = 0;
             newXp.XpForNextLevel = HeroXpForLevel(newXp.Level);
         }
-        
+
         newXp.LevelXp += xp;
         return newXp;
     }
@@ -329,12 +329,12 @@ public static class CatalogueHelper
 
         public float TotalPriceVirtual()
         {
-            return (float) Math.Ceiling(card.PriceVirtual!.Value * card.PriceFactorVirtual());
+            return (float)Math.Ceiling(card.PriceVirtual!.Value * card.PriceFactorVirtual());
         }
 
         public float TotalPriceReal()
         {
-            return (float) Math.Ceiling(card.PriceReal!.Value * card.PriceFactorReal());
+            return (float)Math.Ceiling(card.PriceReal!.Value * card.PriceFactorReal());
         }
     }
 }

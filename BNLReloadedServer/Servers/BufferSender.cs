@@ -6,7 +6,7 @@ public class BufferSender : IBufferedSender
 {
     private readonly MemoryStream _stream = new();
     private long _messageLength;
-    
+
     public void UseBuffer(Action<byte[]> callback)
     {
         _stream.Seek(0, SeekOrigin.Begin);
@@ -14,7 +14,7 @@ public class BufferSender : IBufferedSender
         _stream.ReadAtLeast(buffer, (int)_messageLength, false);
         _stream.SetLength(0);
         _messageLength = 0;
-        
+
         if (buffer.Length > 0)
             callback.Invoke(buffer);
     }
@@ -27,7 +27,7 @@ public class BufferSender : IBufferedSender
     {
         var message = AppendMessageLength(writer);
         _messageLength += message.Length;
-        _stream.Write(message); 
+        _stream.Write(message);
     }
 
     public void Send(byte[] buffer)
@@ -53,7 +53,7 @@ public class BufferSender : IBufferedSender
 
     public void UnsubscribeAll()
     {
-        
+
     }
 
     private static byte[] AppendMessageLength(BinaryWriter writer)

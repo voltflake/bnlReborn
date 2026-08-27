@@ -13,7 +13,7 @@ public class ServerCatalogue : Catalogue
     {
         _db = FrozenDictionary<Key, Card>.Empty;
     }
-    
+
     public override Card? GetCard(Key key)
     {
         return _db.GetValueOrDefault(key);

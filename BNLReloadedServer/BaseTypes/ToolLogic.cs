@@ -18,7 +18,7 @@ public class ToolLogic(GearData data, byte index)
     }
 
     public void TakeAmmo(float? rate = null) => GetAmmoData()?.TakeAmmo(rate ?? Tool?.Ammo?.Rate ?? 0);
-    
+
     public Ammo? TakeAmmoUpdate(float? rate = null) => GetAmmoData()?.TakeAmmoUpdate(rate ?? Tool?.Ammo?.Rate ?? 0);
 
     public bool IsEnoughAmmoToUse()
@@ -63,7 +63,7 @@ public class ToolLogic(GearData data, byte index)
 
     public bool IsAutoReloadOnEmptyGunSwitch()
     {
-      return Tool?.Ammo is { AutoReloadOnEmptyGunSwitch: true };
+        return Tool?.Ammo is { AutoReloadOnEmptyGunSwitch: true };
     }
 
     public void Equip()

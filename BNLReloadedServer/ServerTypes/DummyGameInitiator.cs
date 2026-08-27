@@ -45,7 +45,7 @@ public class DummyGameInitiator(CardGameMode gameMode, MapData map, TeamType tea
         })).ToUnixTimeMilliseconds();
 
     public float GetRespawnMultiplier() => 0;
-    
+
     public bool IsSuperSupplies() => false;
     public bool NeedsBackfill() => false;
 

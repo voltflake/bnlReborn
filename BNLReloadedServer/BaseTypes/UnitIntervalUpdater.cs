@@ -12,7 +12,7 @@ public partial class Unit
         Action<IEnumerable<Unit>, InstEffect> onApplyInstEffect)
     {
         DoCheck();
-        
+
         var timer = new Timer(TimeSpan.FromSeconds(interval));
         timer.Elapsed += OnIntervalElapsed;
         timer.AutoReset = true;
@@ -32,7 +32,7 @@ public partial class Unit
 
                     DoCheck();
                 })) return;
-            
+
             timer.Stop();
             timer.Dispose();
         }
@@ -69,7 +69,7 @@ public partial class Unit
 
                     timer.Interval = TimeSpan.FromSeconds(DoCheck()).TotalMilliseconds;
                 })) return;
-            
+
             timer.Stop();
             timer.Dispose();
         }

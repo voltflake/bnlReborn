@@ -14,11 +14,11 @@ public class ServiceLobby(ISender sender) : IServiceLobby
         MessageClearLobby = 1,
         MessageSwitchHero = 2,
         MessageAddDevice = 3,
-        MessageRemoveDevice = 4, 
+        MessageRemoveDevice = 4,
         MessageSwitchDevice = 5,
         MessageSetDefaultDevices = 6,
         MessageSelectPerk = 7,
-        MessageDeselectPerk = 8, 
+        MessageDeselectPerk = 8,
         MessageSelectSkin = 9,
         MessageSelectRole = 10,
         MessageVoteMap = 11,
@@ -31,10 +31,10 @@ public class ServiceLobby(ISender sender) : IServiceLobby
         MessageExitToCustomGame = 18,
         MessageExitToMenuAsSquad = 19
     }
-    
+
     private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
     private IGameInstance? GameInstance => Databases.RegionServerDatabase.GetGameInstance(sender.AssociatedPlayerId);
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -134,7 +134,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
         if (sender.AssociatedPlayerId == null) return;
         GameInstance?.PlayerReady(sender.AssociatedPlayerId.Value);
     }
-    
+
     private void ReceiveMatchLoadingProgress(BinaryReader reader)
     {
         var progress = reader.ReadSingle();
@@ -152,12 +152,12 @@ public class ServiceLobby(ISender sender) : IServiceLobby
 
     private void ReceiveRequeueAsIs(BinaryReader reader)
     {
-        
+
     }
 
     private void ReceiveRequeueAsTeam(BinaryReader reader)
     {
-        
+
     }
 
     private void ReceiveExitToMenu(BinaryReader reader)
@@ -177,7 +177,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
         {
             GameInstance?.NotifyExitToCustom();
             await Task.Delay(5000);
-            GameInstance?.RemoveAllPlayers();    
+            GameInstance?.RemoveAllPlayers();
         }
     }
 
@@ -195,7 +195,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
             }
         }
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceLobbyId = reader.ReadByte();
@@ -264,7 +264,7 @@ public class ServiceLobby(ISender sender) : IServiceLobby
                 Log.Warn(LogCat.Net, $"Unknown service lobby id {Log.EnumName(lobbyEnum, serviceLobbyId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

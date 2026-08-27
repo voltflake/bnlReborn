@@ -27,52 +27,52 @@ public class ZoneTransform
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true, true, true, true, true, true, true, true).Write(writer);
-      writer.Write(Position);
-      writer.Write(Rotation);
-      writer.Write(LocalVelocity);
-      writer.Write(IsCrouch);
-      writer.Write(IsJump);
-      writer.Write(IsSprint);
-      writer.Write(IsWallClimb);
-      writer.Write(IsDash);
-      writer.Write(IsGroundSlam);
-      writer.Write(NoInterpolation);
+        new BitField(true, true, true, true, true, true, true, true, true, true).Write(writer);
+        writer.Write(Position);
+        writer.Write(Rotation);
+        writer.Write(LocalVelocity);
+        writer.Write(IsCrouch);
+        writer.Write(IsJump);
+        writer.Write(IsSprint);
+        writer.Write(IsWallClimb);
+        writer.Write(IsDash);
+        writer.Write(IsGroundSlam);
+        writer.Write(NoInterpolation);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(10);
-      bitField.Read(reader);
-      if (bitField[0])
-        Position = reader.ReadVector3();
-      if (bitField[1])
-        Rotation = reader.ReadVector3s();
-      if (bitField[2])
-        LocalVelocity = reader.ReadVector3s();
-      if (bitField[3])
-        IsCrouch = reader.ReadBoolean();
-      if (bitField[4])
-        IsJump = reader.ReadBoolean();
-      if (bitField[5])
-        IsSprint = reader.ReadBoolean();
-      if (bitField[6])
-        IsWallClimb = reader.ReadBoolean();
-      if (bitField[7])
-        IsDash = reader.ReadBoolean();
-      if (bitField[8])
-        IsGroundSlam = reader.ReadBoolean();
-      if (!bitField[9])
-        return;
-      NoInterpolation = reader.ReadBoolean();
+        var bitField = new BitField(10);
+        bitField.Read(reader);
+        if (bitField[0])
+            Position = reader.ReadVector3();
+        if (bitField[1])
+            Rotation = reader.ReadVector3s();
+        if (bitField[2])
+            LocalVelocity = reader.ReadVector3s();
+        if (bitField[3])
+            IsCrouch = reader.ReadBoolean();
+        if (bitField[4])
+            IsJump = reader.ReadBoolean();
+        if (bitField[5])
+            IsSprint = reader.ReadBoolean();
+        if (bitField[6])
+            IsWallClimb = reader.ReadBoolean();
+        if (bitField[7])
+            IsDash = reader.ReadBoolean();
+        if (bitField[8])
+            IsGroundSlam = reader.ReadBoolean();
+        if (!bitField[9])
+            return;
+        NoInterpolation = reader.ReadBoolean();
     }
 
     public static void WriteRecord(BinaryWriter writer, ZoneTransform value) => value.Write(writer);
 
     public static ZoneTransform ReadRecord(BinaryReader reader)
     {
-      var zoneTransform = new ZoneTransform();
-      zoneTransform.Read(reader);
-      return zoneTransform;
+        var zoneTransform = new ZoneTransform();
+        zoneTransform.Read(reader);
+        return zoneTransform;
     }
 }

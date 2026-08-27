@@ -17,38 +17,38 @@ public abstract class UnitData : IJsonFactory<UnitData>
 
     public static void WriteVariant(BinaryWriter writer, UnitData value)
     {
-      writer.WriteByteEnum(value.Type);
-      value.Write(writer);
+        writer.WriteByteEnum(value.Type);
+        value.Write(writer);
     }
 
     public static UnitData ReadVariant(BinaryReader reader)
     {
-      var unitData = Create(reader.ReadByteEnum<UnitType>());
-      unitData.Read(reader);
-      return unitData;
+        var unitData = Create(reader.ReadByteEnum<UnitType>());
+        unitData.Read(reader);
+        return unitData;
     }
 
     public static UnitData Create(UnitType type)
     {
-      return type switch
-      {
-        UnitType.Common => new UnitDataCommon(),
-        UnitType.Player => new UnitDataPlayer(),
-        UnitType.Landmine => new UnitDataLandmine(),
-        UnitType.Bomb => new UnitDataBomb(),
-        UnitType.Turret => new UnitDataTurret(),
-        UnitType.Pickup => new UnitDataPickup(),
-        UnitType.Mortar => new UnitDataMortar(),
-        UnitType.Cloud => new UnitDataCloud(),
-        UnitType.Projectile => new UnitDataProjectile(),
-        UnitType.Skybeam => new UnitDataSkybeam(),
-        UnitType.DamageCapture => new UnitDataDamageCapture(),
-        UnitType.TeslaCoil => new UnitDataTeslaCoil(),
-        UnitType.Portal => new UnitDataPortal(),
-        UnitType.Shower => new UnitDataShower(),
-        UnitType.Drill => new UnitDataDrill(),
-        UnitType.PiggyBank => new UnitDataPiggyBank(),
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid variant tag")
-      };
+        return type switch
+        {
+            UnitType.Common => new UnitDataCommon(),
+            UnitType.Player => new UnitDataPlayer(),
+            UnitType.Landmine => new UnitDataLandmine(),
+            UnitType.Bomb => new UnitDataBomb(),
+            UnitType.Turret => new UnitDataTurret(),
+            UnitType.Pickup => new UnitDataPickup(),
+            UnitType.Mortar => new UnitDataMortar(),
+            UnitType.Cloud => new UnitDataCloud(),
+            UnitType.Projectile => new UnitDataProjectile(),
+            UnitType.Skybeam => new UnitDataSkybeam(),
+            UnitType.DamageCapture => new UnitDataDamageCapture(),
+            UnitType.TeslaCoil => new UnitDataTeslaCoil(),
+            UnitType.Portal => new UnitDataPortal(),
+            UnitType.Shower => new UnitDataShower(),
+            UnitType.Drill => new UnitDataDrill(),
+            UnitType.PiggyBank => new UnitDataPiggyBank(),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid variant tag")
+        };
     }
 }

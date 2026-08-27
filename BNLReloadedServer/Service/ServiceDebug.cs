@@ -15,11 +15,11 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         MessageExecuteArgs = 1,
         MessageGetScreenshot = 2,
         MessageLoginCore = 3,
-        MessageGetNodeTree = 4, 
+        MessageGetNodeTree = 4,
         MessageCoreCommand = 5,
         MessageFileListing = 6,
         MessageLoadFile = 7,
-        MessageSaveFile = 8, 
+        MessageSaveFile = 8,
         MessageGetTriggers = 9,
         MessageSubscribeZone = 10,
         MessageZoneAddSplash = 11,
@@ -28,9 +28,9 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         MessageZoneTriggerMoved = 14,
         MessageZoneTriggerRemoved = 15
     }
-    
+
     private IGameInstance? GameInstance => Databases.RegionServerDatabase.GetGameInstance(sender.AssociatedPlayerId);
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -46,7 +46,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (result != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(result);
         }
         else
@@ -124,7 +124,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (result != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(result);
         }
         else
@@ -191,7 +191,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (node != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             DebugServerNode.WriteRecord(writer, node);
         }
         else
@@ -214,7 +214,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (result != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(result);
         }
         else
@@ -239,7 +239,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (data != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteList(data, writer.Write);
         }
         else
@@ -263,7 +263,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (data != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteBinary(data);
         }
         else
@@ -288,7 +288,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (error == null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
         }
         else
         {
@@ -313,7 +313,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(rpcId);
         if (triggers != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteMap(triggers, writer.Write, item => writer.WriteList(item, writer.Write));
         }
         else
@@ -331,7 +331,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
 
     private void ReceiveSubscribeZone(BinaryReader reader)
     {
-        
+
     }
 
     public void SendZoneAddSplash(Vector3s hitPos, float radius, float damage, Dictionary<Vector3s, float> blocks)
@@ -379,7 +379,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
         writer.Write(triggerId);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceDebugId = reader.ReadByte();
@@ -430,7 +430,7 @@ public class ServiceDebug(ISender sender) : IServiceDebug
                 Log.Warn(LogCat.Net, $"Unknown service debug id {Log.EnumName(debugEnum, serviceDebugId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

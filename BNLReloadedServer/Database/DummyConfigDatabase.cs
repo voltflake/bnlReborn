@@ -36,20 +36,20 @@ public class DummyConfigDatabase : IConfigDatabase
     public string ExportCdbName() => "cdb_export.json";
 
 
-    
+
 
     public string CouchDbEndpoint() => "http://localhost:5984";
 
     public BasicCredentials CouchDbCredentials() => new("admin", "admin");
 
     public string CouchDbDatabaseName() => "test";
-    
+
     public LogLevel MinLogLevel() => LogLevel.Debug;
 
     public bool UseMaxDeviceLevel() => false;
 
     public bool UseRaycastExplosions() => false;
-    
+
     public int ReconnectGraceSeconds() => 180;
 
     public int PingIntervalSeconds() => 2;
@@ -57,7 +57,7 @@ public class DummyConfigDatabase : IConfigDatabase
     public int MaxMissedPings() => 11;
 
     public bool ControlPanelEnabled() => true;
-    
+
     public int ControlPanelPort() => 8080;
 
     public IReadOnlyList<ControlPanelUser> ControlPanelUsers() =>

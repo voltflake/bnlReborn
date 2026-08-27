@@ -3,63 +3,137 @@
    gets the whole window instead of a strip of it. What a pane costs is co-visibility —
    an action's result lands somewhere you aren't standing — so the rail carries an
    error count and the Actions pane links straight here. */
-.view-pane.console-pane.active { display: flex; flex-direction: column; min-height: 0; }
-body.pane-console .work { display: flex; flex-direction: column; overflow: hidden; }
-.console-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.console-tools .search-input { flex: 0 1 320px; margin-bottom: 0; }
-.console-tools .console-cat { flex: 0 0 auto; width: auto; margin-bottom: 0; }
+.view-pane.console-pane.active {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+body.pane-console .work {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.console-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.console-tools .search-input {
+  flex: 0 1 320px;
+  margin-bottom: 0;
+}
+.console-tools .console-cat {
+  flex: 0 0 auto;
+  width: auto;
+  margin-bottom: 0;
+}
 /* Only shown when the buffer holds a fault: an always-present button that usually
    does nothing would be one more thing to ignore. */
 .console-jump {
-  flex: 0 0 auto; padding: 7px 12px; font-size: 13px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  font-size: 13px;
   background: color-mix(in srgb, var(--alarm) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--alarm) 45%, transparent);
   color: var(--alarm-ink);
 }
 .console-jump:hover {
   background: color-mix(in srgb, var(--alarm) 22%, transparent);
-  border-color: var(--alarm); color: var(--alarm-ink);
+  border-color: var(--alarm);
+  color: var(--alarm-ink);
 }
-.console-jump[hidden] { display: none; }
+.console-jump[hidden] {
+  display: none;
+}
 /* Same shape as the "36 online" count on Status, so the rail reads one way. */
-.rail-faults { color: var(--alarm-ink); }
-.rail-faults:empty { display: none; }
-.log-line.jumped { background: color-mix(in srgb, var(--alarm) 16%, transparent); }
+.rail-faults {
+  color: var(--alarm-ink);
+}
+.rail-faults:empty {
+  display: none;
+}
+.log-line.jumped {
+  background: color-mix(in srgb, var(--alarm) 16%, transparent);
+}
 
 .console-output {
-  flex: 1 1 auto; min-height: 0; margin: 0; padding: 8px 0;
-  background: var(--console-bg); border: 1px solid var(--line); border-radius: var(--r);
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 0;
+  background: var(--console-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
   overflow: auto;
-  font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 /* Timestamp and category are the two gutters the record actually has; both are fixed
    width so the messages line up and the eye can run down them. */
-.log-line { display: flex; gap: 12px; padding: 0 18px; white-space: pre-wrap; }
-.log-line.hidden { display: none; }
-.log-line:hover { background: rgba(255,255,255,0.03); }
-.log-time { flex: 0 0 auto; color: var(--console-gutter); user-select: none; }
+.log-line {
+  display: flex;
+  gap: 12px;
+  padding: 0 18px;
+  white-space: pre-wrap;
+}
+.log-line.hidden {
+  display: none;
+}
+.log-line:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.log-time {
+  flex: 0 0 auto;
+  color: var(--console-gutter);
+  user-select: none;
+}
 /* 12ch is "20:01:34.600" and 9ch is the longest category name, so the message column
    starts at the same place on every line and the detail padding below can match it. */
-.log-time { flex: 0 0 12ch; }
-.log-cat {
-  flex: 0 0 9ch; color: var(--console-faint); user-select: none;
-  overflow: hidden; text-overflow: ellipsis;
+.log-time {
+  flex: 0 0 12ch;
 }
-.log-msg { flex: 1 1 auto; min-width: 0; color: var(--console-dim); overflow-wrap: anywhere; }
+.log-cat {
+  flex: 0 0 9ch;
+  color: var(--console-faint);
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--console-dim);
+  overflow-wrap: anywhere;
+}
 /* The level is a field on the record now, so the colour is a fact rather than the
    keyword guess the panel used to make. Info is the baseline and gets no treatment. */
 .log-line.debug .log-msg,
-.log-line.debug .log-cat { color: var(--console-faint); }
-.log-line.info .log-msg { color: var(--console-ink); }
-.log-line.warn .log-msg { color: var(--warn-ink); }
-.log-line.error .log-msg { color: var(--alarm-ink); }
+.log-line.debug .log-cat {
+  color: var(--console-faint);
+}
+.log-line.info .log-msg {
+  color: var(--console-ink);
+}
+.log-line.warn .log-msg {
+  color: var(--warn-ink);
+}
+.log-line.error .log-msg {
+  color: var(--alarm-ink);
+}
 
 /* Stack traces: kept with their line, indented, and dimmed so a long trace does not
    outweigh the failure it belongs to. */
 .log-detail {
-  margin: 2px 0 6px; padding: 0 18px 0 calc(18px + 12ch + 12px + 9ch + 12px);
-  color: var(--console-faint); line-height: 1.5;
-  white-space: pre-wrap; overflow-wrap: anywhere;
+  margin: 2px 0 6px;
+  padding: 0 18px 0 calc(18px + 12ch + 12px + 9ch + 12px);
+  color: var(--console-faint);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-.log-detail.hidden { display: none; }
-
+.log-detail.hidden {
+  display: none;
+}

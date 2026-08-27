@@ -21,7 +21,7 @@ public class RoomIdGlobal : RoomId
 
     public override bool Equals(object? obj)
     {
-        return obj != null && obj.GetType() == typeof (RoomIdGlobal);
+        return obj != null && obj.GetType() == typeof(RoomIdGlobal);
     }
 
     public override int GetHashCode() => Type.GetHashCode();

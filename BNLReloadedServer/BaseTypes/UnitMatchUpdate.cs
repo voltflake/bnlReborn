@@ -38,7 +38,7 @@ public partial class Unit
                 break;
         }
     }
-    
+
     public void BuiltBlock(DeviceType deviceType, float resources)
     {
         switch (deviceType)
@@ -107,9 +107,9 @@ public partial class Unit
                     UpdateStat(ScoreType.HealedByBlock, amount);
                     healerPlayer?.UpdateStat(ScoreType.HealPlayerByBlock, amount);
                 }
-                    
+
                 break;
-            
+
             case HealthType.World:
             case HealthType.Objective:
                 healerPlayer?.UpdateStat(
@@ -135,14 +135,14 @@ public partial class Unit
             }
             return;
         }
-        
+
         switch (UnitCard?.Health?.Health?.HealthType)
         {
             case HealthType.Player when PlayerId is not null:
                 if (attackerPlayer is not null && targetTeam != attackerPlayer.Team)
                 {
                     RecentDamagers[attackerPlayer] = DateTimeOffset.Now.AddSeconds(AssistSeconds);
-                    
+
                     var playerData = PlayerUnitData;
                     if (playerData?.Class == CatalogueHelper.BrawnClassKey)
                     {
@@ -184,13 +184,13 @@ public partial class Unit
                 {
                     UpdateStat(ScoreType.DamagedByOther, damage);
                 }
-                
+
                 if (attackerPlayer?.Team == targetTeam)
                 {
                     UpdateStat(ScoreType.DamagedByFriendlyPlayer, damage);
                     attackerPlayer.UpdateStat(ScoreType.DamageFriendlyPlayer, damage);
                 }
-                
+
                 var attackerData = attackerPlayer?.PlayerUnitData;
                 if (attackerData?.Class == CatalogueHelper.BrawnClassKey)
                 {
@@ -205,13 +205,13 @@ public partial class Unit
                     UpdateStat(ScoreType.DamagedByBrains, damage);
                 }
                 break;
-            
+
             case HealthType.Objective when UnitCard?.IsObjective is true && attackerPlayer is not null:
                 attackerPlayer.UpdateStat(UnitCard.IsBase ? ScoreType.DamageBase : ScoreType.DamageShield, damage);
                 break;
         }
     }
-    
+
     public void KillStatsUpdate(TeamType targetTeam, bool crit, Unit? killer, Unit? killerPlayer, IEnumerable<Unit> assisters)
     {
         switch (UnitCard?.Health?.Health?.HealthType)
@@ -220,7 +220,7 @@ public partial class Unit
                 if (killerPlayer is not null && targetTeam != killerPlayer.Team)
                 {
                     killerPlayer.UpdateStat(ScoreType.Kills, 1);
-            
+
                     var playerData = PlayerUnitData;
                     if (playerData?.Class == CatalogueHelper.BrawnClassKey)
                     {
@@ -235,9 +235,9 @@ public partial class Unit
                         killerPlayer.UpdateStat(ScoreType.KillBrains, 1);
                     }
                 }
-        
+
                 UpdateStat(ScoreType.Deaths, 1);
-        
+
                 if (killerPlayer is not null && killerPlayer == killer)
                 {
                     UpdateStat(ScoreType.KilledByHero, 1);
@@ -246,7 +246,7 @@ public partial class Unit
                         UpdateStat(ScoreType.KilledCriticalByHero, 1);
                     }
                     if (targetTeam != killerPlayer.Team)
-                    { 
+                    {
                         killerPlayer.UpdateStat(ScoreType.KillPlayerByHero, 1);
                         if (crit)
                         {
@@ -266,7 +266,7 @@ public partial class Unit
                 {
                     UpdateStat(ScoreType.KilledByOther, 1);
                 }
-        
+
                 var killerData = killerPlayer?.PlayerUnitData;
                 if (killerData?.Class == CatalogueHelper.BrawnClassKey)
                 {
@@ -287,7 +287,7 @@ public partial class Unit
                 }
                 RecentDamagers.Clear();
                 break;
-            
+
             case HealthType.World when killerPlayer is not null:
                 switch (UnitCard.DeviceType)
                 {
@@ -306,7 +306,7 @@ public partial class Unit
                         break;
                 }
                 break;
-            
+
             case HealthType.Objective when UnitCard?.IsObjective is true && killerPlayer is not null:
                 killerPlayer.UpdateStat(UnitCard.IsBase ? ScoreType.KillBase : ScoreType.KillShield, 1);
                 break;
@@ -319,7 +319,7 @@ public partial class Unit
         var byHero = isNegative ? ScoreType.DebuffedByHero : ScoreType.BuffedByHero;
         var playerByBlock = isNegative ? ScoreType.DebuffPlayerByBlock : ScoreType.BuffPlayerByBlock;
         var byBlock = isNegative ? ScoreType.DebuffedByBlock : ScoreType.BuffedByBlock;
-        
+
         if (source is UnitSource { Unit.PlayerId: not null })
         {
             UpdateStat(byHero, 1);

@@ -12,34 +12,34 @@ public class BackfillingLogic
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true).Write(writer);
-      writer.Write(PlayerDeviationIncrease);
-      writer.Write(ObjectivesHealthThreshold);
-      writer.Write(ObjectiveDamageTimeout);
+        new BitField(true, true, true).Write(writer);
+        writer.Write(PlayerDeviationIncrease);
+        writer.Write(ObjectivesHealthThreshold);
+        writer.Write(ObjectiveDamageTimeout);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(3);
-      bitField.Read(reader);
-      if (bitField[0])
-        PlayerDeviationIncrease = reader.ReadSingle();
-      if (bitField[1])
-        ObjectivesHealthThreshold = reader.ReadSingle();
-      if (!bitField[2])
-        return;
-      ObjectiveDamageTimeout = reader.ReadSingle();
+        var bitField = new BitField(3);
+        bitField.Read(reader);
+        if (bitField[0])
+            PlayerDeviationIncrease = reader.ReadSingle();
+        if (bitField[1])
+            ObjectivesHealthThreshold = reader.ReadSingle();
+        if (!bitField[2])
+            return;
+        ObjectiveDamageTimeout = reader.ReadSingle();
     }
 
     public static void WriteRecord(BinaryWriter writer, BackfillingLogic value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static BackfillingLogic ReadRecord(BinaryReader reader)
     {
-      var backfillingLogic = new BackfillingLogic();
-      backfillingLogic.Read(reader);
-      return backfillingLogic;
+        var backfillingLogic = new BackfillingLogic();
+        backfillingLogic.Read(reader);
+        return backfillingLogic;
     }
 }

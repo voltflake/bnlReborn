@@ -1,266 +1,1458 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Match history scoreboard mockup</title>
-  <style>
-    :root { color-scheme: dark; --page:#101317; --panel:#181d23; --panel-2:#202731; --line:#35404d; --ink:#edf1f5; --muted:#9da9b7; --blue:#79b8ff; --red:#ff9797; --green:#79d7a2; --gold:#f1ca70; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    * { box-sizing:border-box; }
-    body { margin:0; padding:32px; background:var(--page); color:var(--ink); font:14px system-ui, sans-serif; }
-    main { max-width:1440px; margin:auto; }
-    h1 { margin:0 0 8px; font-size:24px; }
-    .hint { margin:0 0 24px; color:var(--muted); }
-    .match-head { display:grid; grid-template-columns:180px 1fr auto; gap:20px; overflow:hidden; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
-    .map-preview { min-height:126px; display:flex; align-items:end; padding:12px; background:linear-gradient(135deg,#314b5a,#1c2832 48%,#8a6949); color:#fff; font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
-    .match-title { padding:18px 0; }
-    .match-title h2 { margin:0; font-size:21px; }
-    .match-title p { margin:7px 0; color:var(--muted); }
-    .match-participants { display:block; margin-top:5px; }
-    .end-reason { display:inline-block; padding:4px 8px; border:1px solid color-mix(in srgb, var(--gold) 55%, var(--line)); border-radius:14px; color:var(--gold); font-size:12px; }
-    .match-meta { min-width:205px; padding:18px; border-left:1px solid var(--line); font-family:var(--mono); color:var(--muted); line-height:1.35; }
-    .match-meta span { display:block; margin-top:7px; font-size:11px; text-transform:uppercase; }.match-meta span:first-child { margin-top:0; }
-    .match-meta b { display:block; color:var(--ink); font-weight:600; }
-    .scoreboard { margin-top:18px; overflow:auto; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
-    table { width:100%; min-width:1204px; border-collapse:collapse; table-layout:fixed; }
-    col.player-column { width:202px; } col.mmr-column { width:118px; } col.volatility-column { width:110px; }
-    col.kda-column { width:92px; } col.healing-column { width:76px; } col.damage-column { width:92px; } col.earned-column { width:76px; }
-    col.destroyed-column { width:88px; } col.objective-column { width:90px; } col.built-column { width:70px; } col.activity-column { width:190px; }
-    th { padding:10px 9px; border-bottom:1px solid var(--line); background:var(--panel-2); color:var(--muted); font:600 11px var(--mono); letter-spacing:.04em; text-align:center; text-transform:uppercase; white-space:nowrap; }
-    th:first-child { min-width:250px; text-align:left; }
-    .team-label td { padding:10px 9px; background:#192633; color:var(--blue); font-size:12px; font-weight:750; letter-spacing:.04em; text-transform:uppercase; }
-    .team-label.red td { background:#301f25; color:var(--red); }
-    .team-name-cell { padding:10px 12px !important; text-align:left !important; }.team-winner { margin-left:8px; color:var(--green); font:700 10px var(--mono); }
-    td { padding:10px 9px; border-bottom:1px solid #29323d; text-align:center; font-family:var(--mono); white-space:nowrap; }
-    tr.player:hover td { background:#222a34; }.identity { text-align:left; font-family:system-ui,sans-serif; }
-    tr.player td:last-child { white-space:nowrap; } tr.player td:last-child button { display:inline-block; white-space:nowrap; vertical-align:middle; }
-    tr.player td:last-child button + button { margin-left:4px; }
-    .portrait { width:38px; height:38px; float:left; margin-right:9px; border:1px solid #657384; border-radius:50%; background:linear-gradient(140deg,#d8a56e,#493860); }
-    .portrait.two { background:linear-gradient(140deg,#70bdd3,#2f435f); }.portrait.three { background:linear-gradient(140deg,#d98172,#643034); }.portrait.four { background:linear-gradient(140deg,#9dca7a,#315846); }
-    .name { display:block; font-weight:700; }.hero { display:block; margin-top:2px; color:var(--muted); font-size:12px; }
-    .slot-occupant-count { display:inline-grid; width:20px; height:16px; place-items:center; margin:0 5px; border:1px solid var(--line); border-radius:2px; color:var(--muted); font:700 10px var(--mono); vertical-align:1px; }
-    .rating { color:var(--ink); }.delta.plus { color:var(--green); }.delta.minus { color:#ff8d8d; }.muted { color:var(--muted); }
-    .backfill { display:inline-block; margin-left:5px; padding:2px 5px; border:1px solid #ba9148; border-radius:10px; color:var(--gold); font:600 10px system-ui,sans-serif; vertical-align:1px; }
-    .leaver { display:inline-block; margin-left:5px; padding:2px 5px; border:1px solid #9d5c63; border-radius:10px; color:#ed9a9f; font:600 10px system-ui,sans-serif; vertical-align:1px; }
-    .details td { padding:0 12px 12px; border-top:1px solid #0a0d11; border-bottom:1px solid var(--line); text-align:left; background:#0d1116; box-shadow:inset 0 1px 0 #252d37; white-space:normal; }
-    .details[hidden] { display:none; }.activity { display:flex; gap:14px; align-items:stretch; padding:11px 0 0; color:var(--muted); }
-    .activity-label { flex:0 0 124px; padding-top:8px; font:600 11px var(--mono); text-transform:uppercase; }.presence { flex:1; padding:8px 10px; border-left:2px solid #577a9c; background:var(--panel-2); }
-    .presence time { display:block; margin-bottom:7px; color:var(--ink); font:12px var(--mono); }.loadout { display:flex; align-items:center; gap:5px; }.loadout span { color:var(--muted); font:10px var(--mono); }.slot { width:25px; height:25px; border:1px solid #536170; border-radius:3px; background:linear-gradient(135deg,#627993,#26394c); }.slot.perk { border-radius:50%; background:linear-gradient(135deg,#805d9d,#382c49); }
-    .slot-occupants { padding-top:10px; }.slot-session + .slot-session { margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
-    .presence-time, .presence-name, .presence-reason { display:block; text-transform:none; }.presence-time { color:var(--ink); font:12px var(--mono); }.presence-name { margin-top:3px; color:var(--ink); font:600 12px system-ui,sans-serif; }.presence-reason { margin-top:2px; color:var(--muted); font:11px system-ui,sans-serif; }
-    .slot-session .presence { display:flex; align-items:flex-start; gap:14px; }.slot-session .loadout { margin:4px 0 0; }.loadout-character { flex:0 0 58px; }
-    .loadout-character .portrait { display:block; float:none; width:52px; height:52px; margin:0 auto; }.loadout-content { min-width:0; }
-    .loadout-character-name { color:var(--ink); font:600 12px system-ui,sans-serif; }
-    .previous-occupant-row td { background:#171c22; color:var(--muted); }.previous-occupant-row .identity { position:relative; padding-left:28px; }
-    .previous-occupant-row .identity::before { content:"↳"; position:absolute; left:11px; top:20px; color:var(--muted); font:16px var(--mono); }.previous-role { display:block; margin-top:2px; color:var(--muted); font-size:11px; }
-    button { padding:4px 7px; border:1px solid var(--line); border-radius:4px; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; } button:hover { color:var(--ink); border-color:#718196; }
-    @media (max-width:720px) { body { padding:16px; }.match-head { grid-template-columns:1fr; }.map-preview { min-height:80px; }.match-title { padding:0 16px 16px; }.match-meta { border-left:0; border-top:1px solid var(--line); }.activity { display:block; }.activity-label { margin-bottom:6px; }.presence + .presence { margin-top:6px; } }
-  </style>
-</head>
-<body>
-  <main>
-    <section class="match-head">
-      <div class="map-preview">Map preview</div>
-      <div class="match-title"><h2 id="matchMap">Mountain Express</h2><p id="matchMeta">Ranked · August 25, 2026 at 20:14<span class="match-participants">11 players recorded</span></p></div>
-      <div class="match-meta" id="matchSummary"><span>Duration</span><b>18:42</b><span>End reason</span><b>Objectives destroyed</b></div>
-    </section>
-
-    <section class="scoreboard">
-      <table>
-        <colgroup>
-          <col class="player-column"><col class="mmr-column"><col class="volatility-column">
-          <col class="kda-column"><col class="healing-column"><col class="damage-column"><col class="earned-column">
-          <col class="destroyed-column"><col class="objective-column"><col class="built-column"><col class="activity-column">
-        </colgroup>
-        <thead><tr><th>Player</th><th>MMR</th><th>Volatility</th><th>K / D / A</th><th>Healing</th><th>Damage</th><th>Earned</th><th>Destroyed</th><th>Objective</th><th>Built</th><th aria-label="Player controls"></th></tr></thead>
-        <tbody id="historyScoreBody">
-          <tr class="team-label"><td class="team-name-cell">Team 1 <span class="team-winner">Winner</span></td><td>7,840</td><td>329</td><td>25 / 20 / 42</td><td>1,415</td><td>14,270</td><td>382</td><td>129</td><td>7,830</td><td>314</td><td>1 / 3 cubes</td></tr>
-          <tr class="player"><td class="identity"><i class="portrait"></i><span class="name">Atlas</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,580 <span class="delta plus">+24</span></td><td>65 <span class="delta minus">−3</span></td><td>8 / 2 / 11</td><td>320</td><td>4,180</td><td>91</td><td>34</td><td>2,120</td><td>83</td><td><button onclick="toggle('atlas')">Expand</button></td></tr>
-          <tr class="details" id="atlas" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait two"></i><span class="name">Nova</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,510 <span class="delta plus">+18</span></td><td>71 <span class="delta minus">−2</span></td><td>5 / 5 / 6</td><td>110</td><td>2,720</td><td>86</td><td>28</td><td>1,840</td><td>62</td><td><button onclick="toggle('nova')">Expand</button></td></tr>
-          <tr class="details" id="nova" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait four"></i><span class="name">Harbor</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,540 <span class="delta plus">+20</span></td><td>68 <span class="delta minus">−2</span></td><td>4 / 3 / 13</td><td>690</td><td>2,040</td><td>73</td><td>20</td><td>1,510</td><td>58</td><td><button onclick="toggle('harbor')">Expand</button></td></tr>
-          <tr class="details" id="harbor" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait three"></i><span class="name">Quill</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,625 <span class="delta plus">+17</span></td><td>59 <span class="delta minus">−4</span></td><td>6 / 6 / 4</td><td>55</td><td>3,410</td><td>68</td><td>31</td><td>1,270</td><td>41</td><td><button onclick="toggle('quill')">Expand</button></td></tr>
-          <tr class="details" id="quill" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait"></i><span class="name">Vega</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,585 <span class="delta plus">+15</span></td><td>66 <span class="delta minus">−3</span></td><td>2 / 4 / 8</td><td>240</td><td>1,920</td><td>64</td><td>16</td><td>1,090</td><td>70</td><td><button onclick="toggle('vega')">Expand</button></td></tr>
-          <tr class="details" id="vega" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="team-label red"><td class="team-name-cell">Team A</td><td>9,290</td><td>401</td><td>22 / 32 / 37</td><td>1,090</td><td>15,550</td><td>372</td><td>117</td><td>6,420</td><td>322</td><td>0 / 3 cubes</td></tr>
-          <tr class="player"><td class="identity"><i class="portrait three"></i><span class="name">Ember <span class="leaver">Leaver</span></span><span class="hero">Played for 6m 31s</span></td><td class="rating">1,600 <span class="delta minus">−21</span></td><td>63 <span class="delta plus">+4</span></td><td>9 / 4 / 7</td><td>80</td><td>4,560</td><td>77</td><td>30</td><td>1,760</td><td>48</td><td><button onclick="toggle('ember')">Expand</button></td></tr>
-          <tr class="details" id="ember" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – 06:31 · Initial player · Quit</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait four"></i><span class="name">Moss <span class="backfill">Backfiller</span></span><span class="hero">Played for 12m 11s</span></td><td class="rating">1,455 <span class="delta minus">−16</span></td><td>73 <span class="delta plus">+3</span></td><td>3 / 2 / 9</td><td>510</td><td>1,840</td><td>52</td><td>12</td><td>960</td><td>55</td><td><button onclick="toggle('moss')">Expand</button></td></tr>
-          <tr class="details" id="moss" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>06:31 – match end · Backfiller</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait two"></i><span class="name">Circuit</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,530 <span class="delta minus">−19</span></td><td>70 <span class="delta plus">+3</span></td><td>4 / 5 / 5</td><td>95</td><td>2,960</td><td>71</td><td>25</td><td>1,130</td><td>52</td><td><button onclick="toggle('circuit')">Expand</button></td></tr>
-          <tr class="details" id="circuit" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait"></i><span class="name">Rowan</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,575 <span class="delta minus">−17</span></td><td>62 <span class="delta plus">+3</span></td><td>3 / 7 / 7</td><td>270</td><td>2,150</td><td>60</td><td>19</td><td>1,010</td><td>67</td><td><button onclick="toggle('rowan')">Expand</button></td></tr>
-          <tr class="details" id="rowan" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait three"></i><span class="name">Ash</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,555 <span class="delta minus">−14</span></td><td>67 <span class="delta plus">+2</span></td><td>2 / 8 / 4</td><td>45</td><td>2,430</td><td>58</td><td>17</td><td>840</td><td>37</td><td><button onclick="toggle('ash')">Expand</button></td></tr>
-          <tr class="details" id="ash" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-          <tr class="player"><td class="identity"><i class="portrait two"></i><span class="name">Rook</span><span class="hero">Played for 18m 42s</span></td><td class="rating">1,575 <span class="delta minus">−13</span></td><td>66 <span class="delta plus">+2</span></td><td>1 / 6 / 5</td><td>90</td><td>1,610</td><td>54</td><td>14</td><td>720</td><td>63</td><td><button onclick="toggle('rook')">Expand</button></td></tr>
-          <tr class="details" id="rook" hidden><td colspan="11"><div class="activity"><div class="activity-label">Match activity</div><div class="presence"><time>00:00 – match end · Initial player</time><div class="loadout"><span>Blocks</span><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i><span>&nbsp; Perks</span><i class="slot perk"></i><i class="slot perk"></i><i class="slot perk"></i></div></div></div></td></tr>
-        </tbody>
-      </table>
-    </section>
-  </main>
-  <script>
-    function toggle(id) {
-      const row = document.getElementById(id);
-      row.hidden = !row.hidden;
-    }
-
-    // Values below are the fields archived for match
-    // 9bc56f33-1db0-45b0-89c8-ce0de38307cc:1787509645837. A dash means the
-    // The archive does not contain every field; catalogue names are kept as keys.
-    // Current player records supply the 0.060 volatility shown here; its historical
-    // delta is unavailable. Healing and damage are visual placeholders for this mockup.
-    const archiveMatch = {
-      mapKey: '1660706935', modeKey: '2874013687', date: 'August 23, 2026 at 21:27',
-      duration: '29:48', playersRecorded: 9,
-      teams: [
-        { name: 'Team 1', result: 'Defeated · base destroyed', tone: 'red', mmr: '12,091', totals: ['53 / 57 / 77', '2,180', '36,080', '5,793', '13,362', '0', '42,425'], players: [
-          { id:'cake', name:'Cake', portrait:'', mmr:'3,309', delta:'−22', kda:'21 / 14 / 19', healing:'820', damage:'12,280', earned:'1,966', destroyed:'4,717', objective:'0', built:'12,289', hero:'2287229285', skin:'2107842940', time:'00:00 – 29:48', reason:'Match ended', blocks:['1453044156','1401522309','2193709340','3327983318','2972137727','2277439569'], perks:['3373071235','3719832016','710369309'] },
-          { id:'trexidhen', name:'Trexidhen', portrait:'two', mmr:'3,243', delta:'−27', kda:'21 / 12 / 21', healing:'330', damage:'10,610', earned:'0', destroyed:'4,539', objective:'0', built:'6,572', hero:'3559886431', skin:'3411697606', time:'00:00 – 29:48', reason:'Match ended', blocks:['1808802481','1144672887','655880315','3485148536','4099972336','690620101'], perks:['487221002','2378192385','302172805'] },
-          { id:'zentu', name:'Zentu', portrait:'four', mmr:'1,319', delta:'−70', kda:'7 / 9 / 20', healing:'910', damage:'7,930', earned:'1,288', destroyed:'1,908', objective:'0', built:'11,575', hero:'1605389172', skin:'652079076', time:'00:00 – 23:00', reason:'Quit', leaver:true, blocks:['4196167808','3327983318','1916448096','2613587878','2428906853','232535029'], perks:['3428459000','4006948117','333895693'] },
-          { id:'gadd', name:'ᴳᴬᵀᴼ', portrait:'three', mmr:'2,500', delta:'−247', kda:'4 / 22 / 17', healing:'120', damage:'5,170', earned:'2,539', destroyed:'2,158', objective:'0', built:'11,989', hero:'3636489894', skin:'2438963695', time:'00:00 – 29:48', reason:'Match ended', blocks:['3515483314','3355472469','1401522309','466629854','4138888909','3540243049'], perks:[] },
-          { id:'daniro', name:'Daniro', portrait:'', mmr:'1,720', delta:'+0', kda:'0 / 0 / 0', healing:'0', damage:'90', earned:'0', destroyed:'40', objective:'0', built:'0', hero:'2287229285', skin:'178524650', time:'29:32 – 29:48', reason:'Match ended', backfill:true, blocks:['1453044156','1401522309','749458388','918454273','2613587878','2096832551'], perks:['710369309','2378192385'] }
-        ]},
-        { name: 'Team 2', result: 'Winner · base intact', tone: '', mmr: '11,191', totals: ['49 / 57 / 73', '2,210', '38,920', '5,116', '8,775', '3,785', '43,555'], players: [
-          { id:'alex', name:'Alex "Jew" Jones', portrait:'two', mmr:'3,068', delta:'+27', kda:'16 / 15 / 25', healing:'450', damage:'10,850', earned:'0', destroyed:'3,607', objective:'450', built:'6,748', hero:'860273615', skin:'2317730488', time:'00:00 – 29:48', reason:'Match ended', blocks:['3940891543','4268182185','749458388','4099972336','2184995867','3485148536'], perks:['2007014211','3373071235','1959475278','3719832016'] },
-          { id:'dario', name:'dario', portrait:'three', mmr:'3,265', delta:'+65', kda:'14 / 11 / 14', healing:'780', damage:'9,340', earned:'0', destroyed:'2,175', objective:'210', built:'12,230', hero:'643898232', skin:'742121082', time:'00:00 – 29:48', reason:'Match ended', blocks:['3004897835','3904187195','4204284301','749458388','3164964932','3418444884'], perks:['4153970562','3428459000'] },
-          { id:'joshmesh', name:'Joshmesh', portrait:'four', mmr:'2,500', delta:'+247', kda:'13 / 15 / 14', healing:'360', damage:'11,470', earned:'5,116', destroyed:'2,178', objective:'1,110', built:'15,168', hero:'1605389172', skin:'652079076', time:'00:00 – 29:48', reason:'Match ended', blocks:['4196167808','1401522309','2386759055','2428906853','2128917063','3904187195'], perks:['4234711813','2402917295','383041696'] },
-          { id:'birds', name:'a lot like birds', portrait:'', mmr:'2,358', delta:'+67', kda:'6 / 16 / 20', healing:'620', damage:'7,260', earned:'0', destroyed:'815', objective:'2,025', built:'9,409', hero:'345086116', skin:'47640465', time:'00:00 – 29:48', reason:'Match ended', blocks:['3379157686','4140243114','1072664738','4099972336','3485148536','2184995867'], perks:['302172805','3145890717','659092791'] }
-        ]}
-      ]
-    };
-
-    const esc = value => String(value).replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[character]);
-    const deltaClass = delta => delta.startsWith('+') ? 'plus' : delta.startsWith('−') ? 'minus' : '';
-    const playedFor = player => player.id === 'zentu' ? '22m 59s' : player.id === 'daniro' ? '16s' : '29m 48s';
-    const slots = (items, kind) => items.map((key, index) => `<i class="slot ${kind}" title="Catalogue key unavailable${key ? ': ' + esc(key) : ''}" aria-label="${kind === 'perk' ? 'Perk' : 'Block'} ${index + 1}"></i>`).join('');
-    const details = player => `<tr class="details" id="details-${player.id}" hidden><td colspan="11"><div class="slot-occupants"><div class="activity slot-session"><div class="activity-label"><span class="presence-time">${player.time}</span><span class="presence-name">${esc(player.name)}</span><span class="presence-reason">${player.reason}</span></div><div class="presence"><div class="loadout-character"><i class="portrait ${player.portrait}"></i></div><div class="loadout-content"><div class="loadout-character-name">Hero #${player.hero} · Skin #${player.skin}</div><div class="loadout"><span>Blocks</span>${slots(player.blocks, 'block')}<span>&nbsp; Perks</span>${player.perks.length ? slots(player.perks, 'perk') : '<span>—</span>'}</div></div></div></div></div></td></tr>`;
-    const playerRow = player => `<tr class="player"><td class="identity"><i class="portrait ${player.portrait}"></i><span class="name">${esc(player.name)}${player.leaver ? ' <span class="leaver">Leaver</span>' : ''}${player.backfill ? ' <span class="backfill">Backfiller</span>' : ''}</span><span class="hero">Played for ${playedFor(player)}</span></td><td class="rating">${player.mmr} <span class="delta ${deltaClass(player.delta)}">${player.delta}</span></td><td>0.060 <span class="muted">—</span></td><td>${player.kda}</td><td>${player.healing}</td><td>${player.damage}</td><td>${player.earned}</td><td>${player.destroyed}</td><td>${player.objective}</td><td>${player.built}</td><td><button data-expand="details-${player.id}">Expand</button></td></tr>${details(player)}`;
-    const teamRow = team => `<tr class="team-label ${team.tone}"><td class="team-name-cell">${team.name} <span class="team-winner">${team.result}</span></td><td>${team.mmr}</td><td>0.060</td>${team.totals.map(value => `<td>${value}</td>`).join('')}<td>—</td></tr>`;
-
-    document.getElementById('matchMap').textContent = `Map #${archiveMatch.mapKey}`;
-    document.querySelector('.map-preview').textContent = 'Map preview unavailable';
-    document.getElementById('matchMeta').innerHTML = `Mode #${archiveMatch.modeKey} · ${archiveMatch.date}<span class="match-participants">${archiveMatch.playersRecorded} players recorded</span>`;
-    document.getElementById('matchSummary').innerHTML = '<span>Duration</span><b>29:48</b><span>End reason</span><b>Objectives destroyed</b>';
-    document.getElementById('historyScoreBody').innerHTML = archiveMatch.teams.map(team => teamRow(team) + team.players.map(playerRow).join('')).join('');
-    document.querySelectorAll('[data-expand]').forEach(button => button.addEventListener('click', () => toggle(button.dataset.expand)));
-
-    if (false) {
-
-    // A team owns five persistent slots. A slot can have several occupants, but the
-    // scoreboard always renders one row for it: the latest occupant by default.
-    const characterByPlayer = {
-      atlas: 'Sweet Science', nova: 'Trondson', harbor: 'Eliza', quill: 'Kira', vega: 'Sweet Science',
-      ember: 'Kira', moss: 'Eliza', circuit: 'Trondson', rowan: 'Sweet Science', ash: 'Kira', rook: 'Trondson'
-    };
-    const skinByPlayer = {
-      atlas: 'Azure', nova: 'Arctic', harbor: 'Verdant', quill: 'Emberguard', vega: 'Cobalt', ember: 'Emberguard',
-      moss: 'Verdant', circuit: 'Rust', rowan: 'Onyx', ash: 'Cinder', rook: 'Slate'
-    };
-    const teamSlots = [
-      { key: 'team-1', slots: [['atlas'], ['nova'], ['harbor'], ['quill'], ['vega']] },
-      { key: 'team-a', slots: [['ember', 'moss'], ['circuit'], ['rowan'], ['ash'], ['rook']] }
-    ];
-    const slotViews = new Map();
-
-    function cycleSlot(key, slotIndex, direction) {
-      const view = slotViews.get(key + '-' + slotIndex);
-      view.current += direction;
-      renderSlot(view);
-    }
-
-    function renderOccupants(view) {
-      return '<div class="slot-occupants">' +
-        view.occupants.map(id => {
-          const template = view.templates.get(id);
-          const shell = document.createElement('div');
-          shell.innerHTML = template.detail;
-          const activity = shell.firstElementChild;
-          activity.classList.add('slot-session');
-          const recordedTime = activity.querySelector('.presence time');
-          const parts = recordedTime.textContent.split(' · ');
-          const reason = parts.includes('Quit') ? 'Quit' : parts.includes('Disconnect') ? 'Disconnected' : 'Match ended';
-          activity.querySelector('.activity-label').innerHTML = '<span class="presence-time">' + parts[0] +
-            '</span><span class="presence-name">' + template.name + '</span><span class="presence-reason">' + reason + '</span>';
-          recordedTime.remove();
-          const character = document.createElement('div');
-          character.className = 'loadout-character';
-          character.innerHTML = template.portrait;
-          const loadout = activity.querySelector('.loadout');
-          const loadoutContent = document.createElement('div');
-          loadoutContent.className = 'loadout-content';
-          loadoutContent.innerHTML = '<div class="loadout-character-name">' + template.character + ' · ' + template.skin + '</div>';
-          loadout.before(loadoutContent);
-          loadoutContent.append(loadout);
-          activity.querySelector('.presence').prepend(character);
-          return activity.outerHTML;
-        }).join('') + '</div>';
-    }
-
-    function renderSlot(view) {
-      const occupant = view.occupants[view.current];
-      const template = view.templates.get(occupant);
-      const detailsOpen = !view.detailRow.hidden;
-      [...view.playerRow.children].forEach((cell, index) => cell.innerHTML = template.cells[index]);
-      view.detailRow.querySelector('td').innerHTML = renderOccupants(view);
-      view.detailRow.hidden = !detailsOpen;
-
-      const activity = view.playerRow.lastElementChild;
-      activity.replaceChildren();
-      const details = document.createElement('button');
-      details.textContent = 'Expand';
-      details.addEventListener('click', () => toggle(view.detailRow.id));
-      activity.append(details);
-
-      const name = view.playerRow.querySelector('.name');
-      const addSwitch = (direction, label) => {
-        const button = document.createElement('button');
-        button.className = 'slot-switch';
-        button.textContent = direction < 0 ? '‹ Previous player' : 'Next player ›';
-        button.title = label;
-        button.setAttribute('aria-label', label);
-        button.addEventListener('click', () => cycleSlot(view.key, view.slotIndex, direction));
-        activity.append(button);
-      };
-      if (view.current > 0) addSwitch(-1, 'Previous occupant');
-      if (view.current < view.occupants.length - 1) addSwitch(1, 'Next occupant');
-      if (view.occupants.length > 1) {
-        const count = document.createElement('span');
-        count.className = 'slot-occupant-count';
-        count.textContent = '#' + (view.current + 1);
-        count.title = 'Player ' + (view.current + 1) + ' of ' + view.occupants.length + ' in this slot';
-        name.childNodes[0].after(count);
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Match history scoreboard mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #101317;
+        --panel: #181d23;
+        --panel-2: #202731;
+        --line: #35404d;
+        --ink: #edf1f5;
+        --muted: #9da9b7;
+        --blue: #79b8ff;
+        --red: #ff9797;
+        --green: #79d7a2;
+        --gold: #f1ca70;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
-    }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: var(--page);
+        color: var(--ink);
+        font:
+          14px system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1440px;
+        margin: auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+      .hint {
+        margin: 0 0 24px;
+        color: var(--muted);
+      }
+      .match-head {
+        display: grid;
+        grid-template-columns: 180px 1fr auto;
+        gap: 20px;
+        overflow: hidden;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .map-preview {
+        min-height: 126px;
+        display: flex;
+        align-items: end;
+        padding: 12px;
+        background: linear-gradient(135deg, #314b5a, #1c2832 48%, #8a6949);
+        color: #fff;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .match-title {
+        padding: 18px 0;
+      }
+      .match-title h2 {
+        margin: 0;
+        font-size: 21px;
+      }
+      .match-title p {
+        margin: 7px 0;
+        color: var(--muted);
+      }
+      .match-participants {
+        display: block;
+        margin-top: 5px;
+      }
+      .end-reason {
+        display: inline-block;
+        padding: 4px 8px;
+        border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
+        border-radius: 14px;
+        color: var(--gold);
+        font-size: 12px;
+      }
+      .match-meta {
+        min-width: 205px;
+        padding: 18px;
+        border-left: 1px solid var(--line);
+        font-family: var(--mono);
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .match-meta span {
+        display: block;
+        margin-top: 7px;
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+      .match-meta span:first-child {
+        margin-top: 0;
+      }
+      .match-meta b {
+        display: block;
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .scoreboard {
+        margin-top: 18px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+      table {
+        width: 100%;
+        min-width: 1204px;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      col.player-column {
+        width: 202px;
+      }
+      col.mmr-column {
+        width: 118px;
+      }
+      col.volatility-column {
+        width: 110px;
+      }
+      col.kda-column {
+        width: 92px;
+      }
+      col.healing-column {
+        width: 76px;
+      }
+      col.damage-column {
+        width: 92px;
+      }
+      col.earned-column {
+        width: 76px;
+      }
+      col.destroyed-column {
+        width: 88px;
+      }
+      col.objective-column {
+        width: 90px;
+      }
+      col.built-column {
+        width: 70px;
+      }
+      col.activity-column {
+        width: 190px;
+      }
+      th {
+        padding: 10px 9px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--muted);
+        font: 600 11px var(--mono);
+        letter-spacing: 0.04em;
+        text-align: center;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      th:first-child {
+        min-width: 250px;
+        text-align: left;
+      }
+      .team-label td {
+        padding: 10px 9px;
+        background: #192633;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .team-label.red td {
+        background: #301f25;
+        color: var(--red);
+      }
+      .team-name-cell {
+        padding: 10px 12px !important;
+        text-align: left !important;
+      }
+      .team-winner {
+        margin-left: 8px;
+        color: var(--green);
+        font: 700 10px var(--mono);
+      }
+      td {
+        padding: 10px 9px;
+        border-bottom: 1px solid #29323d;
+        text-align: center;
+        font-family: var(--mono);
+        white-space: nowrap;
+      }
+      tr.player:hover td {
+        background: #222a34;
+      }
+      .identity {
+        text-align: left;
+        font-family: system-ui, sans-serif;
+      }
+      tr.player td:last-child {
+        white-space: nowrap;
+      }
+      tr.player td:last-child button {
+        display: inline-block;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      tr.player td:last-child button + button {
+        margin-left: 4px;
+      }
+      .portrait {
+        width: 38px;
+        height: 38px;
+        float: left;
+        margin-right: 9px;
+        border: 1px solid #657384;
+        border-radius: 50%;
+        background: linear-gradient(140deg, #d8a56e, #493860);
+      }
+      .portrait.two {
+        background: linear-gradient(140deg, #70bdd3, #2f435f);
+      }
+      .portrait.three {
+        background: linear-gradient(140deg, #d98172, #643034);
+      }
+      .portrait.four {
+        background: linear-gradient(140deg, #9dca7a, #315846);
+      }
+      .name {
+        display: block;
+        font-weight: 700;
+      }
+      .hero {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .slot-occupant-count {
+        display: inline-grid;
+        width: 20px;
+        height: 16px;
+        place-items: center;
+        margin: 0 5px;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        color: var(--muted);
+        font: 700 10px var(--mono);
+        vertical-align: 1px;
+      }
+      .rating {
+        color: var(--ink);
+      }
+      .delta.plus {
+        color: var(--green);
+      }
+      .delta.minus {
+        color: #ff8d8d;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .backfill {
+        display: inline-block;
+        margin-left: 5px;
+        padding: 2px 5px;
+        border: 1px solid #ba9148;
+        border-radius: 10px;
+        color: var(--gold);
+        font:
+          600 10px system-ui,
+          sans-serif;
+        vertical-align: 1px;
+      }
+      .leaver {
+        display: inline-block;
+        margin-left: 5px;
+        padding: 2px 5px;
+        border: 1px solid #9d5c63;
+        border-radius: 10px;
+        color: #ed9a9f;
+        font:
+          600 10px system-ui,
+          sans-serif;
+        vertical-align: 1px;
+      }
+      .details td {
+        padding: 0 12px 12px;
+        border-top: 1px solid #0a0d11;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        background: #0d1116;
+        box-shadow: inset 0 1px 0 #252d37;
+        white-space: normal;
+      }
+      .details[hidden] {
+        display: none;
+      }
+      .activity {
+        display: flex;
+        gap: 14px;
+        align-items: stretch;
+        padding: 11px 0 0;
+        color: var(--muted);
+      }
+      .activity-label {
+        flex: 0 0 124px;
+        padding-top: 8px;
+        font: 600 11px var(--mono);
+        text-transform: uppercase;
+      }
+      .presence {
+        flex: 1;
+        padding: 8px 10px;
+        border-left: 2px solid #577a9c;
+        background: var(--panel-2);
+      }
+      .presence time {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--ink);
+        font: 12px var(--mono);
+      }
+      .loadout {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .loadout span {
+        color: var(--muted);
+        font: 10px var(--mono);
+      }
+      .slot {
+        width: 25px;
+        height: 25px;
+        border: 1px solid #536170;
+        border-radius: 3px;
+        background: linear-gradient(135deg, #627993, #26394c);
+      }
+      .slot.perk {
+        border-radius: 50%;
+        background: linear-gradient(135deg, #805d9d, #382c49);
+      }
+      .slot-occupants {
+        padding-top: 10px;
+      }
+      .slot-session + .slot-session {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--line);
+      }
+      .presence-time,
+      .presence-name,
+      .presence-reason {
+        display: block;
+        text-transform: none;
+      }
+      .presence-time {
+        color: var(--ink);
+        font: 12px var(--mono);
+      }
+      .presence-name {
+        margin-top: 3px;
+        color: var(--ink);
+        font:
+          600 12px system-ui,
+          sans-serif;
+      }
+      .presence-reason {
+        margin-top: 2px;
+        color: var(--muted);
+        font:
+          11px system-ui,
+          sans-serif;
+      }
+      .slot-session .presence {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .slot-session .loadout {
+        margin: 4px 0 0;
+      }
+      .loadout-character {
+        flex: 0 0 58px;
+      }
+      .loadout-character .portrait {
+        display: block;
+        float: none;
+        width: 52px;
+        height: 52px;
+        margin: 0 auto;
+      }
+      .loadout-content {
+        min-width: 0;
+      }
+      .loadout-character-name {
+        color: var(--ink);
+        font:
+          600 12px system-ui,
+          sans-serif;
+      }
+      .previous-occupant-row td {
+        background: #171c22;
+        color: var(--muted);
+      }
+      .previous-occupant-row .identity {
+        position: relative;
+        padding-left: 28px;
+      }
+      .previous-occupant-row .identity::before {
+        content: "↳";
+        position: absolute;
+        left: 11px;
+        top: 20px;
+        color: var(--muted);
+        font: 16px var(--mono);
+      }
+      .previous-role {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      button {
+        padding: 4px 7px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      button:hover {
+        color: var(--ink);
+        border-color: #718196;
+      }
+      @media (max-width: 720px) {
+        body {
+          padding: 16px;
+        }
+        .match-head {
+          grid-template-columns: 1fr;
+        }
+        .map-preview {
+          min-height: 80px;
+        }
+        .match-title {
+          padding: 0 16px 16px;
+        }
+        .match-meta {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+        .activity {
+          display: block;
+        }
+        .activity-label {
+          margin-bottom: 6px;
+        }
+        .presence + .presence {
+          margin-top: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="match-head">
+        <div class="map-preview">Map preview</div>
+        <div class="match-title">
+          <h2 id="matchMap">Mountain Express</h2>
+          <p id="matchMeta">
+            Ranked · August 25, 2026 at 20:14<span class="match-participants"
+              >11 players recorded</span
+            >
+          </p>
+        </div>
+        <div class="match-meta" id="matchSummary">
+          <span>Duration</span><b>18:42</b><span>End reason</span
+          ><b>Objectives destroyed</b>
+        </div>
+      </section>
 
-    for (const team of teamSlots) {
-      team.slots.forEach((occupants, index) => {
-        const templates = new Map();
-        occupants.forEach(id => {
-          const detailRow = document.getElementById(id);
-          const playerRow = detailRow.previousElementSibling;
-          templates.set(id, {
-            cells: [...playerRow.children].map(cell => cell.innerHTML),
-            detail: detailRow.querySelector('td').innerHTML,
-            name: playerRow.querySelector('.name').childNodes[0].textContent.trim(),
-            character: characterByPlayer[id], skin: skinByPlayer[id], portrait: playerRow.querySelector('.portrait').outerHTML
-          });
-          playerRow.hidden = id !== occupants.at(-1);
-        });
-        const currentId = occupants.at(-1);
-        const view = {
-          key: team.key, slotIndex: index, occupants, templates, current: occupants.length - 1,
-          playerRow: document.getElementById(currentId).previousElementSibling,
-          detailRow: document.getElementById(currentId)
+      <section class="scoreboard">
+        <table>
+          <colgroup>
+            <col class="player-column" />
+            <col class="mmr-column" />
+            <col class="volatility-column" />
+            <col class="kda-column" />
+            <col class="healing-column" />
+            <col class="damage-column" />
+            <col class="earned-column" />
+            <col class="destroyed-column" />
+            <col class="objective-column" />
+            <col class="built-column" />
+            <col class="activity-column" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>MMR</th>
+              <th>Volatility</th>
+              <th>K / D / A</th>
+              <th>Healing</th>
+              <th>Damage</th>
+              <th>Earned</th>
+              <th>Destroyed</th>
+              <th>Objective</th>
+              <th>Built</th>
+              <th aria-label="Player controls"></th>
+            </tr>
+          </thead>
+          <tbody id="historyScoreBody">
+            <tr class="team-label">
+              <td class="team-name-cell">
+                Team 1 <span class="team-winner">Winner</span>
+              </td>
+              <td>7,840</td>
+              <td>329</td>
+              <td>25 / 20 / 42</td>
+              <td>1,415</td>
+              <td>14,270</td>
+              <td>382</td>
+              <td>129</td>
+              <td>7,830</td>
+              <td>314</td>
+              <td>1 / 3 cubes</td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait"></i><span class="name">Atlas</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,580 <span class="delta plus">+24</span></td>
+              <td>65 <span class="delta minus">−3</span></td>
+              <td>8 / 2 / 11</td>
+              <td>320</td>
+              <td>4,180</td>
+              <td>91</td>
+              <td>34</td>
+              <td>2,120</td>
+              <td>83</td>
+              <td><button onclick="toggle('atlas')">Expand</button></td>
+            </tr>
+            <tr class="details" id="atlas" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait two"></i><span class="name">Nova</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,510 <span class="delta plus">+18</span></td>
+              <td>71 <span class="delta minus">−2</span></td>
+              <td>5 / 5 / 6</td>
+              <td>110</td>
+              <td>2,720</td>
+              <td>86</td>
+              <td>28</td>
+              <td>1,840</td>
+              <td>62</td>
+              <td><button onclick="toggle('nova')">Expand</button></td>
+            </tr>
+            <tr class="details" id="nova" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait four"></i><span class="name">Harbor</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,540 <span class="delta plus">+20</span></td>
+              <td>68 <span class="delta minus">−2</span></td>
+              <td>4 / 3 / 13</td>
+              <td>690</td>
+              <td>2,040</td>
+              <td>73</td>
+              <td>20</td>
+              <td>1,510</td>
+              <td>58</td>
+              <td><button onclick="toggle('harbor')">Expand</button></td>
+            </tr>
+            <tr class="details" id="harbor" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait three"></i><span class="name">Quill</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,625 <span class="delta plus">+17</span></td>
+              <td>59 <span class="delta minus">−4</span></td>
+              <td>6 / 6 / 4</td>
+              <td>55</td>
+              <td>3,410</td>
+              <td>68</td>
+              <td>31</td>
+              <td>1,270</td>
+              <td>41</td>
+              <td><button onclick="toggle('quill')">Expand</button></td>
+            </tr>
+            <tr class="details" id="quill" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait"></i><span class="name">Vega</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,585 <span class="delta plus">+15</span></td>
+              <td>66 <span class="delta minus">−3</span></td>
+              <td>2 / 4 / 8</td>
+              <td>240</td>
+              <td>1,920</td>
+              <td>64</td>
+              <td>16</td>
+              <td>1,090</td>
+              <td>70</td>
+              <td><button onclick="toggle('vega')">Expand</button></td>
+            </tr>
+            <tr class="details" id="vega" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="team-label red">
+              <td class="team-name-cell">Team A</td>
+              <td>9,290</td>
+              <td>401</td>
+              <td>22 / 32 / 37</td>
+              <td>1,090</td>
+              <td>15,550</td>
+              <td>372</td>
+              <td>117</td>
+              <td>6,420</td>
+              <td>322</td>
+              <td>0 / 3 cubes</td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait three"></i
+                ><span class="name"
+                  >Ember <span class="leaver">Leaver</span></span
+                ><span class="hero">Played for 6m 31s</span>
+              </td>
+              <td class="rating">1,600 <span class="delta minus">−21</span></td>
+              <td>63 <span class="delta plus">+4</span></td>
+              <td>9 / 4 / 7</td>
+              <td>80</td>
+              <td>4,560</td>
+              <td>77</td>
+              <td>30</td>
+              <td>1,760</td>
+              <td>48</td>
+              <td><button onclick="toggle('ember')">Expand</button></td>
+            </tr>
+            <tr class="details" id="ember" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – 06:31 · Initial player · Quit</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait four"></i
+                ><span class="name"
+                  >Moss <span class="backfill">Backfiller</span></span
+                ><span class="hero">Played for 12m 11s</span>
+              </td>
+              <td class="rating">1,455 <span class="delta minus">−16</span></td>
+              <td>73 <span class="delta plus">+3</span></td>
+              <td>3 / 2 / 9</td>
+              <td>510</td>
+              <td>1,840</td>
+              <td>52</td>
+              <td>12</td>
+              <td>960</td>
+              <td>55</td>
+              <td><button onclick="toggle('moss')">Expand</button></td>
+            </tr>
+            <tr class="details" id="moss" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>06:31 – match end · Backfiller</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait two"></i><span class="name">Circuit</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,530 <span class="delta minus">−19</span></td>
+              <td>70 <span class="delta plus">+3</span></td>
+              <td>4 / 5 / 5</td>
+              <td>95</td>
+              <td>2,960</td>
+              <td>71</td>
+              <td>25</td>
+              <td>1,130</td>
+              <td>52</td>
+              <td><button onclick="toggle('circuit')">Expand</button></td>
+            </tr>
+            <tr class="details" id="circuit" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait"></i><span class="name">Rowan</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,575 <span class="delta minus">−17</span></td>
+              <td>62 <span class="delta plus">+3</span></td>
+              <td>3 / 7 / 7</td>
+              <td>270</td>
+              <td>2,150</td>
+              <td>60</td>
+              <td>19</td>
+              <td>1,010</td>
+              <td>67</td>
+              <td><button onclick="toggle('rowan')">Expand</button></td>
+            </tr>
+            <tr class="details" id="rowan" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait three"></i><span class="name">Ash</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,555 <span class="delta minus">−14</span></td>
+              <td>67 <span class="delta plus">+2</span></td>
+              <td>2 / 8 / 4</td>
+              <td>45</td>
+              <td>2,430</td>
+              <td>58</td>
+              <td>17</td>
+              <td>840</td>
+              <td>37</td>
+              <td><button onclick="toggle('ash')">Expand</button></td>
+            </tr>
+            <tr class="details" id="ash" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="player">
+              <td class="identity">
+                <i class="portrait two"></i><span class="name">Rook</span
+                ><span class="hero">Played for 18m 42s</span>
+              </td>
+              <td class="rating">1,575 <span class="delta minus">−13</span></td>
+              <td>66 <span class="delta plus">+2</span></td>
+              <td>1 / 6 / 5</td>
+              <td>90</td>
+              <td>1,610</td>
+              <td>54</td>
+              <td>14</td>
+              <td>720</td>
+              <td>63</td>
+              <td><button onclick="toggle('rook')">Expand</button></td>
+            </tr>
+            <tr class="details" id="rook" hidden>
+              <td colspan="11">
+                <div class="activity">
+                  <div class="activity-label">Match activity</div>
+                  <div class="presence">
+                    <time>00:00 – match end · Initial player</time>
+                    <div class="loadout">
+                      <span>Blocks</span><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><i class="slot"></i><i class="slot"></i
+                      ><span>&nbsp; Perks</span><i class="slot perk"></i
+                      ><i class="slot perk"></i><i class="slot perk"></i>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      function toggle(id) {
+        const row = document.getElementById(id);
+        row.hidden = !row.hidden;
+      }
+
+      // Values below are the fields archived for match
+      // 9bc56f33-1db0-45b0-89c8-ce0de38307cc:1787509645837. A dash means the
+      // The archive does not contain every field; catalogue names are kept as keys.
+      // Current player records supply the 0.060 volatility shown here; its historical
+      // delta is unavailable. Healing and damage are visual placeholders for this mockup.
+      const archiveMatch = {
+        mapKey: "1660706935",
+        modeKey: "2874013687",
+        date: "August 23, 2026 at 21:27",
+        duration: "29:48",
+        playersRecorded: 9,
+        teams: [
+          {
+            name: "Team 1",
+            result: "Defeated · base destroyed",
+            tone: "red",
+            mmr: "12,091",
+            totals: [
+              "53 / 57 / 77",
+              "2,180",
+              "36,080",
+              "5,793",
+              "13,362",
+              "0",
+              "42,425",
+            ],
+            players: [
+              {
+                id: "cake",
+                name: "Cake",
+                portrait: "",
+                mmr: "3,309",
+                delta: "−22",
+                kda: "21 / 14 / 19",
+                healing: "820",
+                damage: "12,280",
+                earned: "1,966",
+                destroyed: "4,717",
+                objective: "0",
+                built: "12,289",
+                hero: "2287229285",
+                skin: "2107842940",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "1453044156",
+                  "1401522309",
+                  "2193709340",
+                  "3327983318",
+                  "2972137727",
+                  "2277439569",
+                ],
+                perks: ["3373071235", "3719832016", "710369309"],
+              },
+              {
+                id: "trexidhen",
+                name: "Trexidhen",
+                portrait: "two",
+                mmr: "3,243",
+                delta: "−27",
+                kda: "21 / 12 / 21",
+                healing: "330",
+                damage: "10,610",
+                earned: "0",
+                destroyed: "4,539",
+                objective: "0",
+                built: "6,572",
+                hero: "3559886431",
+                skin: "3411697606",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "1808802481",
+                  "1144672887",
+                  "655880315",
+                  "3485148536",
+                  "4099972336",
+                  "690620101",
+                ],
+                perks: ["487221002", "2378192385", "302172805"],
+              },
+              {
+                id: "zentu",
+                name: "Zentu",
+                portrait: "four",
+                mmr: "1,319",
+                delta: "−70",
+                kda: "7 / 9 / 20",
+                healing: "910",
+                damage: "7,930",
+                earned: "1,288",
+                destroyed: "1,908",
+                objective: "0",
+                built: "11,575",
+                hero: "1605389172",
+                skin: "652079076",
+                time: "00:00 – 23:00",
+                reason: "Quit",
+                leaver: true,
+                blocks: [
+                  "4196167808",
+                  "3327983318",
+                  "1916448096",
+                  "2613587878",
+                  "2428906853",
+                  "232535029",
+                ],
+                perks: ["3428459000", "4006948117", "333895693"],
+              },
+              {
+                id: "gadd",
+                name: "ᴳᴬᵀᴼ",
+                portrait: "three",
+                mmr: "2,500",
+                delta: "−247",
+                kda: "4 / 22 / 17",
+                healing: "120",
+                damage: "5,170",
+                earned: "2,539",
+                destroyed: "2,158",
+                objective: "0",
+                built: "11,989",
+                hero: "3636489894",
+                skin: "2438963695",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "3515483314",
+                  "3355472469",
+                  "1401522309",
+                  "466629854",
+                  "4138888909",
+                  "3540243049",
+                ],
+                perks: [],
+              },
+              {
+                id: "daniro",
+                name: "Daniro",
+                portrait: "",
+                mmr: "1,720",
+                delta: "+0",
+                kda: "0 / 0 / 0",
+                healing: "0",
+                damage: "90",
+                earned: "0",
+                destroyed: "40",
+                objective: "0",
+                built: "0",
+                hero: "2287229285",
+                skin: "178524650",
+                time: "29:32 – 29:48",
+                reason: "Match ended",
+                backfill: true,
+                blocks: [
+                  "1453044156",
+                  "1401522309",
+                  "749458388",
+                  "918454273",
+                  "2613587878",
+                  "2096832551",
+                ],
+                perks: ["710369309", "2378192385"],
+              },
+            ],
+          },
+          {
+            name: "Team 2",
+            result: "Winner · base intact",
+            tone: "",
+            mmr: "11,191",
+            totals: [
+              "49 / 57 / 73",
+              "2,210",
+              "38,920",
+              "5,116",
+              "8,775",
+              "3,785",
+              "43,555",
+            ],
+            players: [
+              {
+                id: "alex",
+                name: 'Alex "Jew" Jones',
+                portrait: "two",
+                mmr: "3,068",
+                delta: "+27",
+                kda: "16 / 15 / 25",
+                healing: "450",
+                damage: "10,850",
+                earned: "0",
+                destroyed: "3,607",
+                objective: "450",
+                built: "6,748",
+                hero: "860273615",
+                skin: "2317730488",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "3940891543",
+                  "4268182185",
+                  "749458388",
+                  "4099972336",
+                  "2184995867",
+                  "3485148536",
+                ],
+                perks: ["2007014211", "3373071235", "1959475278", "3719832016"],
+              },
+              {
+                id: "dario",
+                name: "dario",
+                portrait: "three",
+                mmr: "3,265",
+                delta: "+65",
+                kda: "14 / 11 / 14",
+                healing: "780",
+                damage: "9,340",
+                earned: "0",
+                destroyed: "2,175",
+                objective: "210",
+                built: "12,230",
+                hero: "643898232",
+                skin: "742121082",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "3004897835",
+                  "3904187195",
+                  "4204284301",
+                  "749458388",
+                  "3164964932",
+                  "3418444884",
+                ],
+                perks: ["4153970562", "3428459000"],
+              },
+              {
+                id: "joshmesh",
+                name: "Joshmesh",
+                portrait: "four",
+                mmr: "2,500",
+                delta: "+247",
+                kda: "13 / 15 / 14",
+                healing: "360",
+                damage: "11,470",
+                earned: "5,116",
+                destroyed: "2,178",
+                objective: "1,110",
+                built: "15,168",
+                hero: "1605389172",
+                skin: "652079076",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "4196167808",
+                  "1401522309",
+                  "2386759055",
+                  "2428906853",
+                  "2128917063",
+                  "3904187195",
+                ],
+                perks: ["4234711813", "2402917295", "383041696"],
+              },
+              {
+                id: "birds",
+                name: "a lot like birds",
+                portrait: "",
+                mmr: "2,358",
+                delta: "+67",
+                kda: "6 / 16 / 20",
+                healing: "620",
+                damage: "7,260",
+                earned: "0",
+                destroyed: "815",
+                objective: "2,025",
+                built: "9,409",
+                hero: "345086116",
+                skin: "47640465",
+                time: "00:00 – 29:48",
+                reason: "Match ended",
+                blocks: [
+                  "3379157686",
+                  "4140243114",
+                  "1072664738",
+                  "4099972336",
+                  "3485148536",
+                  "2184995867",
+                ],
+                perks: ["302172805", "3145890717", "659092791"],
+              },
+            ],
+          },
+        ],
+      };
+
+      const esc = (value) =>
+        String(value).replace(
+          /[&<>"']/g,
+          (character) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[character],
+        );
+      const deltaClass = (delta) =>
+        delta.startsWith("+") ? "plus" : delta.startsWith("−") ? "minus" : "";
+      const playedFor = (player) =>
+        player.id === "zentu"
+          ? "22m 59s"
+          : player.id === "daniro"
+            ? "16s"
+            : "29m 48s";
+      const slots = (items, kind) =>
+        items
+          .map(
+            (key, index) =>
+              `<i class="slot ${kind}" title="Catalogue key unavailable${key ? ": " + esc(key) : ""}" aria-label="${kind === "perk" ? "Perk" : "Block"} ${index + 1}"></i>`,
+          )
+          .join("");
+      const details = (player) =>
+        `<tr class="details" id="details-${player.id}" hidden><td colspan="11"><div class="slot-occupants"><div class="activity slot-session"><div class="activity-label"><span class="presence-time">${player.time}</span><span class="presence-name">${esc(player.name)}</span><span class="presence-reason">${player.reason}</span></div><div class="presence"><div class="loadout-character"><i class="portrait ${player.portrait}"></i></div><div class="loadout-content"><div class="loadout-character-name">Hero #${player.hero} · Skin #${player.skin}</div><div class="loadout"><span>Blocks</span>${slots(player.blocks, "block")}<span>&nbsp; Perks</span>${player.perks.length ? slots(player.perks, "perk") : "<span>—</span>"}</div></div></div></div></div></td></tr>`;
+      const playerRow = (player) =>
+        `<tr class="player"><td class="identity"><i class="portrait ${player.portrait}"></i><span class="name">${esc(player.name)}${player.leaver ? ' <span class="leaver">Leaver</span>' : ""}${player.backfill ? ' <span class="backfill">Backfiller</span>' : ""}</span><span class="hero">Played for ${playedFor(player)}</span></td><td class="rating">${player.mmr} <span class="delta ${deltaClass(player.delta)}">${player.delta}</span></td><td>0.060 <span class="muted">—</span></td><td>${player.kda}</td><td>${player.healing}</td><td>${player.damage}</td><td>${player.earned}</td><td>${player.destroyed}</td><td>${player.objective}</td><td>${player.built}</td><td><button data-expand="details-${player.id}">Expand</button></td></tr>${details(player)}`;
+      const teamRow = (team) =>
+        `<tr class="team-label ${team.tone}"><td class="team-name-cell">${team.name} <span class="team-winner">${team.result}</span></td><td>${team.mmr}</td><td>0.060</td>${team.totals.map((value) => `<td>${value}</td>`).join("")}<td>—</td></tr>`;
+
+      document.getElementById("matchMap").textContent =
+        `Map #${archiveMatch.mapKey}`;
+      document.querySelector(".map-preview").textContent =
+        "Map preview unavailable";
+      document.getElementById("matchMeta").innerHTML =
+        `Mode #${archiveMatch.modeKey} · ${archiveMatch.date}<span class="match-participants">${archiveMatch.playersRecorded} players recorded</span>`;
+      document.getElementById("matchSummary").innerHTML =
+        "<span>Duration</span><b>29:48</b><span>End reason</span><b>Objectives destroyed</b>";
+      document.getElementById("historyScoreBody").innerHTML = archiveMatch.teams
+        .map((team) => teamRow(team) + team.players.map(playerRow).join(""))
+        .join("");
+      document
+        .querySelectorAll("[data-expand]")
+        .forEach((button) =>
+          button.addEventListener("click", () => toggle(button.dataset.expand)),
+        );
+
+      if (false) {
+        // A team owns five persistent slots. A slot can have several occupants, but the
+        // scoreboard always renders one row for it: the latest occupant by default.
+        const characterByPlayer = {
+          atlas: "Sweet Science",
+          nova: "Trondson",
+          harbor: "Eliza",
+          quill: "Kira",
+          vega: "Sweet Science",
+          ember: "Kira",
+          moss: "Eliza",
+          circuit: "Trondson",
+          rowan: "Sweet Science",
+          ash: "Kira",
+          rook: "Trondson",
         };
-        slotViews.set(team.key + '-' + index, view);
-        renderSlot(view);
-      });
-    }
-    }
-  </script>
-</body>
+        const skinByPlayer = {
+          atlas: "Azure",
+          nova: "Arctic",
+          harbor: "Verdant",
+          quill: "Emberguard",
+          vega: "Cobalt",
+          ember: "Emberguard",
+          moss: "Verdant",
+          circuit: "Rust",
+          rowan: "Onyx",
+          ash: "Cinder",
+          rook: "Slate",
+        };
+        const teamSlots = [
+          {
+            key: "team-1",
+            slots: [["atlas"], ["nova"], ["harbor"], ["quill"], ["vega"]],
+          },
+          {
+            key: "team-a",
+            slots: [
+              ["ember", "moss"],
+              ["circuit"],
+              ["rowan"],
+              ["ash"],
+              ["rook"],
+            ],
+          },
+        ];
+        const slotViews = new Map();
+
+        function cycleSlot(key, slotIndex, direction) {
+          const view = slotViews.get(key + "-" + slotIndex);
+          view.current += direction;
+          renderSlot(view);
+        }
+
+        function renderOccupants(view) {
+          return (
+            '<div class="slot-occupants">' +
+            view.occupants
+              .map((id) => {
+                const template = view.templates.get(id);
+                const shell = document.createElement("div");
+                shell.innerHTML = template.detail;
+                const activity = shell.firstElementChild;
+                activity.classList.add("slot-session");
+                const recordedTime = activity.querySelector(".presence time");
+                const parts = recordedTime.textContent.split(" · ");
+                const reason = parts.includes("Quit")
+                  ? "Quit"
+                  : parts.includes("Disconnect")
+                    ? "Disconnected"
+                    : "Match ended";
+                activity.querySelector(".activity-label").innerHTML =
+                  '<span class="presence-time">' +
+                  parts[0] +
+                  '</span><span class="presence-name">' +
+                  template.name +
+                  '</span><span class="presence-reason">' +
+                  reason +
+                  "</span>";
+                recordedTime.remove();
+                const character = document.createElement("div");
+                character.className = "loadout-character";
+                character.innerHTML = template.portrait;
+                const loadout = activity.querySelector(".loadout");
+                const loadoutContent = document.createElement("div");
+                loadoutContent.className = "loadout-content";
+                loadoutContent.innerHTML =
+                  '<div class="loadout-character-name">' +
+                  template.character +
+                  " · " +
+                  template.skin +
+                  "</div>";
+                loadout.before(loadoutContent);
+                loadoutContent.append(loadout);
+                activity.querySelector(".presence").prepend(character);
+                return activity.outerHTML;
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+
+        function renderSlot(view) {
+          const occupant = view.occupants[view.current];
+          const template = view.templates.get(occupant);
+          const detailsOpen = !view.detailRow.hidden;
+          [...view.playerRow.children].forEach(
+            (cell, index) => (cell.innerHTML = template.cells[index]),
+          );
+          view.detailRow.querySelector("td").innerHTML = renderOccupants(view);
+          view.detailRow.hidden = !detailsOpen;
+
+          const activity = view.playerRow.lastElementChild;
+          activity.replaceChildren();
+          const details = document.createElement("button");
+          details.textContent = "Expand";
+          details.addEventListener("click", () => toggle(view.detailRow.id));
+          activity.append(details);
+
+          const name = view.playerRow.querySelector(".name");
+          const addSwitch = (direction, label) => {
+            const button = document.createElement("button");
+            button.className = "slot-switch";
+            button.textContent =
+              direction < 0 ? "‹ Previous player" : "Next player ›";
+            button.title = label;
+            button.setAttribute("aria-label", label);
+            button.addEventListener("click", () =>
+              cycleSlot(view.key, view.slotIndex, direction),
+            );
+            activity.append(button);
+          };
+          if (view.current > 0) addSwitch(-1, "Previous occupant");
+          if (view.current < view.occupants.length - 1)
+            addSwitch(1, "Next occupant");
+          if (view.occupants.length > 1) {
+            const count = document.createElement("span");
+            count.className = "slot-occupant-count";
+            count.textContent = "#" + (view.current + 1);
+            count.title =
+              "Player " +
+              (view.current + 1) +
+              " of " +
+              view.occupants.length +
+              " in this slot";
+            name.childNodes[0].after(count);
+          }
+        }
+
+        for (const team of teamSlots) {
+          team.slots.forEach((occupants, index) => {
+            const templates = new Map();
+            occupants.forEach((id) => {
+              const detailRow = document.getElementById(id);
+              const playerRow = detailRow.previousElementSibling;
+              templates.set(id, {
+                cells: [...playerRow.children].map((cell) => cell.innerHTML),
+                detail: detailRow.querySelector("td").innerHTML,
+                name: playerRow
+                  .querySelector(".name")
+                  .childNodes[0].textContent.trim(),
+                character: characterByPlayer[id],
+                skin: skinByPlayer[id],
+                portrait: playerRow.querySelector(".portrait").outerHTML,
+              });
+              playerRow.hidden = id !== occupants.at(-1);
+            });
+            const currentId = occupants.at(-1);
+            const view = {
+              key: team.key,
+              slotIndex: index,
+              occupants,
+              templates,
+              current: occupants.length - 1,
+              playerRow:
+                document.getElementById(currentId).previousElementSibling,
+              detailRow: document.getElementById(currentId),
+            };
+            slotViews.set(team.key + "-" + index, view);
+            renderSlot(view);
+          });
+        }
+      }
+    </script>
+  </body>
 </html>

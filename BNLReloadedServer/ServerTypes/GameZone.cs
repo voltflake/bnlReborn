@@ -25,21 +25,21 @@ public partial class GameZone : Updater
     private const int TicksForDmgCaptureCheck = 1000 / TickRate;
     private const float BuffMultiplier = SecondsPerTick * TicksForBuffCheck;
     private const float UnitSpawnYOffset = 0.08f;
-    
+
     public CancellationTokenSource GameCanceler { get; } = new();
-    
+
     private readonly ZoneData _zoneData;
 
     private MapBinary MapBinary => _zoneData.BlocksData;
     public ZoneInitData BeginningZoneInitData { get; }
-    
+
     private readonly IServiceZone _serviceZone;
     private readonly IServiceZone _unbufferedZone;
     private readonly IBuffer _sendBuffer;
     private readonly ISender _sessionsSender;
-    
+
     private readonly IGameInitiator _gameInitiator;
-    
+
     private readonly ConcurrentDictionary<uint, PlayerLobbyState> _playerLobbyInfo;
     private readonly Dictionary<uint, Unit> _units = new();
     private readonly Dictionary<uint, Unit> _playerUnits = new();
@@ -60,7 +60,7 @@ public partial class GameZone : Updater
 
     private readonly HashSet<ConstEffectInfo>[]
         _teamEffects = new HashSet<ConstEffectInfo>[Enum.GetValues<TeamType>().Length];
-    
+
     private readonly Dictionary<uint, MapSpawnPoint> _mapSpawnPoints = new();
     private readonly Dictionary<uint, Unit> _playerSpawnPoints = new();
     private readonly uint[] _defaultSpawnId = new uint[Enum.GetValues<TeamType>().Length];
@@ -71,7 +71,7 @@ public partial class GameZone : Updater
     private TeamType _winningTeam = TeamType.Neutral;
     private readonly List<(uint, UnitInit, Func<IServiceZone?>)> _createOnStart = [];
     private readonly List<(uint, UnitUpdate, Func<IServiceZone?>)> _updateOnStart = [];
-    
+
     private readonly Dictionary<ulong, ShotInfo> _shotInfo = new();
     private readonly HashSet<ulong> _keepShotAlive = [];
 
@@ -81,7 +81,7 @@ public partial class GameZone : Updater
     private readonly List<Unit> _unitsToDrop = [];
 
     private DateTimeOffset? _attackStartTime;
-    
+
     private Task? _gameLoop;
     private Task? _endMatchTask;
 
@@ -145,7 +145,7 @@ public partial class GameZone : Updater
                          $"map={mapKey?.ToString() ?? "<embedded>"}";
         Log.Info(LogCat.Perf, $"Zone construction started: {DiagnosticName}, size={mapData.Size}, " +
                               $"map units={mapData.Units.Count}, players={players.Count}");
-        
+
         foreach (var team in Enum.GetValues<TeamType>())
         {
             _objectiveConquest[(int)team] = new Queue<UnitLabel>();
@@ -158,7 +158,7 @@ public partial class GameZone : Updater
             UnitTeamEffectRemoved,
             ApplyInstEffect,
             GetTeamEffects,
-            DoesObjBuffApply, 
+            DoesObjBuffApply,
             ImpactOccur,
             GetResourceCap,
             UpdateMatchStats,
@@ -171,7 +171,7 @@ public partial class GameZone : Updater
             ChangeId,
             GetPlayerFromPlayerId,
             EnqueueAction);
-        
+
         var spawns = new Dictionary<uint, SpawnPoint>();
 
         foreach (var spawnPoint in mapData.SpawnPoints)
@@ -195,8 +195,8 @@ public partial class GameZone : Updater
         var playerMap = _playerLobbyInfo.Values.ToDictionary(player => player.PlayerId,
             player => new ZonePlayerInfo
             {
-                Nickname = player.Nickname, 
-                SteamId = player.SteamId, 
+                Nickname = player.Nickname,
+                SteamId = player.SteamId,
                 SquadId = player.SquadId,
                 LookingForFriends = player.LookingForFriends
             });
@@ -236,7 +236,7 @@ public partial class GameZone : Updater
         _zoneData.BlocksData.Units = _unitOctree;
 
         _respawnTime = _zoneData.MatchCard.RespawnLogic?.BaseRespawnTime ?? 10f;
-        
+
         BeginningZoneInitData = _zoneData.GetZoneInitData();
         EnqueueAction(() =>
         {
@@ -327,13 +327,13 @@ public partial class GameZone : Updater
         }
 
         var transform = ZoneTransformHelper.ToZoneTransform(pos, rot);
-        
+
         var unitId = NewUnitId();
-        
+
         return CatalogueFactory.CreatePlayerUnit(unitId, playerInfo.PlayerId, transform, playerInfo, _gameInitiator, _zoneData.MatchCard,
             _defaultUnitUpdater with { OnUnitInit = GetUnitInitAction(creatorService) });
     }
-    
+
     // Map units are controlled by everyone in the match
     private void CreateMapUnits()
     {
@@ -352,22 +352,22 @@ public partial class GameZone : Updater
         var newUnit = CatalogueFactory.CreateUnit(NewUnitId(), unit.Key, transform, builder?.Team ?? TeamType.Neutral,
             builder, updater, isAttached: isAttached);
         if (newUnit == null) return newUnit;
-        
+
         if (unit.CountLimit is { Limit: > 0 })
         {
             var existingUnits = unit.CountLimit.Scope switch
             {
                 UnitLimitScope.World => _units.Values.Where(u => u.Key == unit.Key).ToList(),
-                
+
                 UnitLimitScope.Team => _units.Values.Where(u => u.Key == unit.Key && u.Team == newUnit.Team).ToList(),
-                
+
                 UnitLimitScope.Owner when newUnit.OwnerPlayerId is not null => _units.Values
                     .Where(u => u.Key == unit.Key && u.OwnerPlayerId == newUnit.OwnerPlayerId)
                     .ToList(),
-                
+
                 _ => []
             };
-            
+
             if (existingUnits.Count > unit.CountLimit.Limit)
             {
                 existingUnits.Sort((u1, u2) => u1.CreationTime.CompareTo(u2.CreationTime));
@@ -377,12 +377,12 @@ public partial class GameZone : Updater
         }
 
         if (unit.Data is not UnitDataPortal || newUnit.OwnerPlayerId is null) return newUnit;
-        
+
         LinkPortal(newUnit);
-        
+
         return newUnit;
     }
-    
+
     private void CreateLootUnit(LootItemUnit loot, ZoneTransform transform, Unit? killer = null)
     {
         var lootCard = Databases.Catalogue.GetCard<CardUnit>(loot.LootUnitKey);
@@ -404,11 +404,11 @@ public partial class GameZone : Updater
         var updater = creator?.ZoneService != null
             ? _defaultUnitUpdater with { OnUnitInit = GetUnitInitAction(creator.ZoneService) }
             : _defaultUnitUpdater;
-        
+
         var vecDir = shot.TargetPos - shotPos;
         var transform = ZoneTransformHelper.ToZoneTransform(shotPos, QuaternionExtensions.LookRotation(vecDir));
         transform.SetLocalVelocity(Vector3.Normalize(vecDir) * speed);
-        
+
         CatalogueFactory.CreateUnit(NewUnitId(), projectileKey, transform, creator?.Team ?? TeamType.Neutral, creator, updater, speed);
     }
 
@@ -422,14 +422,14 @@ public partial class GameZone : Updater
         {
             supplyKey = CatalogueHelper.SuperSupplyDrop;
         }
-        
+
         CatalogueFactory.CreateUnit(NewUnitId(), supplyKey, transform, TeamType.Neutral, null, _defaultUnitUpdater);
     }
 
     private Vector3 GetSpawnPosition(Vector3 spawnPoint, float spawnRadius)
     {
         if (spawnRadius < 1) return spawnPoint with { Y = spawnPoint.Y + UnitSpawnYOffset };
-        
+
         var spawnBlocks = (int)float.Floor(spawnRadius);
         var blockedPositions = MapBinary.GetContainedInUnits(
             _unitOctree.GetColliding(new BoundingBoxEx(spawnPoint, new Vector3(spawnBlocks * 2, 2, spawnBlocks * 2)))
@@ -450,13 +450,13 @@ public partial class GameZone : Updater
                 }
             }
         }
-        
+
         var rand = new Random();
         if (validPositions.Count != 0) return rand.GetItems(validPositions.ToArray(), 1)[0];
-        
+
         var spawnX = rand.Next(-spawnBlocks, spawnBlocks + 1);
         var spawnZ = rand.Next(-spawnBlocks, spawnBlocks + 1);
-        
+
         return spawnPoint + new Vector3(spawnX, UnitSpawnYOffset, spawnZ);
     }
 
@@ -471,12 +471,12 @@ public partial class GameZone : Updater
             TeamType.Team2 => TeamType.Team1,
             _ => TeamType.Neutral
         };
-        
+
         if (_objectiveConquest[(int)checkTeam].TryPeek(out var currObj))
         {
             return currObj != UnitLabel.Line1 ? SpawnPointLockType.Free : SpawnPointLockType.ServerBlocked;
         }
-            
+
         return SpawnPointLockType.ServerBlocked;
     }
 
@@ -486,15 +486,16 @@ public partial class GameZone : Updater
         {
             return SpawnPointLockType.ServerBlocked;
         }
-        
-        for (var y = 0; y <= 1; y++){
+
+        for (var y = 0; y <= 1; y++)
+        {
             var pos = new Vector3s(spawnPoint.X, spawnPoint.Y + y, spawnPoint.Z);
             if (MapBinary.ContainsBlock(pos) && MapBinary[pos].Card.Passable != BlockPassableType.Any)
             {
                 return SpawnPointLockType.WorldBlocked;
             }
         }
-        
+
         var spawnZonePoint = spawnPoint with { Y = float.Ceiling(spawnPoint.Y) };
         var spawnZone = new BoundingBoxEx(spawnZonePoint, new Vector3(1, 2, 1) - UnitSizeHelper.ImprecisionVector);
 
@@ -518,12 +519,12 @@ public partial class GameZone : Updater
         {
             return null;
         }
-        
+
         var rand = new Random();
         var dropPoint = rand.GetItems(dropPoints, 1)[0];
         var offset = _zoneData.MatchCard.SupplyLogic?.RandomPosOffset;
         if (!(offset > 0)) return dropPoint;
-        
+
         var spawnX = (rand.NextSingle() * 2 - 1) * offset.Value;
         var spawnZ = (rand.NextSingle() * 2 - 1) * offset.Value;
 
@@ -585,7 +586,7 @@ public partial class GameZone : Updater
                     {
                         continue;
                     }
-                    
+
                     _zoneData.Objectives.Add(new ZoneObjective
                     {
                         Counter = 0,
@@ -596,16 +597,16 @@ public partial class GameZone : Updater
                 }
                 break;
         }
-        
+
         if (_zoneData.MatchCard.Data?.Type is MatchType.TimeTrial) return;
-        
+
         foreach (var objLabel in (UnitLabel[])[UnitLabel.Line1, UnitLabel.Line2, UnitLabel.Line3, UnitLabel.LineBase])
         {
             foreach (var team in Enum.GetValues<TeamType>())
             {
                 if (_zoneData.MapData.Units.Any(unit => (Databases.Catalogue.GetCard<CardUnit>(unit.UnitKey)?.Labels?.Contains(objLabel) ?? false) && unit.Team == team))
                 {
-                    _objectiveConquest[(int) team].Enqueue(objLabel);                                        
+                    _objectiveConquest[(int)team].Enqueue(objLabel);
                 }
             }
         }
@@ -666,34 +667,34 @@ public partial class GameZone : Updater
 
         switch (currentPhase)
         {
-            case ZonePhaseType.Waiting: 
+            case ZonePhaseType.Waiting:
             case ZonePhaseType.TutorialInit:
-            {
-                nextPhase = ZonePhaseType.Build;
-                endTime = _gameInitiator.GetBuildPhaseEndTime(startTime) ?? _zoneData.MatchCard.Data switch
                 {
-                    null => null,
-                    MatchDataShieldCapture matchDataShieldCapture => startTime
-                        .AddSeconds(matchDataShieldCapture.Build1Time).ToUnixTimeMilliseconds(),
-                    MatchDataShieldRush2 matchDataShieldRush2 => startTime
-                        .AddSeconds(matchDataShieldRush2.Build1Time).ToUnixTimeMilliseconds(),
-                    MatchDataTimeTrial matchDataTimeTrial => startTime
-                        .AddSeconds(matchDataTimeTrial.PrestartTime).ToUnixTimeMilliseconds(),
-                    MatchDataTutorial matchDataTutorial => startTime.AddSeconds(matchDataTutorial.BuildTime)
-                        .ToUnixTimeMilliseconds(),
-                    _ => null
-                };
-                
-                if (endTime != null)
-                {
-                    _build1Timer = StartTimer(endTime.Value - startTime.ToUnixTimeMilliseconds(), OnBuild1TimerElapsed);
+                    nextPhase = ZonePhaseType.Build;
+                    endTime = _gameInitiator.GetBuildPhaseEndTime(startTime) ?? _zoneData.MatchCard.Data switch
+                    {
+                        null => null,
+                        MatchDataShieldCapture matchDataShieldCapture => startTime
+                            .AddSeconds(matchDataShieldCapture.Build1Time).ToUnixTimeMilliseconds(),
+                        MatchDataShieldRush2 matchDataShieldRush2 => startTime
+                            .AddSeconds(matchDataShieldRush2.Build1Time).ToUnixTimeMilliseconds(),
+                        MatchDataTimeTrial matchDataTimeTrial => startTime
+                            .AddSeconds(matchDataTimeTrial.PrestartTime).ToUnixTimeMilliseconds(),
+                        MatchDataTutorial matchDataTutorial => startTime.AddSeconds(matchDataTutorial.BuildTime)
+                            .ToUnixTimeMilliseconds(),
+                        _ => null
+                    };
+
+                    if (endTime != null)
+                    {
+                        _build1Timer = StartTimer(endTime.Value - startTime.ToUnixTimeMilliseconds(), OnBuild1TimerElapsed);
+                    }
+                    break;
                 }
-                break;
-            }
             case ZonePhaseType.Build:
                 nextPhase = ZonePhaseType.Assault;
                 _attackStartTime = DateTimeOffset.Now;
-                
+
                 var i = 0;
                 var respTimes = _zoneData.MatchCard.RespawnLogic?.IncrementSequence;
                 while (i < respTimes?.Count && respTimes[i].MatchSeconds == 0)
@@ -726,7 +727,7 @@ public partial class GameZone : Updater
                 break;
             case ZonePhaseType.Assault:
                 nextPhase = ZonePhaseType.Build2;
-                
+
                 endTime = _gameInitiator.GetBuildPhaseEndTime(startTime) ?? _zoneData.MatchCard.Data switch
                 {
                     null => null,
@@ -773,7 +774,7 @@ public partial class GameZone : Updater
                 var (unitId, unitInit, serviceZone) = _createOnStart[index];
                 serviceZone()?.SendUnitCreate(unitId, unitInit);
             }
-            
+
             for (var index = 0; index < _updateOnStart.Count; index++)
             {
                 var (unitId, unitUpdate, serviceZone) = _updateOnStart[index];
@@ -783,7 +784,7 @@ public partial class GameZone : Updater
             _createOnStart.Clear();
             _updateOnStart.Clear();
         }
-        
+
         _zoneData.UpdateData(phaseUpdate);
         _serviceZone.SendUpdateBarriers(GetBarriersForPhase(nextPhase));
 
@@ -807,7 +808,7 @@ public partial class GameZone : Updater
             }
         }
         if (currentPhase is not (ZonePhaseType.Waiting or ZonePhaseType.TutorialInit)) return;
-        
+
         var initMatchStats = new MatchStats
         {
             PlayerStats = new Dictionary<uint, MatchPlayerStats>(),
@@ -826,7 +827,7 @@ public partial class GameZone : Updater
                 Healing = 0
             }
         };
-        
+
         var spawnPoints = new Dictionary<uint, uint?>();
 
         foreach (var player in _playerLobbyInfo.Values)
@@ -838,10 +839,10 @@ public partial class GameZone : Updater
                 Deaths = 0,
                 Assists = 0
             });
-            
-            _mapSpawnPoints.TryGetValue(_defaultSpawnId[(int) player.Team], out var spawn);
-            
-            spawnPoints.Add(player.PlayerId, spawn != null ? _defaultSpawnId[(int) player.Team] : null);
+
+            _mapSpawnPoints.TryGetValue(_defaultSpawnId[(int)player.Team], out var spawn);
+
+            spawnPoints.Add(player.PlayerId, spawn != null ? _defaultSpawnId[(int)player.Team] : null);
         }
 
         var matchZoneUpdate = new ZoneUpdate
@@ -851,7 +852,7 @@ public partial class GameZone : Updater
         };
 
         _zoneData.UpdateData(matchZoneUpdate);
-        
+
         foreach (var unit in _units.Values)
         {
             var uCard = unit.UnitCard;
@@ -871,11 +872,11 @@ public partial class GameZone : Updater
                 }
             }
             else if (uCard?.Movement is UnitMovementCustom or UnitMovementFalling)
-            { 
+            {
                 MovementActive(unit);
             }
         }
-        
+
         _gameLoop = RunGameLoop();
         _gameInitiator.SetBackfillReady(_zoneData.GameModeCard.Ranking is GameRankingType.Friendly);
     }
@@ -926,7 +927,7 @@ public partial class GameZone : Updater
             });
             return;
         }
-        
+
         if (!_zoneData.PlayerStats.ContainsKey(playerId))
         {
             _zoneData.PlayerStats.Add(playerId, new MatchPlayerStats
@@ -973,7 +974,7 @@ public partial class GameZone : Updater
             Phase = _zoneData.Phase,
             SpawnPoints = _zoneData.SpawnPoints.Values.ToList()
         });
-        
+
         var playerUnit = _playerUnits.Values.FirstOrDefault(p => p.PlayerId == playerId);
         if (playerUnit is not null)
         {
@@ -1005,11 +1006,11 @@ public partial class GameZone : Updater
             ShotPos = player.GetMidpoint(),
             Normal = Vector3s.Zero
         };
-        
+
         player.IsActive = false;
         player.Killed(impact);
 
-        _zoneData.UpdatePlayerSelectedSpawn(playerId, _defaultSpawnId[(int) player.Team]);
+        _zoneData.UpdatePlayerSelectedSpawn(playerId, _defaultSpawnId[(int)player.Team]);
     }
 
     public bool PlayerLeft(uint playerId, KickReason reason)
@@ -1033,12 +1034,12 @@ public partial class GameZone : Updater
         {
             if (!_zoneData.PlayerInfo.ContainsKey(playerId) && !_zoneData.PlayerStats.ContainsKey(playerId))
                 return false;
-            
+
             _playerIdToUnitId.Remove(playerId);
             _zoneData.PlayerSpawnPoints.Remove(playerId);
             _zoneData.RespawnInfo.Remove(playerId);
             if (HasEnded) return true;
-            
+
             _zoneData.PlayerStats.Remove(playerId);
             _zoneData.PlayerInfo.Remove(playerId);
             return true;
@@ -1051,15 +1052,15 @@ public partial class GameZone : Updater
             ShotPos = player.GetMidpoint(),
             Normal = Vector3s.Zero
         };
-        
+
         player.IsActive = false;
         player.Killed(impact);
-        
+
         if (_gameInitiator is MatchmakerInitiator initiator)
         {
             initiator.RemovePlayer(playerId);
         }
-        
+
         _serviceZone.SendKickPlayer(playerId, reason);
 
         Dictionary<PlayerMatchStatType, int>? archivedStatInfo = null;
@@ -1120,7 +1121,7 @@ public partial class GameZone : Updater
                 });
             }
         }
-        
+
         foreach (var unit in _units.Values.Where(u => u.OwnerPlayerId == playerId).ToList())
         {
             impact.InsidePoint = unit.GetMidpoint();
@@ -1139,7 +1140,7 @@ public partial class GameZone : Updater
         }
 
         if (blkUpdates.Count > 0)
-        { 
+        {
             DoBlockUpdate(blkUpdates);
         }
 
@@ -1150,7 +1151,7 @@ public partial class GameZone : Updater
                 ReceivedProjDropRequest(proj);
             }
         }
-        
+
         _playerUnits.Remove(unitId);
         RemoveUnit(unitId, $"player-left: playerId={playerId}, reason={reason}");
         _playerIdToUnitId.Remove(playerId);
@@ -1188,13 +1189,13 @@ public partial class GameZone : Updater
                             size.ToVector3() - UnitSizeHelper.ImprecisionVector));
             return colliding.Where(u => u.Id != unit.Id && u.Key != CatalogueHelper.SmokeBomb).ToArray();
         }
-        
+
         var playerSize = new Vector3(0.5f, 1.9f, 0.5f);
         if (unit.Transform.IsCrouch)
         {
             playerSize.Y = 0.9f;
         }
-        
+
         colliding = _unitOctree.GetColliding(new BoundingBoxEx(position.Value, playerSize - UnitSizeHelper.ImprecisionVector));
         return colliding.Where(u => u.Id != unit.Id && u.Key != CatalogueHelper.SmokeBomb).ToArray();
     }
@@ -1243,7 +1244,7 @@ public partial class GameZone : Updater
         RemoveUnitFromOctree(unitId);
         _units.Remove(unitId);
     }
-    
+
     private void RemoveUnitFromOctree(uint unitId)
     {
         if (_units.TryGetValue(unitId, out var unit))
@@ -1268,7 +1269,7 @@ public partial class GameZone : Updater
             }
             BeginningZoneInitData.Updates[pos] = newVal;
         }
-        
+
         _unbufferedZone.SendBlockUpdates(updates);
     }
 
@@ -1301,12 +1302,12 @@ public partial class GameZone : Updater
     {
         if (_zoneData.MatchCard.Data?.Type is MatchType.TimeTrial or MatchType.Tutorial or null)
             return TeamType.Neutral;
-        
+
         var cubeWinFactor = (_objectiveConquest[1].Count - _objectiveConquest[2].Count) * CubeMult;
         var playerWinFactor = _playerUnits.Values.Aggregate(0,
             (score, player) => score + (player.IsDead ? 0 : player.Team is TeamType.Team1 ? 1 : -1),
             score => score * PlayerMult);
-        
+
         var totalWinFactor = cubeWinFactor + playerWinFactor;
 
         return totalWinFactor switch
@@ -1348,7 +1349,7 @@ public partial class GameZone : Updater
                 _ => 0
             }));
         }
-        
+
         EnqueueAction(() => EndGame(winner, reason));
     }
 
@@ -1387,7 +1388,7 @@ public partial class GameZone : Updater
 
         var bestTime = stored?.BestResultTime is { } bests && bests.TryGetValue(mapKey, out var best)
             ? best
-            : (float?) null;
+            : (float?)null;
         if (completed)
         {
             bestTime = bestTime is { } previous ? MathF.Min(previous, resultTime) : resultTime;
@@ -1439,26 +1440,26 @@ public partial class GameZone : Updater
         {
             if (player.Stats is null || player.PlayerId is null)
                 continue;
-            
+
             player.UpdateStatsFromTimers();
             if (player.Team == winner)
             {
                 player.UpdateStatsFromWin();
             }
-            
+
             var positiveMedal = positiveMedals.MaxBy(medal =>
                 medal.ServerCounters?.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
-            
+
             var negativeMedal = negativeMedals.MaxBy(medal =>
                 medal.ServerCounters?.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
-            
+
             var zoneDataMatchCard = _zoneData.MatchCard;
             var statInfo = zoneDataMatchCard.Stats?.Stats?.ToDictionary(k => k.Key,
                 v => (int)v.Value.Sum(score => player.Stats.GetValueOrDefault(score.Key) * score.Value));
             var totalInfo = zoneDataMatchCard.Stats?.Total;
             _matchParticipation.SetResult(player.PlayerId.Value, player.Team == winner, statInfo,
                 (int)(totalInfo?.Sum(score => statInfo?[score.Key] * score.Value) ?? 0));
-            
+
             var playerInfo = _playerLobbyInfo.GetValueOrDefault(player.PlayerId.Value);
             matchStats.Add(new EndMatchPlayerData
             {
@@ -1475,7 +1476,7 @@ public partial class GameZone : Updater
                 MedalNegative = negativeMedal?.Key ?? Key.None
             });
         }
-        
+
         // Send match stats
         var zoneDataGameModeCard = _zoneData.GameModeCard;
         var winners = new List<uint>();
@@ -1521,9 +1522,9 @@ public partial class GameZone : Updater
                     exclude.Add(player.PlayerId.Value);
                 }
             }
-            
+
             var profileData = Databases.PlayerDatabase.GetPlayerProfile(player.PlayerId.Value);
-            
+
             endMatchData.OldPlayerXp = profileData.Progression?.PlayerProgress;
             endMatchData.OldHeroXp = profileData.Progression?.HeroesProgress?.GetValueOrDefault(player.Key);
 
@@ -1591,7 +1592,7 @@ public partial class GameZone : Updater
                     currencyAmountVirtual = MathF.Min(currencyAmountVirtual, currMaxCapVir);
                 }
             }
-            
+
             if (!_gameInitiator.IsMapEditor() && (zoneDataGameModeCard.CurrencyLogic?.CurrencyPerMinute?.TryGetValue(CurrencyType.Real,
                     out var currPerMinReal) ?? false))
             {
@@ -1609,7 +1610,7 @@ public partial class GameZone : Updater
                     currencyAmountReal = MathF.Min(currencyAmountReal, currMaxCapReal);
                 }
             }
-            
+
             endMatchData.OldCurrency = Databases.PlayerDatabase.GetCurrency(player.PlayerId.Value);
             endMatchData.RewardCurrency = new Dictionary<CurrencyType, float>
             {
@@ -1657,16 +1658,16 @@ public partial class GameZone : Updater
             }).ToList();
             StoreCompletedMatch(matchId, startedAt, gameEnd, winner, reason, teams);
         }
-        
+
         var unitsToClean = _units.Values.Where(u => u.UnitCard?.Labels?.Contains(UnitLabel.DestroyOnMatchEnd) is true).ToList();
 
         foreach (var unit in unitsToClean)
         {
             unit.Killed(unit.CreateBlankImpactData());
         }
-        
+
         _gameInitiator.ClearInstance(_instanceId);
-        
+
         foreach (var player in inactivePlayers)
         {
             Databases.RegionServerDatabase.GetGameInstance(player)?.PlayerLeftInstance(player, KickReason.MatchInactivity);
@@ -1714,7 +1715,7 @@ public partial class GameZone : Updater
         });
 
     private DamageData ConvertToDamageData(Damage damage, Vector3 targetPos, Vector3 shotPos, Unit? source = null,
-        bool splashDamage = false, bool crit = false, 
+        bool splashDamage = false, bool crit = false,
         float critMultiplier = 1f, DamageFalloff? falloff = null)
     {
         var friendlyFire = _zoneData.MatchCard.FriendlyFire;
@@ -1723,11 +1724,11 @@ public partial class GameZone : Updater
         {
             playerDmg *= critMultiplier;
         }
-        
+
         var worldDmg = damage is { Mining: true }
             ? source?.ToolWorldDamageAmount(damage.WorldDamage) ?? damage.WorldDamage
             : source?.WorldDamageAmount(damage.WorldDamage) ?? damage.WorldDamage;
-        
+
         var objDmg = source?.ObjectiveDamageAmount(damage.ObjectiveDamage) ?? damage.ObjectiveDamage;
 
         Func<float, float> falloffFunc = dmg => dmg;
@@ -1736,19 +1737,19 @@ public partial class GameZone : Updater
             var dist = Vector3.Distance(targetPos, shotPos);
             var falloffCoef = float.Max(
                 (dist - falloff.MaxDamageRange) /
-                (falloff.MinDamageRange - falloff.MaxDamageRange), 0);  
+                (falloff.MinDamageRange - falloff.MaxDamageRange), 0);
             falloffFunc = dmg =>
                 falloffCoef > 1
                     ? dist > falloff.MaxRange ? 0f : dmg * falloff.ReductionCoeff
                     : float.Lerp(dmg, dmg * falloff.ReductionCoeff, falloffCoef);
         }
-        
+
         var selfDmg = falloffFunc(friendlyFire is not null
             ? splashDamage
                 ? (1 - friendlyFire.SelfSplashDamageReduction) * playerDmg
                 : (1 - friendlyFire.DirectDamageReduction) * playerDmg
             : playerDmg);
-        
+
         var teamDmg = falloffFunc(friendlyFire is not null
             ? splashDamage
                 ? (1 - friendlyFire.SplashDamageReduction) * playerDmg
@@ -1780,41 +1781,41 @@ public partial class GameZone : Updater
             MapBinary.GetIsActuallyInside(unit, b)).ToList();
         var exitingBlocks = unit.OverlappingMapBlocks.Except(newInsideBlocks);
         unit.UpdateMapBlocks(newMapBlocks);
-        
+
         foreach (var blk in newInsideBlocks)
         {
             var block = MapBinary[blk];
             if (block.Card.Special is not BlockSpecialInsideEffect insideEffect) continue;
-                
+
             if (insideEffect.TriggerTeam switch
-                {
-                    RelativeTeamType.Friendly => block.Team != unit.Team,
-                    RelativeTeamType.Opponent => block.Team == unit.Team,
-                    _ => false
-                }) continue;
-            
+            {
+                RelativeTeamType.Friendly => block.Team != unit.Team,
+                RelativeTeamType.Opponent => block.Team == unit.Team,
+                _ => false
+            }) continue;
+
             if (!MapBinary.UnitsInsideBlock.TryGetValue(blk, out var value))
             {
                 value = new BlockIntervalUpdater(insideEffect, new BlockSource(blk, MapBinary[blk].ToBlock()));
                 MapBinary.UnitsInsideBlock.Add(blk, value);
             }
-            
-            if(!value.AddUnit(unit)) continue;
-                
+
+            if (!value.AddUnit(unit)) continue;
+
             var (max, min) = UnitSizeHelper.GetExactUnitBounds(unit);
             var blockPos = blk.ToVector3();
             var blockImpact = MapBinary.CreateImpactForBlock(blk,
                 Vector3.Clamp(Vector3.Clamp(CoordsHelper.BlockBottom(blk), min, max), blockPos + UnitSizeHelper.ImprecisionVector,
                     blockPos + Vector3.One - UnitSizeHelper.ImprecisionVector));
             var blockSource = new BlockSource(blk, MapBinary[blk].ToBlock(), blockImpact);
-            
+
             if (insideEffect.InsideEffects is { Count: > 0 } effects)
             {
                 unit.AddEffects(effects.Select(eff => new ConstEffectInfo(eff)), blockSource.Team, blockSource);
             }
 
             if (insideEffect.EnterEffect?.Effect is null) continue;
-            
+
             if (insideEffect.EnterEffect.TargetUnit)
             {
                 ApplyInstEffect(blockSource, [unit], insideEffect.EnterEffect.Effect, blockImpact,
@@ -1899,19 +1900,19 @@ public partial class GameZone : Updater
             var doBuffCheck = tickNumber % TicksForBuffCheck == 0;
             var doDmgCaptureCheck = tickNumber % TicksForDmgCaptureCheck == 0;
             var doBlockCheck = tickNumber == 0;
-            
+
             if (doBuffCheck)
             {
                 _winningTeam = GetWinningTeam();
             }
-            
+
             foreach (var unit in _units.Values.ToList())
             {
                 if (doBlockCheck)
                 {
                     RunBlockCheckForUnit(unit);
                 }
-                
+
                 unit.CleanUpExpired();
                 var unitSource = unit.GetSelfSource(unit.CreateImpactData());
 
@@ -1959,7 +1960,7 @@ public partial class GameZone : Updater
                             {
                                 unit.UpdateData(new UnitUpdate
                                 {
-                                    Ammo = new Dictionary<Key, List<Ammo>> { {unit.CurrentGear.Key, [ammoUpdate]} }
+                                    Ammo = new Dictionary<Key, List<Ammo>> { { unit.CurrentGear.Key, [ammoUpdate] } }
                                 });
                             }
                         }
@@ -1969,7 +1970,7 @@ public partial class GameZone : Updater
                         }
                     }
                 }
-                
+
                 foreach (var (aura, bounds) in unit.AuraEffects)
                 {
                     var previousColliders = unit.UnitsInAuraSinceLastUpdate.GetValueOrDefault(aura, []);
@@ -2048,14 +2049,14 @@ public partial class GameZone : Updater
                                 unitDataCloud.InsideEffects.Select(e => new ConstEffectInfo(e)), unit.Team,
                                 unitSource);
                         }
-                        
+
                         foreach (var enter in currColliders.Except(prevColliders))
                         {
                             enter.AddEffects(unitDataCloud.InsideEffects.Select(e => new ConstEffectInfo(e)),
                                 unit.Team, unitSource);
                         }
                         break;
-                    
+
                     case UnitDataDamageCapture unitDataDamageCapture when unit.DamageCaptureEffect is not null:
                         var nearby = _unitOctree.GetColliding(unit.DamageCaptureEffect.Shape);
                         var prevBaddies = unit.DamageCaptureEffect.NearbyUnits;
@@ -2109,7 +2110,7 @@ public partial class GameZone : Updater
                             }
                         }
                         break;
-                    
+
                     case UnitDataDrill dataDrill:
                         if (dataDrill.HitsLimit <= unit.HitCount)
                         {
@@ -2117,7 +2118,7 @@ public partial class GameZone : Updater
                             unit.Killed(impact);
                         }
                         break;
-                    
+
                     case UnitDataLandmine when !isDisabled && unit.LandmineEffect is not null:
                         var nearbyUnits = _unitOctree.GetColliding(unit.LandmineEffect.Shape);
                         var nearbyEnemies = nearbyUnits.Where(u => u.PlayerId != null && u.Team != unit.Team);
@@ -2126,7 +2127,7 @@ public partial class GameZone : Updater
                             unit.Killed(unit.CreateBlankImpactData());
                         }
                         break;
-                    
+
                     case UnitDataPortal portalData when !isDisabled && unit.PortalLinked.LinkedPortalUnitId is not null:
                         var portalSize = unit.UnitCard.Size ?? Vector3s.Zero;
                         if (portalSize != Vector3s.Zero)
@@ -2137,11 +2138,11 @@ public partial class GameZone : Updater
                             var unitMidpoint = unit.GetMidpoint();
                             var teleportRange = new BoundingBoxEx(unitMidpoint,
                                 new Vector3(0.5f, portalSize.y, 0.5f));
-                            
+
                             var unitsForTeleport = _unitOctree.GetColliding(teleportRange).Where(u =>
                                 u.Id != unit.Id && (portalData.UnitsFilter is not { } targeting || u.DoesEffectApply(targeting, unit.Team)));
 
-                            if (unitsForTeleport.FirstOrDefault() is {} unitToTeleport)
+                            if (unitsForTeleport.FirstOrDefault() is { } unitToTeleport)
                             {
                                 if (!unit.CanTeleport || !otherPortal.CanTeleport) break;
 
@@ -2151,7 +2152,7 @@ public partial class GameZone : Updater
                                     $"fromLinked={unit.PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
                                     $"toLinked={otherPortal.PortalLinked.LinkedPortalUnitId?.ToString() ?? "null"}, " +
                                     $"fromJustTeleported={unit.JustTeleported}, toJustTeleported={otherPortal.JustTeleported}");
-                                
+
                                 _serviceZone.SendPortalTeleport(unitToTeleport.Id, unit.Id, otherPortal.Id);
                                 var telePos = otherPortal.GetMidpoint();
                                 telePos = telePos with
@@ -2184,7 +2185,7 @@ public partial class GameZone : Updater
                             {
                                 var teleport2Range = new BoundingBoxEx(otherPortal.GetMidpoint(),
                                     new Vector3(0.5f, portalSize.y, 0.5f));
-                            
+
                                 var otherForTeleport = _unitOctree.GetColliding(teleport2Range).Where(u =>
                                     u.Id != otherPortal.Id && (portalData.UnitsFilter is not { } targeting ||
                                                                u.DoesEffectApply(targeting, otherPortal.Team)));
@@ -2212,12 +2213,12 @@ public partial class GameZone : Updater
                             }
                         }
                         break;
-                    
+
                     case UnitDataPlayer:
                         if (unit is { RespawnTime: not null, IsDead: true, PlayerId: not null, IsActive: true, IsDropped: true } &&
                             unit.RespawnTime < DateTimeOffset.Now &&
                             _zoneData.PlayerSpawnPoints.TryGetValue(unit.PlayerId.Value, out var spawn) &&
-                            spawn is not null && _zoneData.SpawnPoints.TryGetValue(spawn.Value, out var spawnPoint) && 
+                            spawn is not null && _zoneData.SpawnPoints.TryGetValue(spawn.Value, out var spawnPoint) &&
                             spawnPoint.Lock is SpawnPointLockType.Free)
                         {
                             if (_mapSpawnPoints.TryGetValue(spawnPoint.Id, out var mapSpawnPoint))
@@ -2247,7 +2248,7 @@ public partial class GameZone : Updater
                                 }
                             }
                         }
-                        
+
                         if (unit.DoRecall)
                         {
                             unit.EndRecall();
@@ -2261,7 +2262,7 @@ public partial class GameZone : Updater
                                 _serviceZone.SendDoRecall(unit.Id);
                             }
                         }
-                        
+
                         if (unit.IsNewAbilityChargeReady && !isDisabled)
                             unit.AbilityChargeGained();
                         if (unit.IsTriggerTimeUp)
@@ -2289,22 +2290,22 @@ public partial class GameZone : Updater
                                 unit.LastMoveTime = null;
                             }
                         }
-                        
+
                         break;
-                    
+
                     case UnitDataShower showerData when !unit.ShowerStarted:
                         unit.StartShower(rand => OnShower(unit, showerData, rand));
                         break;
                 }
 
                 if (!doBuffCheck) continue;
-                
+
                 unit.ApplyBuffEffects(BuffMultiplier);
-                
+
                 if (unit.WinningTeam == _winningTeam) continue;
                 foreach (var contextEffect in unit.MatchContextEffects)
                 {
-                    OnMatchContextChanged(unit, unit.WinningTeam, _winningTeam, contextEffect);                
+                    OnMatchContextChanged(unit, unit.WinningTeam, _winningTeam, contextEffect);
                 }
 
                 unit.WinningTeam = _winningTeam;
@@ -2323,7 +2324,7 @@ public partial class GameZone : Updater
                             blockPos + UnitSizeHelper.ImprecisionVector,
                             blockPos + Vector3.One - UnitSizeHelper.ImprecisionVector));
                     var blockSource = new BlockSource(block, MapBinary[block].ToBlock(), blockImpact);
-                    
+
                     if (blockUpdater.Effect.IntervalEffect.TargetUnit)
                     {
                         ApplyInstEffect(blockSource, [unit], blockUpdater.Effect.IntervalEffect.Effect, blockImpact,
@@ -2346,12 +2347,12 @@ public partial class GameZone : Updater
                 _zoneData.SurrenderEndTime[idx] = null;
                 _lastSurrenderTime[idx] = DateTimeOffset.Now;
             }
-            
+
             if (_endMatchTask?.Status is TaskStatus.Created)
             {
                 _endMatchTask.Start();
             }
-            
+
             FlushBuffer();
 
             _unitsToDrop.ForEach(DropUnit);
@@ -2376,7 +2377,7 @@ public partial class GameZone : Updater
         {
             if (_zoneData.Phase.PhaseType is ZonePhaseType.Build)
                 EnqueueAction(UpdatePhase);
-        } 
+        }
         catch (ObjectDisposedException)
         {
         }
@@ -2388,12 +2389,12 @@ public partial class GameZone : Updater
         _build2Timer.Stop();
         _build2Timer.Dispose();
         _build2Timer = null;
-        
+
         try
         {
             if (_zoneData.Phase.PhaseType is ZonePhaseType.Build2)
                 EnqueueAction(UpdatePhase);
-        } 
+        }
         catch (ObjectDisposedException)
         {
         }
@@ -2405,7 +2406,7 @@ public partial class GameZone : Updater
         {
             return;
         }
-        
+
         _respawnIncreaseTimer.Stop();
         try
         {
@@ -2417,7 +2418,7 @@ public partial class GameZone : Updater
             {
                 return;
             }
-                
+
             _respawnIncreaseTimer.Dispose();
             _respawnIncreaseTimer = null;
         }
@@ -2437,7 +2438,7 @@ public partial class GameZone : Updater
         {
             return;
         }
-        
+
         _supplyTimer.Stop();
         try
         {

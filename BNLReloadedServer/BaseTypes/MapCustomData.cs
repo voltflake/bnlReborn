@@ -20,40 +20,40 @@ public class MapCustomData()
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true, PublishId.HasValue, true, MapId != null, Map != null).Write(writer);
-      writer.Write(Name);
-      writer.Write(Description);
-      writer.Write(DefaultImage);
-      if (PublishId.HasValue)
-        writer.Write(PublishId.Value);
-      writer.Write(IsPublished);
-      if (MapId != null)
-        writer.Write(MapId);
-      if (Map != null)
-        MapData.WriteRecord(writer, Map);
+        new BitField(true, true, true, PublishId.HasValue, true, MapId != null, Map != null).Write(writer);
+        writer.Write(Name);
+        writer.Write(Description);
+        writer.Write(DefaultImage);
+        if (PublishId.HasValue)
+            writer.Write(PublishId.Value);
+        writer.Write(IsPublished);
+        if (MapId != null)
+            writer.Write(MapId);
+        if (Map != null)
+            MapData.WriteRecord(writer, Map);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(7);
-      bitField.Read(reader);
-      Name = reader.ReadString();
-      Description = reader.ReadString();
-      if (bitField[2])
-        DefaultImage = reader.ReadBoolean();
-      PublishId = bitField[3] ? reader.ReadUInt64() : null;
-      if (bitField[4])
-        IsPublished = reader.ReadBoolean();
-      MapId = bitField[5] ? reader.ReadString() : null;
-      Map = bitField[6] ? MapData.ReadRecord(reader) : null;
+        var bitField = new BitField(7);
+        bitField.Read(reader);
+        Name = reader.ReadString();
+        Description = reader.ReadString();
+        if (bitField[2])
+            DefaultImage = reader.ReadBoolean();
+        PublishId = bitField[3] ? reader.ReadUInt64() : null;
+        if (bitField[4])
+            IsPublished = reader.ReadBoolean();
+        MapId = bitField[5] ? reader.ReadString() : null;
+        Map = bitField[6] ? MapData.ReadRecord(reader) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, MapCustomData value) => value.Write(writer);
 
     public static MapCustomData ReadRecord(BinaryReader reader)
     {
-      var mapCustomData = new MapCustomData();
-      mapCustomData.Read(reader);
-      return mapCustomData;
+        var mapCustomData = new MapCustomData();
+        mapCustomData.Read(reader);
+        return mapCustomData;
     }
 }

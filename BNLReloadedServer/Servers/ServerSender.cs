@@ -6,7 +6,7 @@ public class ServerSender(TcpServer server) : ISender
 {
     public uint? AssociatedPlayerId { get; set; }
 
-    public int SenderCount => (int) server.ConnectedSessions;
+    public int SenderCount => (int)server.ConnectedSessions;
 
     public void Send(BinaryWriter writer)
     {
@@ -22,7 +22,7 @@ public class ServerSender(TcpServer server) : ISender
     {
         server.Multicast(AppendMessageLength(writer));
     }
-    
+
     public void Subscribe(Guid sessionId)
     {
     }
@@ -33,7 +33,7 @@ public class ServerSender(TcpServer server) : ISender
 
     public void UnsubscribeAll()
     {
-        
+
     }
 
     private static byte[] AppendMessageLength(BinaryWriter writer)

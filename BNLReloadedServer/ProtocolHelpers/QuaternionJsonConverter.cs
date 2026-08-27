@@ -8,9 +8,9 @@ public class QuaternionJsonConverter : JsonConverter<Quaternion>
 {
     public override Quaternion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Null) 
+        if (reader.TokenType == JsonTokenType.Null)
             return default;
-        
+
         using var jsonDocument = JsonDocument.ParseValue(ref reader);
         var json = jsonDocument.RootElement;
         return new Quaternion(json.GetProperty("x").Deserialize<float>(), json.GetProperty("y").Deserialize<float>(),

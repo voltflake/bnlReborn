@@ -32,6 +32,6 @@ public abstract class AbilityValidate : IJsonFactory<AbilityValidate>
     {
         if (type == AbilityValidateType.Devices)
             return new AbilityValidateDevices();
-        throw new ArgumentOutOfRangeException(nameof (type), type, "Invalid variant tag");
+        throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid variant tag");
     }
 }

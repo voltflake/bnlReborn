@@ -31,12 +31,12 @@ public class MatchServiceDispatcher : IServiceDispatcher
             Databases.RegionServerDatabase.RegisterMatchService(sessionId, _servicePing, ServiceId.ServicePing);
             Databases.RegionServerDatabase.RegisterMatchService(sessionId, _serviceMediator, ServiceId.ServiceMediator);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             Log.Error(LogCat.Net, $"Failed to register match services for session {sessionId}", e);
         }
     }
-    
+
     private static bool OnUnsupported(ServiceId? serviceEnum, byte raw)
     {
         Log.Warn(LogCat.Net, $"Match session received unsupported serviceId: {Log.EnumName(serviceEnum, raw)}");

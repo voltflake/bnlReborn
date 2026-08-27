@@ -5,7 +5,7 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
     private readonly Span<byte> _span = span;
 
     public const int Size = 6;
-    
+
     public ushort Id
     {
         get => BitConverter.ToUInt16(_span[..2]);
@@ -29,7 +29,7 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
         get => _span[5];
         set => _span[5] = value;
     }
-    
+
     public TeamType Team
     {
         get =>
@@ -39,7 +39,7 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
                 2 => TeamType.Team2,
                 _ => TeamType.Neutral
             };
-        set => LData = (byte) (LData & -4 | (!Card.HasTeam ? 0 : (int) value));
+        set => LData = (byte)(LData & -4 | (!Card.HasTeam ? 0 : (int)value));
     }
 
     public Vector3s Position => pos;
@@ -47,9 +47,9 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
     public short X => pos.x;
     public short Y => pos.y;
     public short Z => pos.z;
-    
+
     public CardBlock Card => BlockCardsCache.GetCard(Id);
-    
+
     public bool IsSolid => Card.Solid;
 
     public bool IsAir => Id == 0;
@@ -63,7 +63,7 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
     public bool IsGrounded => Card.Grounded;
 
     public bool IsTransparent => Card.Transparent;
-    
+
     public bool CanFalling => Card.IsVisualGeneric ? Card.Visual?.Type != BlockVisualType.Highgrass && Card.Visual?.Type != BlockVisualType.Flatgrass : Card.IsVisualPrefab;
 
     public bool IsNoFallDamage => Card.Special is BlockSpecialNoFallDamage;
@@ -76,7 +76,7 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
             Vdata = VData,
             Ldata = LData
         };
-    
+
     public BlockUpdate ToUpdate(ushort? destAction = null) =>
         new()
         {
@@ -87,6 +87,6 @@ public readonly ref struct BlockBinary(Span<byte> span, Vector3s pos)
         };
 
     public bool Equals(BlockBinary other) => other.Id == Id && other.Damage == Damage && other.VData == VData && other.LData == LData;
-    
+
     public bool Equals(BlockUpdate update) => update.Id == Id && update.Damage == Damage && update.Vdata == VData && update.Ldata == LData;
 }

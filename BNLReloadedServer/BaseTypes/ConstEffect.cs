@@ -19,41 +19,41 @@ public abstract class ConstEffect : IJsonFactory<ConstEffect>
 
     public static void WriteVariant(BinaryWriter writer, ConstEffect value)
     {
-      writer.WriteByteEnum(value.Type);
-      value.Write(writer);
+        writer.WriteByteEnum(value.Type);
+        value.Write(writer);
     }
 
     public static ConstEffect ReadVariant(BinaryReader reader)
     {
-      var constEffect = Create(reader.ReadByteEnum<ConstEffectType>());
-      constEffect.Read(reader);
-      return constEffect;
+        var constEffect = Create(reader.ReadByteEnum<ConstEffectType>());
+        constEffect.Read(reader);
+        return constEffect;
     }
 
     public static ConstEffect Create(ConstEffectType type)
     {
-      return type switch
-      {
-        ConstEffectType.Buff => new ConstEffectBuff(),
-        ConstEffectType.Immunity => new ConstEffectImmunity(),
-        ConstEffectType.Aura => new ConstEffectAura(),
-        ConstEffectType.Self => new ConstEffectSelf(),
-        ConstEffectType.Team => new ConstEffectTeam(),
-        ConstEffectType.OnSprint => new ConstEffectOnSprint(),
-        ConstEffectType.OnDeath => new ConstEffectOnDeath(),
-        ConstEffectType.OnFall => new ConstEffectOnFall(),
-        ConstEffectType.OnKill => new ConstEffectOnKill(),
-        ConstEffectType.OnBuilding => new ConstEffectOnBuilding(),
-        ConstEffectType.OnLowHealth => new ConstEffectOnLowHealth(),
-        ConstEffectType.OnMatchContext => new ConstEffectOnMatchContext(),
-        ConstEffectType.OnDamageTaken => new ConstEffectOnDamageTaken(),
-        ConstEffectType.OnGearSwitch => new ConstEffectOnGearSwitch(),
-        ConstEffectType.Pull => new ConstEffectPull(),
-        ConstEffectType.OnReload => new ConstEffectOnReload(),
-        ConstEffectType.Interval => new ConstEffectInterval(),
-        ConstEffectType.OnNearbyBlock => new ConstEffectOnNearbyBlock(),
-        ConstEffectType.OnLeading => throw new ArgumentOutOfRangeException(nameof(type), type, "OnLeading ConstEffect not supported"),
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid variant tag")
-      };
+        return type switch
+        {
+            ConstEffectType.Buff => new ConstEffectBuff(),
+            ConstEffectType.Immunity => new ConstEffectImmunity(),
+            ConstEffectType.Aura => new ConstEffectAura(),
+            ConstEffectType.Self => new ConstEffectSelf(),
+            ConstEffectType.Team => new ConstEffectTeam(),
+            ConstEffectType.OnSprint => new ConstEffectOnSprint(),
+            ConstEffectType.OnDeath => new ConstEffectOnDeath(),
+            ConstEffectType.OnFall => new ConstEffectOnFall(),
+            ConstEffectType.OnKill => new ConstEffectOnKill(),
+            ConstEffectType.OnBuilding => new ConstEffectOnBuilding(),
+            ConstEffectType.OnLowHealth => new ConstEffectOnLowHealth(),
+            ConstEffectType.OnMatchContext => new ConstEffectOnMatchContext(),
+            ConstEffectType.OnDamageTaken => new ConstEffectOnDamageTaken(),
+            ConstEffectType.OnGearSwitch => new ConstEffectOnGearSwitch(),
+            ConstEffectType.Pull => new ConstEffectPull(),
+            ConstEffectType.OnReload => new ConstEffectOnReload(),
+            ConstEffectType.Interval => new ConstEffectInterval(),
+            ConstEffectType.OnNearbyBlock => new ConstEffectOnNearbyBlock(),
+            ConstEffectType.OnLeading => throw new ArgumentOutOfRangeException(nameof(type), type, "OnLeading ConstEffect not supported"),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid variant tag")
+        };
     }
 }

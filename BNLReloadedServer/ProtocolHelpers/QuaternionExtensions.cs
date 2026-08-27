@@ -41,9 +41,9 @@ public static class QuaternionExtensions
             {
                 res *= Quaternion.CreateFromYawPitchRoll(MathF.PI, 0, 0);
             }
-            
+
             return res;
-            
+
         }
         var newUp = Vector3.Normalize(Vector3.Cross(newForward, newRight));
 
@@ -76,7 +76,7 @@ public static class QuaternionExtensions
         }
         return quat;
     }
-    
+
     public static Quaternion FromToRotation(Vector3 fromDirection, Vector3 toDirection)
     {
         fromDirection = Vector3.Normalize(fromDirection);
@@ -88,28 +88,28 @@ public static class QuaternionExtensions
         {
             // Vectors are already aligned
             case >= 1.0f:
-            {
-                // Identity quaternion
-                return Quaternion.Identity;
-            }
+                {
+                    // Identity quaternion
+                    return Quaternion.Identity;
+                }
             // Vectors are opposite
             case <= -1.0f:
-            {
-                // Rotate 180 degrees around an arbitrary orthogonal axis
-                var axis = Vector3.Cross(fromDirection, Vector3.UnitY); 
-                if (axis.LengthSquared() == 0) // If sourceVector is parallel to UnitY
                 {
-                    axis = Vector3.Cross(fromDirection, Vector3.UnitX);
+                    // Rotate 180 degrees around an arbitrary orthogonal axis
+                    var axis = Vector3.Cross(fromDirection, Vector3.UnitY);
+                    if (axis.LengthSquared() == 0) // If sourceVector is parallel to UnitY
+                    {
+                        axis = Vector3.Cross(fromDirection, Vector3.UnitX);
+                    }
+                    axis = Vector3.Normalize(axis);
+                    return Quaternion.CreateFromAxisAngle(axis, MathF.PI); // 180 degrees
                 }
-                axis = Vector3.Normalize(axis);
-                return Quaternion.CreateFromAxisAngle(axis, MathF.PI); // 180 degrees
-            }
             default:
-            {
-                var axis = Vector3.Normalize(Vector3.Cross(fromDirection, toDirection));
-                var angle = MathF.Acos(dotProduct);
-                return Quaternion.CreateFromAxisAngle(axis, angle);
-            }
+                {
+                    var axis = Vector3.Normalize(Vector3.Cross(fromDirection, toDirection));
+                    var angle = MathF.Acos(dotProduct);
+                    return Quaternion.CreateFromAxisAngle(axis, angle);
+                }
         }
     }
 

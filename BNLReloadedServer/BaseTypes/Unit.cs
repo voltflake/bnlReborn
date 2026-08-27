@@ -56,7 +56,7 @@ public partial class Unit
     public bool LastDashChargeMax = false;
     public bool AbilityTriggered = false;
     public Vector3s? AttachedTo = null;
-    
+
     public DateTimeOffset CreationTime;
     private readonly DateTimeOffset? _expirationTime;
     private DateTimeOffset? _rechargeForcefieldTime;
@@ -74,10 +74,10 @@ public partial class Unit
     public InstEffect? OnMortarHit;
 
     public int HitCount = 0;
-    
+
     public bool JustTeleported = false;
     public DateTimeOffset? LastTeleport;
-    
+
     public bool IsDropped;
     public bool CanPickUp = true;
 
@@ -86,7 +86,7 @@ public partial class Unit
     private bool _wasConfused;
     private bool _everConfused;
     private bool _wasDisarmed;
-    
+
     private uint? PermaOwnerPlayerId { get; }
     private TeamType PermaTeam { get; }
 
@@ -95,34 +95,34 @@ public partial class Unit
     public readonly EffectArea? CloudEffect;
     public readonly EffectArea? DamageCaptureEffect;
     public readonly EffectArea? LandmineEffect;
-    
+
     public readonly Dictionary<Unit, DateTimeOffset> RecentDamagers = new();
 
     private float _minPullForce;
     private DateTimeOffset? _lastPullTime;
     private uint? _activePuller;
-    
+
     public TimeSpan TimeSinceCreated => DateTimeOffset.Now - CreationTime;
 
     public bool IsFuseExpired => _bombTimeoutEnd.HasValue && !IsBuff(BuffType.Disabled) &&
                                  DateTimeOffset.Now >= _bombTimeoutEnd;
-    
+
     public bool IsExpired => _expirationTime.HasValue && DateTimeOffset.Now >= _expirationTime;
 
     public float LengthOfCharge =>
-        StartChargeTime is null ? 0.0f : (float)(DateTimeOffset.Now - StartChargeTime.Value).TotalSeconds; 
-    
+        StartChargeTime is null ? 0.0f : (float)(DateTimeOffset.Now - StartChargeTime.Value).TotalSeconds;
+
     public bool IsNewAbilityChargeReady =>
         TimeTillNextAbilityCharge is not null && DateTimeOffset.Now >= TimeTillNextAbilityCharge;
 
     public bool IsTriggerTimeUp => AbilityTriggered && (AbilityTriggerTimeEnd is null || DateTimeOffset.Now >= AbilityTriggerTimeEnd);
 
     public bool DoRecall => IsRecall && RecallTime is not null && RecallTime < DateTimeOffset.Now;
-    
+
     public bool CanTeleport => !JustTeleported && (LastTeleport is null || DateTimeOffset.Now - LastTeleport > TimeSpan.FromSeconds(1));
 
     public bool HasSpawnProtection => SpawnProtectionTime is not null && SpawnProtectionTime > DateTimeOffset.Now;
-    
+
     public IServiceZone? ZoneService { get; set; }
 
     public ImmutableDictionary<Key, ulong?> InitialEffects { get; set; }
@@ -134,8 +134,8 @@ public partial class Unit
     }
 
     private UnitSource SelfSource { get; }
-    
-    public readonly Dictionary<ConstEffectAura, Unit[]> UnitsInAuraSinceLastUpdate = new(); 
+
+    public readonly Dictionary<ConstEffectAura, Unit[]> UnitsInAuraSinceLastUpdate = new();
     public readonly Dictionary<ConstEffectAura, IBoundingShape> AuraEffects = new();
     public readonly Dictionary<ConstEffectOnNearbyBlock, IBoundingShape> NearbyBlockEffects = new();
 
@@ -150,7 +150,7 @@ public partial class Unit
         impactData == null ? SelfSource : new UnitSource(this, impactData);
 
     public Vector3 GetMidpoint() => GetMidpoint(Transform.Position);
-    
+
     public Vector3 GetMidpoint(Vector3 unitPos) =>
         UnitCard is { Size: not null } uCard ? uCard.PivotType switch
         {
@@ -165,8 +165,8 @@ public partial class Unit
             },
             _ => unitPos
         } : unitPos;
-    
-    public Vector3 GetFallPosition() => 
+
+    public Vector3 GetFallPosition() =>
         UnitCard is { Size: not null } uCard ? uCard.PivotType switch
         {
             UnitPivotType.Zero => Transform.Position + uCard.Size.Value.ToVector3() with { Y = 0 } / 2,
@@ -183,9 +183,9 @@ public partial class Unit
         position + Transform.GetLocalVelocity(),
         Math.Clamp(((ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds() - LastMoveUpdateTime) / 1000f,
             0, 1));
-    
+
     private Vector3 GetExactPositionInFuture(float futureSeconds) => GetExactPositionInFuture(Transform.Position, futureSeconds);
-    
+
     private Vector3 GetExactPositionInFuture(Vector3 position, float futureSeconds) => Vector3.Lerp(position,
         position + Transform.GetLocalVelocity(),
         Math.Clamp(((ulong)DateTimeOffset.Now.AddSeconds(futureSeconds).ToUnixTimeMilliseconds() - LastMoveUpdateTime) / 1000f,
@@ -198,7 +198,7 @@ public partial class Unit
             yield return Transform.Position;
             yield break;
         }
-        
+
         var initialPosition = Transform.Position;
         var exactPosition = GetExactPosition();
         var step = (exactPosition - initialPosition) / stepCount;
@@ -220,14 +220,14 @@ public partial class Unit
     private bool IsImmune(ConstEffectInfo effect)
     {
         var immunities = ActiveEffects.Select(info => info.Card.Effect).OfType<ConstEffectImmunity>();
-        
+
         var eCard = effect.Card;
         foreach (var immunity in immunities)
         {
             if (immunity.EffectLabels?.Intersect(eCard.Labels ?? []).Any() ?? false) return true;
             if (immunity.EffectKeys?.Contains(effect.Key) ?? false) return true;
         }
-        
+
         return false;
     }
 
@@ -239,7 +239,7 @@ public partial class Unit
         return targeting.AffectedUnits is not { } units || units.Count == 0 ||
                units.Exists(u => u == uCard.Data?.Type);
     }
-    
+
     public bool DoesEffectApply(ConstEffectInfo effect) =>
         effect.Card.Effect?.Targeting is not { } targeting || ContainsLabelOrIsUnitType(targeting);
 
@@ -262,18 +262,18 @@ public partial class Unit
             return;
         }
 
-        if(!DoesEffectApply(effect, sourceTeam) || IsImmune(effect)) return;
-        
+        if (!DoesEffectApply(effect, sourceTeam) || IsImmune(effect)) return;
+
         if (IsDead && source is PersistOnDeathSource persistOnDeathSource)
         {
             _returnOnRevive?.TryAdd(effect, persistOnDeathSource);
         }
-        
+
         if (IsDead)
         {
             return;
         }
-        
+
         if (effect is { TimestampEnd: not null })
         {
             var existing = ActiveEffects.Find(e => e.Key == effect.Key);
@@ -310,20 +310,20 @@ public partial class Unit
                 _effectSources.Add(effect.Key, [source]);
             }
         }
-        
+
         if (source is not null && effect.Card.Effect is ConstEffectBuff)
         {
             var buffer = source.Impact?.CasterPlayerId is not null
                 ? _updater.GetPlayerFromPlayerId(source.Impact.CasterPlayerId.Value)
                 : null;
-            
+
             BuffStatsUpdate(!effect.Card.Positive, source, buffer);
         }
-        
-        if(ActiveEffects.Contains(effect)) return;
-        
+
+        if (ActiveEffects.Contains(effect)) return;
+
         ActiveEffects = ActiveEffects.Add(effect);
-        
+
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
             Buffs = _buffs,
@@ -350,7 +350,7 @@ public partial class Unit
         }
 
         var doUpdate = false;
-        
+
         foreach (var effect in appliedEffects.ToList())
         {
             if (effect is { TimestampEnd: not null })
@@ -385,9 +385,9 @@ public partial class Unit
                     }
                     doUpdate = true;
                 }
-                
+
                 if (existing is null) continue;
-                
+
                 appliedEffects.Remove(effect);
             }
             else if (source is not null)
@@ -412,11 +412,11 @@ public partial class Unit
                 var buffer = source.Impact?.CasterPlayerId is not null
                     ? _updater.GetPlayerFromPlayerId(source.Impact.CasterPlayerId.Value)
                     : null;
-                
+
                 BuffStatsUpdate(!effect.Positive, source, buffer);
             }
         }
-        
+
         if (actualEffects.Count == 0)
         {
             if (doUpdate)
@@ -430,9 +430,9 @@ public partial class Unit
 
             return;
         }
-        
+
         ActiveEffects = ActiveEffects.AddRange(actualEffects);
-        
+
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
             Buffs = _buffs,
@@ -442,10 +442,10 @@ public partial class Unit
 
     public void RemoveEffect(ConstEffectInfo effect, TeamType sourceTeam, EffectSource? source, bool clearAll = false)
     {
-        if(effect.HasDuration || !ActiveEffects.Contains(effect)) return;
-        
+        if (effect.HasDuration || !ActiveEffects.Contains(effect)) return;
+
         if (!DoesEffectApply(effect, sourceTeam)) return;
-        
+
         if (IsDead)
         {
             return;
@@ -467,7 +467,7 @@ public partial class Unit
         }
 
         ActiveEffects = ActiveEffects.Remove(effect);
-        
+
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
             Buffs = _buffs,
@@ -480,14 +480,14 @@ public partial class Unit
         Func<ConstEffectInfo, TeamType, bool> doCheck = _everConfused ? (eff, _) => DoesEffectApply(eff) : DoesEffectApply;
         var actualEffects = effects
             .Where(e => !e.HasDuration && ActiveEffects.Contains(e) && doCheck(e, sourceTeam)).ToList();
-        
+
         if (actualEffects.Count == 0) return;
-        
+
         if (IsDead)
         {
             return;
         }
-        
+
         foreach (var effect in actualEffects.ToList())
         {
             if (clearAll)
@@ -495,22 +495,22 @@ public partial class Unit
                 _effectSources.Remove(effect.Key);
                 continue;
             }
-            
+
             if (!_effectSources.TryGetValue(effect.Key, out var effectSource)) continue;
             if (source is not null)
             {
                 effectSource.Remove(source);
             }
-            if (effectSource.Count > 0) 
+            if (effectSource.Count > 0)
                 actualEffects.Remove(effect);
             else
             {
                 _effectSources.Remove(effect.Key);
             }
         }
-        
+
         ActiveEffects = ActiveEffects.RemoveRange(actualEffects);
-        
+
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
             Buffs = _buffs,
@@ -540,11 +540,11 @@ public partial class Unit
                 }
             }
         }
-        
+
         if (removedEffects.Count == 0) return;
-        
+
         ActiveEffects = ActiveEffects.RemoveRange(removedEffects);
-        
+
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
             Buffs = _buffs,
@@ -559,7 +559,7 @@ public partial class Unit
         {
             _effectSources.Remove(effect.Key);
         }
-        
+
         ActiveEffects = ActiveEffects.RemoveRange(removedEffects);
         _updater.OnUnitUpdate(this, new UnitUpdate
         {
@@ -571,7 +571,7 @@ public partial class Unit
     public void PurgeEffects(bool positive, bool negative)
     {
         if (!positive && !negative) return;
-        
+
         var purgedEffects = ActiveEffects.Where(effect =>
         {
             var eCard = effect.Card;
@@ -585,15 +585,15 @@ public partial class Unit
             {
                 remove = effect.TimestampEnd.HasValue && eCard.Positive;
             }
-            
+
             return remove;
         }).ToList();
-        
+
         foreach (var effect in purgedEffects)
         {
             _effectSources.Remove(effect.Key);
         }
-        
+
         ActiveEffects = ActiveEffects.RemoveRange(purgedEffects);
     }
 
@@ -602,13 +602,13 @@ public partial class Unit
         switch (effect)
         {
             case ConstEffectAura { Interval: > 0, IntervalEffects: not null } aura:
-                RunInterval(aura.Interval, aura.IntervalEffects, 
+                RunInterval(aura.Interval, aura.IntervalEffects,
                     () => ActiveEffects.Exists(e => e.Key == constKey),
                     () =>
                     {
                         UnitsInAuraSinceLastUpdate.TryGetValue(aura, out var units);
                         return units ?? [];
-                    }, 
+                    },
                     (units, instEffects) =>
                     {
                         var impact = CreateImpactData();
@@ -617,8 +617,8 @@ public partial class Unit
                 break;
             case ConstEffectInterval { Interval: > 0, IntervalEffects: not null } interval:
                 RunInterval(interval.Interval, interval.IntervalEffects,
-                    () => ActiveEffects.Exists(e => e.Key == constKey), 
-                    () => [this], 
+                    () => ActiveEffects.Exists(e => e.Key == constKey),
+                    () => [this],
                     (units, instEffects) =>
                     {
                         var source = _effectSources.GetValueOrDefault(constKey)?.First() ?? GetSelfSource(CreateImpactData());
@@ -626,9 +626,9 @@ public partial class Unit
                     });
                 break;
             case ConstEffectSelf { Interval: > 0, IntervalEffects: not null } self:
-                RunInterval(self.Interval, self.IntervalEffects, 
+                RunInterval(self.Interval, self.IntervalEffects,
                     () => ActiveEffects.Exists(e => e.Key == constKey),
-                    () => [this], 
+                    () => [this],
                     (units, instEffects) =>
                     {
                         var impact = CreateImpactData();
@@ -695,7 +695,7 @@ public partial class Unit
         {
             CurrentGear = gearKey
         });
-        
+
         var switchEffects = ActiveEffects.GetEffectsOfType<ConstEffectOnGearSwitch>();
         var impact = CreateImpactData();
         foreach (var switchEffect in switchEffects.Select(sw => sw.Effect).OfType<InstEffect>())
@@ -737,28 +737,28 @@ public partial class Unit
     public UnitDataShower? ShowerUnitData => UnitCard?.Data as UnitDataShower;
 
     public UnitDataDrill? DrillUnitData => UnitCard?.Data as UnitDataDrill;
-    
+
     public UnitDataPiggyBank? PiggyBankData => UnitCard?.Data as UnitDataPiggyBank;
 
     public ulong LastMoveUpdateTime;
     private ulong _lastUpdateTime;
-    
+
     private readonly UnitUpdater _updater;
-    
+
     private bool IsNewUpdate(ulong updateTime)
     {
         if (_lastUpdateTime >= updateTime) return false;
         _lastUpdateTime = updateTime;
         return true;
     }
-    
+
     private bool IsNewMoveUpdate(ulong updateTime) => LastMoveUpdateTime < updateTime;
 
     public Unit(uint id, UnitInit unitInit, UnitUpdater updater)
-    { 
+    {
         Id = id;
         Key = unitInit.Key;
-        if (unitInit.Transform != null) 
+        if (unitInit.Transform != null)
             Transform = unitInit.Transform;
         Controlled = unitInit.Controlled;
         OwnerPlayerId = unitInit.OwnerId;
@@ -780,7 +780,7 @@ public partial class Unit
         {
             Stats = new Dictionary<ScoreType, float>();
         }
-        
+
         var effects = new Dictionary<Key, ulong?>();
         if (UnitCard is { } uCard)
         {
@@ -814,37 +814,37 @@ public partial class Unit
             {
                 _expirationTime = DateTimeOffset.Now.AddSeconds(UnitCard.Lifetime.Value);
             }
-            
+
             switch (uCard.Data)
             {
                 case UnitDataCloud unitDataCloud:
-                    CloudEffect = new EffectArea(new BoundingSphere(GetMidpoint(), unitDataCloud.Range)); 
+                    CloudEffect = new EffectArea(new BoundingSphere(GetMidpoint(), unitDataCloud.Range));
                     break;
-                
+
                 case UnitDataDamageCapture unitDataDamageCapture:
                     var midPoint = GetMidpoint();
                     var captureMidpoint = midPoint with { Y = midPoint.Y + unitDataDamageCapture.CaptureZone.Y / 2 };
                     DamageCaptureEffect = new EffectArea(new BoundingBoxEx(captureMidpoint, unitDataDamageCapture.CaptureZone));
                     break;
-                
+
                 case UnitDataLandmine unitDataLandmine:
                     if (unitDataLandmine.Timeout is not null)
                         _expirationTime = DateTimeOffset.Now.AddSeconds(unitDataLandmine.Timeout.Value);
                     LandmineEffect = new EffectArea(new BoundingSphere(GetMidpoint(), unitDataLandmine.TriggerRadius));
                     break;
-                
+
                 case UnitDataPickup { Timeout: not null } unitDataPickup:
                     _expirationTime = DateTimeOffset.Now.AddSeconds(unitDataPickup.Timeout.Value);
                     break;
-                
+
                 case UnitDataTeslaCoil unitDataTeslaCoil:
                     _charges = unitDataTeslaCoil.InitCharges;
                     break;
             }
         }
-        
+
         InitialEffects = effects.ToImmutableDictionary();
-        
+
         _updater = updater;
         _updater.OnUnitInit(this, unitInit);
     }
@@ -860,7 +860,7 @@ public partial class Unit
             Team = Team,
             PlayerId = PlayerId
         };
-        
+
         if (SkinKey != Key.None)
         {
             newUnit.SkinKey = SkinKey;
@@ -870,31 +870,31 @@ public partial class Unit
         {
             newUnit.Gears = Gears.Select(gear => gear.Key).ToList();
         }
-        
+
         return newUnit;
     }
 
     public void UpdateData(UnitUpdate data, ulong? updateTime = null, bool unbuffered = false)
     {
         if (updateTime.HasValue && !IsNewUpdate(updateTime.Value)) return;
-        
+
         var effectsBeforeUpdate = ActiveEffects;
         var buffsBeforeUpdate = _buffs;
-        
+
         if (data.Team.HasValue)
             Team = data.Team.Value;
-        
+
         if (data.Buffs != null)
         {
             _buffs = data.Buffs;
             _skipBuffSet = true;
         }
-        
+
         if (data.Effects != null)
         {
             ActiveEffects = ConstEffectInfo.Convert(data.Effects);
         }
-        
+
         if (data.Ammo != null)
         {
             foreach (var keyValuePair in data.Ammo)
@@ -933,7 +933,7 @@ public partial class Unit
                             }
                         }
                         else if (currHealthPercentage > effect.HealthThreshold &&
-                                 oldHealthPercentage <= effect.HealthThreshold && 
+                                 oldHealthPercentage <= effect.HealthThreshold &&
                                  effect.ConstantEffects is { } constantEffects)
                         {
                             RemoveEffects(constantEffects.Select(k => new ConstEffectInfo(k)), Team, SelfSource);
@@ -960,7 +960,7 @@ public partial class Unit
                 }
             }
         }
-            
+
         if (data.CurrentGear.HasValue)
             _currentGearIndex = GearKeyToIndex(data.CurrentGear.Value);
         if (data.CapturePoints.HasValue)
@@ -969,7 +969,7 @@ public partial class Unit
             TurretTargetId = data.TurretTargetId.Value != 0U ? data.TurretTargetId.Value : null;
         if (data.Resource.HasValue)
             Resource = data.Resource.Value;
-        
+
         if (data.Devices != null)
         {
             foreach (var device in data.Devices)
@@ -1012,9 +1012,9 @@ public partial class Unit
         {
             data.Buffs ??= _buffs;
         }
-        
+
         _skipBuffSet = false;
-            
+
         _updater.OnUnitUpdate(this, data, unbuffered);
     }
 
@@ -1031,7 +1031,7 @@ public partial class Unit
                     .Select(ammo => new Ammo { Index = ammo.AmmoIndex, Mag = ammo.Mag, Pool = ammo.Pool }).ToList();
                 newUpdate.Ammo.Add(gear.Key, ammo);
             }
-            
+
             newUpdate.CurrentGear = GetGearByIndex(_currentGearIndex)?.Key;
         }
 
@@ -1050,14 +1050,14 @@ public partial class Unit
         {
             newUpdate.CapturePoints = _capturePoints;
         }
-        
+
         newUpdate.Team = Team;
-        
+
         if (Resource > 0)
         {
             newUpdate.Resource = Resource;
         }
-        
+
         newUpdate.Buffs = _buffs;
         newUpdate.Effects = ActiveEffects.ToInfoDictionary();
 
@@ -1066,7 +1066,7 @@ public partial class Unit
             newUpdate.Devices = Devices;
             newUpdate.Ability = AbilityKey;
             newUpdate.AbilityCharges = AbilityCharges;
-            newUpdate.AbilityChargeCooldownEnd = (ulong) _abilityChargeCooldownEnd;
+            newUpdate.AbilityChargeCooldownEnd = (ulong)_abilityChargeCooldownEnd;
             newUpdate.MovementActive = _isCommonMovementActive;
         }
 
@@ -1099,19 +1099,19 @@ public partial class Unit
         {
             newUpdate.DamageCapturers = _damageCapturers;
         }
-        
+
         return newUpdate;
     }
 
     public bool UnitMove(ZoneTransform transform, ulong moveTime)
     {
-        if(!IsNewMoveUpdate(moveTime) || IsDead) return true;
+        if (!IsNewMoveUpdate(moveTime) || IsDead) return true;
 
         var wasSprinting = Transform.IsSprint;
-        
+
         var oldPosition = Transform.Position;
         LastMoveUpdateTime = moveTime;
-        Transform = transform; 
+        Transform = transform;
         foreach (var aura in AuraEffects)
         {
             AuraEffects[aura.Key] = aura.Value.GetShapeAtNewPosition(GetMidpoint());
@@ -1152,7 +1152,7 @@ public partial class Unit
         {
             MoveStatsUpdate(transform, oldPosition);
         }
-        
+
         _updater.OnUnitMove(this, moveTime, transform, oldPosition);
         return true;
     }
@@ -1169,7 +1169,7 @@ public partial class Unit
                 {
                     if (tool.GetAmmoData() is not { } ammoData) continue;
                     var newPartialAmmo = ammoData.ReloadPartialAmmo(percentage * ammoData.MagSize);
-                    if (newPartialAmmo is not null) 
+                    if (newPartialAmmo is not null)
                         updatedAmmo.Add(newPartialAmmo);
                 }
 
@@ -1195,12 +1195,12 @@ public partial class Unit
                 if (newPartialAmmo is not null)
                     updatedAmmo.Add(newPartialAmmo);
             }
-            
+
             if (updatedAmmo.Count > 0)
             {
                 UpdateData(new UnitUpdate
                 {
-                    Ammo = new Dictionary<Key, List<Ammo>> { {CurrentGear.Key, updatedAmmo} }
+                    Ammo = new Dictionary<Key, List<Ammo>> { { CurrentGear.Key, updatedAmmo } }
                 }, null, true);
             }
         }
@@ -1227,12 +1227,12 @@ public partial class Unit
                     break;
             }
         }
-        
+
         if (updatedAmmo.Count > 0)
         {
             UpdateData(new UnitUpdate
             {
-                Ammo = new Dictionary<Key, List<Ammo>> { {CurrentGear.Key, updatedAmmo} }
+                Ammo = new Dictionary<Key, List<Ammo>> { { CurrentGear.Key, updatedAmmo } }
             }, null, true);
         }
     }
@@ -1269,7 +1269,7 @@ public partial class Unit
         {
             SpawnProtectionTime = null;
         }
-}
+    }
 
     private Dictionary<BuffType, float> ExtractBuffs(IEnumerable<Key> effects)
     {
@@ -1289,7 +1289,7 @@ public partial class Unit
                 }
             }
         }
-        
+
         return buffResult;
     }
 
@@ -1371,7 +1371,7 @@ public partial class Unit
                     TimeControlled.Stop();
                 }
             }
-            
+
             switch (_wasConfused)
             {
                 case false when IsBuff(BuffType.Confusion):
@@ -1391,7 +1391,7 @@ public partial class Unit
                         OnConfused(confuser.Unit);
                     }
                     break;
-                
+
                 case true when IsBuff(BuffType.Confusion):
                     var confuseEffects = ActiveEffects.FindAll(e =>
                     {
@@ -1420,13 +1420,13 @@ public partial class Unit
                         }
                     }
                     break;
-                
+
                 case true when !IsBuff(BuffType.Confusion):
                     OnUnconfused();
                     break;
             }
         }
-        
+
         var center = GetMidpoint();
         foreach (var (effect, info) in removed)
         {
@@ -1490,7 +1490,7 @@ public partial class Unit
                     break;
             }
         }
-        
+
         foreach (var (effect, info) in added)
         {
             switch (effect?.Effect)
@@ -1515,7 +1515,7 @@ public partial class Unit
                     break;
                 case ConstEffectPull pullEffect:
                     var pullers = _effectSources.GetValueOrDefault(info.Key);
-                    if (pullers is null) 
+                    if (pullers is null)
                         break;
 
                     foreach (var puller in pullers)

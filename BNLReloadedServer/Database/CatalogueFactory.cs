@@ -7,7 +7,7 @@ namespace BNLReloadedServer.Database;
 public static class CatalogueFactory
 {
     private static ulong _nextGameId;
-    
+
     public static CustomGameInfo CreateCustomGame(string name, string password, string playerName)
     {
         var customLogic = CatalogueHelper.GlobalLogic.CustomGame;
@@ -23,7 +23,7 @@ public static class CatalogueFactory
             Private = password != string.Empty,
             MapInfo = new MapInfoCard
             {
-               MapKey = maps?[0] ?? Key.None
+                MapKey = maps?[0] ?? Key.None
             },
             BuildTime = customLogic?.DefaultBuildTime ?? 300f,
             RespawnTimeMod = 0,
@@ -35,19 +35,19 @@ public static class CatalogueFactory
             Status = CustomGameStatus.Preparing,
         };
     }
-    
+
     public static Unit? CreateUnit(uint id, MapUnit unit, UnitUpdater updater)
     {
         var unitCard = Databases.Catalogue.GetCard<CardUnit>(unit.UnitKey);
         if (unitCard == null) return null;
-        
+
         var initTransform = new ZoneTransform
         {
             Position = unit.Position,
             Rotation = unit.Rotation,
             LocalVelocity = Vector3s.Zero
         };
-        
+
         var unitInit = new UnitInit
         {
             Key = unit.UnitKey,
@@ -74,7 +74,7 @@ public static class CatalogueFactory
             }
         }
         newUnit.ActiveEffects = ConstEffectInfo.Convert(startingEffects);
-        
+
         var initUpdate = new UnitUpdate
         {
             Team = unit.Team,
@@ -90,10 +90,10 @@ public static class CatalogueFactory
             BombTimeoutEnd = unitCard.Data is UnitDataBomb bombData
                 ? (ulong)DateTimeOffset.Now.AddSeconds(bombData.Timeout).ToUnixTimeMilliseconds()
                 : null,
-            TeslaCharge = unitCard.Data is UnitDataTeslaCoil teslaData 
-                ? teslaData.InitCharges > 0 
-                    ? teslaData.InitCharges == teslaData.MaxCharges 
-                        ? TeslaChargeType.FullSelfCharge 
+            TeslaCharge = unitCard.Data is UnitDataTeslaCoil teslaData
+                ? teslaData.InitCharges > 0
+                    ? teslaData.InitCharges == teslaData.MaxCharges
+                        ? TeslaChargeType.FullSelfCharge
                         : TeslaChargeType.SelfCharge
                     : TeslaChargeType.NoCharge
                 : null,
@@ -101,9 +101,9 @@ public static class CatalogueFactory
                 ? []
                 : null
         };
-        
+
         newUnit.UpdateData(initUpdate);
-        
+
         return newUnit;
     }
 
@@ -112,7 +112,7 @@ public static class CatalogueFactory
     {
         var unit = Databases.Catalogue.GetCard<CardUnit>(unitKey);
         if (unit == null) return null;
-        
+
         var unitInit = new UnitInit
         {
             Key = unit.Key,
@@ -123,7 +123,7 @@ public static class CatalogueFactory
         };
 
         var newUnit = new Unit(id, unitInit, updater);
-        
+
         var startingEffects = newUnit.InitialEffects.ToDictionary();
         foreach (var effect in updater.GetTeamEffects(team).Where(e => newUnit.DoesEffectApply(e, team)))
         {
@@ -140,7 +140,7 @@ public static class CatalogueFactory
             }
         }
         newUnit.ActiveEffects = ConstEffectInfo.Convert(startingEffects);
-        
+
         var initUpdate = new UnitUpdate
         {
             Team = team,
@@ -156,18 +156,18 @@ public static class CatalogueFactory
             BombTimeoutEnd = unit.Data is UnitDataBomb bombData
                 ? (ulong)DateTimeOffset.Now.AddSeconds(bombData.Timeout).ToUnixTimeMilliseconds()
                 : null,
-            TeslaCharge = unit.Data is UnitDataTeslaCoil teslaData 
-                ? teslaData.InitCharges > 0 
-                    ? teslaData.InitCharges == teslaData.MaxCharges 
-                        ? TeslaChargeType.FullSelfCharge 
+            TeslaCharge = unit.Data is UnitDataTeslaCoil teslaData
+                ? teslaData.InitCharges > 0
+                    ? teslaData.InitCharges == teslaData.MaxCharges
+                        ? TeslaChargeType.FullSelfCharge
                         : TeslaChargeType.SelfCharge
                     : TeslaChargeType.NoCharge
                 : null,
             ProjectileInitSpeed = unit.Data is UnitDataProjectile ? speed : null
         };
-        
+
         newUnit.UpdateData(initUpdate);
-        
+
         return newUnit;
     }
 
@@ -176,7 +176,7 @@ public static class CatalogueFactory
     {
         var unitCard = Databases.Catalogue.GetCard<CardUnit>(playerInfo.Hero);
         if (unitCard is not { Data: UnitDataPlayer playerData }) return null;
-        
+
         var unitInit = new UnitInit
         {
             Key = playerInfo.Hero,
@@ -190,7 +190,7 @@ public static class CatalogueFactory
         };
 
         var newUnit = new Unit(id, unitInit, updater);
-        
+
         var effects = PerkHelper.ExtractEffects(playerInfo.Perks ?? []);
         var passives = playerData.Passive?.ConvertPassives(playerInfo.Perks ?? []);
 
@@ -209,9 +209,9 @@ public static class CatalogueFactory
                 effects[effect] = null;
             }
         }
-        
+
         newUnit.InitialEffects = newUnit.InitialEffects.AddRange(effects);
-        
+
         var startingEffects = newUnit.InitialEffects.ToDictionary();
         foreach (var effect in updater.GetTeamEffects(playerInfo.Team)
                      .Where(e => newUnit.DoesEffectApply(e, playerInfo.Team)))
@@ -274,13 +274,13 @@ public static class CatalogueFactory
         var abilityCard =
             Databases.Catalogue.GetCard<CardAbility>(
                 playerData.ActiveAbilityKey.ConvertAbility(playerInfo.Perks ?? []));
-        
+
         foreach (var ammo in newUnit.Gears.SelectMany(gear => gear.Ammo))
         {
             ammo.Mag = ammo.MagSize;
             ammo.Pool = ammo.PoolSize;
         }
-        
+
         Dictionary<Key, List<Ammo>> updateAmmo = [];
         foreach (var gear in newUnit.Gears)
         {
@@ -309,7 +309,7 @@ public static class CatalogueFactory
             Effects = newUnit.ActiveEffects.ToInfoDictionary(),
             Devices = devices != null ? updatedDevices : null
         };
-        
+
         newUnit.UpdateData(initUpdate);
         return newUnit;
     }

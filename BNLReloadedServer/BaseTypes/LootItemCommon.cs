@@ -12,31 +12,31 @@ public class LootItemCommon : LootItem
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(Item != null, OpponentItem != null).Write(writer);
-      if (Item != null)
-        LootItemUnit.WriteRecord(writer, Item);
-      if (OpponentItem == null)
-        return;
-      LootItemUnit.WriteRecord(writer, OpponentItem);
+        new BitField(Item != null, OpponentItem != null).Write(writer);
+        if (Item != null)
+            LootItemUnit.WriteRecord(writer, Item);
+        if (OpponentItem == null)
+            return;
+        LootItemUnit.WriteRecord(writer, OpponentItem);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(2);
-      bitField.Read(reader);
-      Item = bitField[0] ? LootItemUnit.ReadRecord(reader) : null;
-      OpponentItem = bitField[1] ? LootItemUnit.ReadRecord(reader) : null;
+        var bitField = new BitField(2);
+        bitField.Read(reader);
+        Item = bitField[0] ? LootItemUnit.ReadRecord(reader) : null;
+        OpponentItem = bitField[1] ? LootItemUnit.ReadRecord(reader) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, LootItemCommon value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static LootItemCommon ReadRecord(BinaryReader reader)
     {
-      var lootItemCommon = new LootItemCommon();
-      lootItemCommon.Read(reader);
-      return lootItemCommon;
+        var lootItemCommon = new LootItemCommon();
+        lootItemCommon.Read(reader);
+        return lootItemCommon;
     }
 }

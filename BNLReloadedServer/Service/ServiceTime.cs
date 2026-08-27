@@ -11,10 +11,10 @@ public class ServiceTime(ISender sender) : IServiceTime
         MessageSetOrigin = 0,
         MessageSync = 1
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceTime);
         return writer;
@@ -35,7 +35,7 @@ public class ServiceTime(ISender sender) : IServiceTime
         writer.Write(rpcId);
         if (time != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.Write(time.Value);
         }
         else
@@ -51,7 +51,7 @@ public class ServiceTime(ISender sender) : IServiceTime
         var rpcId = reader.ReadUInt16();
         SendSync(rpcId, DateTimeOffset.Now.ToUnixTimeMilliseconds());
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceTimeId = reader.ReadByte();
@@ -72,7 +72,7 @@ public class ServiceTime(ISender sender) : IServiceTime
                 Log.Warn(LogCat.Net, $"Time service received unsupported serviceId: {Log.EnumName(timeEnum, serviceTimeId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

@@ -14,37 +14,37 @@ public class MapEditorPlaneInfo
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(Name != null, Prefab != null, true, true).Write(writer);
-      if (Name != null)
-        LocalizedString.WriteRecord(writer, Name);
-      if (Prefab != null)
-        writer.Write(Prefab);
-      writer.Write(DefaultPlaneHeight);
-      writer.Write(DefaultKillHeight);
+        new BitField(Name != null, Prefab != null, true, true).Write(writer);
+        if (Name != null)
+            LocalizedString.WriteRecord(writer, Name);
+        if (Prefab != null)
+            writer.Write(Prefab);
+        writer.Write(DefaultPlaneHeight);
+        writer.Write(DefaultKillHeight);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(4);
-      bitField.Read(reader);
-      Name = bitField[0] ? LocalizedString.ReadRecord(reader) : null;
-      Prefab = bitField[1] ? reader.ReadString() : null;
-      if (bitField[2])
-        DefaultPlaneHeight = reader.ReadSingle();
-      if (!bitField[3])
-        return;
-      DefaultKillHeight = reader.ReadSingle();
+        var bitField = new BitField(4);
+        bitField.Read(reader);
+        Name = bitField[0] ? LocalizedString.ReadRecord(reader) : null;
+        Prefab = bitField[1] ? reader.ReadString() : null;
+        if (bitField[2])
+            DefaultPlaneHeight = reader.ReadSingle();
+        if (!bitField[3])
+            return;
+        DefaultKillHeight = reader.ReadSingle();
     }
 
     public static void WriteRecord(BinaryWriter writer, MapEditorPlaneInfo value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static MapEditorPlaneInfo ReadRecord(BinaryReader reader)
     {
-      var mapEditorPlaneInfo = new MapEditorPlaneInfo();
-      mapEditorPlaneInfo.Read(reader);
-      return mapEditorPlaneInfo;
+        var mapEditorPlaneInfo = new MapEditorPlaneInfo();
+        mapEditorPlaneInfo.Read(reader);
+        return mapEditorPlaneInfo;
     }
 }

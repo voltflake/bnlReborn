@@ -171,7 +171,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
     {
         CompletedGoals = new Dictionary<Key, List<int>>(),
         BestResultTime = new Dictionary<Key, float>(),
-        ResetTime = (ulong) new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds()
+        ResetTime = (ulong)new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds()
     };
 
     private readonly List<Key> _testRotationHeroes =
@@ -180,7 +180,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
         Catalogue.Key("unit_hero_hunter"),
         Catalogue.Key("unit_hero_engineer")
     ];
-    
+
     private List<InventoryItem> GetInventory(uint playerId)
     {
         var inventory = new List<InventoryItem>();
@@ -190,7 +190,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
         var skinCards = CatalogueHelper.GetCards<CardSkin>(CardCategory.Skin);
         var perkCards = CatalogueHelper.GetCards<CardPerk>(CardCategory.Perk);
         var badgeCards = CatalogueHelper.GetCards<CardBadge>(CardCategory.Badge);
-        var purchaseTime = (ulong) DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        var purchaseTime = (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds();
         inventory.AddRange(deviceCards.Select(deviceCard => new InventoryItem { Item = deviceCard.Key }).ToList());
         inventory.AddRange(heroCards.Select(heroCard => new InventoryItem { Item = heroCard.Key, PurchaseTime = purchaseTime }).ToList());
         inventory.AddRange(skinCards.Select(skinCard => new InventoryItem { Item = skinCard.Key, PurchaseTime = purchaseTime }).ToList());
@@ -247,7 +247,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
 
     public uint? GetPlayerIdFromAuthTokenRegion(string authToken) => uint.Parse(authToken);
     public string GetPlayerName(uint playerId) => TestUserName;
-    
+
     public Task<PlayerData> GetPlayerData(uint playerId)
     {
         throw new NotImplementedException();
@@ -284,7 +284,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
             TutorialCompleted = false,
             Challenges = [null, null, null],
             ChallengeRefusesLeft = 1,
-            ChallengeDayEndTime = (ulong) new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds(),
+            ChallengeDayEndTime = (ulong)new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds(),
             ChallengesCompleted = 3,
             Currency = _testCurrencies,
             Inventory = GetInventory(playerId),
@@ -304,7 +304,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
             SquadFinderPlayers = [],
             DeviceLevels = GetDeviceLevels(playerId),
             Rubbles = GetRubbles(playerId),
-            NextLootCrateTime = (int) DateTimeOffset.Now.AddHours(4).ToUnixTimeSeconds(),
+            NextLootCrateTime = (int)DateTimeOffset.Now.AddHours(4).ToUnixTimeSeconds(),
             LootCrates = GetLootCrates(playerId),
             LastPlayedHero = GetLastPlayedHero(playerId),
             NewItems = [],
@@ -345,7 +345,7 @@ public class DummyPlayerDatabase : IPlayerDatabase
                 SkinKey = heroData?.Skins?[0] ?? Key.None
             };
         }
-        
+
         return new LobbyLoadout
         {
             HeroKey = heroKey,

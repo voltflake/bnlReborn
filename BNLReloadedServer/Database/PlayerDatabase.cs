@@ -13,33 +13,33 @@ namespace BNLReloadedServer.Database;
 public class PlayerDatabase : IPlayerDatabase
 {
     private record PlayerToken(uint PlayerId, DateTimeOffset Timestamp);
-    
+
     private readonly ConcurrentDictionary<uint, PlayerData> _players = new();
     private readonly ConcurrentDictionary<uint, (DateTimeOffset OnlineSince, DateTimeOffset? LastOnline)> _presence = new();
     private readonly ConcurrentDictionary<uint, List<ulong>> _steamFriends = new();
-    
+
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<PlayerData>> _playerTasks = new();
-    
+
     private readonly RSA _tokenSigner = new RSACryptoServiceProvider();
-    
+
     private readonly Dictionary<CurrencyType, float> _testCurrencies = new()
     {
         { CurrencyType.Virtual, 10000f },
         { CurrencyType.Real, 1000f }
     };
-    
+
     private List<InventoryItem> GetInventory(uint playerId)
     {
         if (!_players.TryGetValue(playerId, out var player))
         {
             return [];
         }
-        
+
         var globalLogic = CatalogueHelper.GlobalLogic;
-        
+
         var inventory = new List<InventoryItem>();
         var deviceCards = CatalogueHelper.GetCards<CardDevice>(CardCategory.Device);
-        var heroCards = CatalogueHelper.GetHeroes().Select(h => h.GetCard<CardUnit>()).OfType<CardUnit>(); 
+        var heroCards = CatalogueHelper.GetHeroes().Select(h => h.GetCard<CardUnit>()).OfType<CardUnit>();
         var skinCards = CatalogueHelper.GetCards<CardSkin>(CardCategory.Skin);
 
         var offPerks = globalLogic.Perks?.Offensive?.Select(p => p.GetCard<CardPerk>()).OfType<CardPerk>() ?? [];
@@ -53,8 +53,8 @@ public class PlayerDatabase : IPlayerDatabase
         {
             badgeCards = badgeCards.Where(b => b.Id != "badge_icon_community_representative");
         }
-        
-        var purchaseTime = (ulong) DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+        var purchaseTime = (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds();
         inventory.AddRange(deviceCards.Select(deviceCard => new InventoryItem { Item = deviceCard.Key }).ToList());
         inventory.AddRange(heroCards.Select(heroCard => new InventoryItem { Item = heroCard.Key, PurchaseTime = purchaseTime }).ToList());
         inventory.AddRange(skinCards.Select(skinCard => new InventoryItem { Item = skinCard.Key, PurchaseTime = purchaseTime }).ToList());
@@ -85,7 +85,7 @@ public class PlayerDatabase : IPlayerDatabase
             Log.Error(LogCat.Player, "Failed to persist local player state", ex);
         }
     }
-    
+
     private static Dictionary<Key, GameModeState> GetGameModeStates()
     {
         var gameModeCards = CatalogueHelper.GetCards<CardGameMode>(CardCategory.GameMode);
@@ -101,7 +101,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
         return result;
     }
-    
+
     private static Dictionary<Key, int> GetRubbles()
     {
         var rubbleCards = CatalogueHelper.GetCards<CardRubble>(CardCategory.Rubble);
@@ -173,7 +173,7 @@ public class PlayerDatabase : IPlayerDatabase
     }
 
     public uint? GetPlayerId(ulong steamId) => _players.Values.FirstOrDefault(p => p.SteamId == steamId)?.PlayerId;
-    
+
     public string GetAuthTokenForPlayer(uint playerId)
     {
         var tokenRecord = new PlayerToken(playerId, DateTimeOffset.UtcNow);
@@ -192,16 +192,16 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return null;
         }
-        
+
         var token = authToken[..sigStart];
         var signature = authToken[(sigStart + 1)..];
         var encoder = new UTF8Encoding();
         var encodedBytes = encoder.GetBytes(token);
         var signatureBytes = Convert.FromBase64String(signature);
-        
+
         if (!_tokenSigner.VerifyData(encodedBytes, signatureBytes, HashAlgorithmName.SHA256,
                 RSASignaturePadding.Pkcs1)) return null;
-        
+
         var player = JsonSerializer.Deserialize<PlayerToken>(encodedBytes);
         return player?.Timestamp.AddMinutes(10) < DateTimeOffset.UtcNow ? null : player?.PlayerId;
     }
@@ -213,7 +213,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return null;
         }
-        
+
         var token = authToken[..sigStart];
         var signature = authToken[(sigStart + 1)..];
         var encoder = new UTF8Encoding();
@@ -222,20 +222,20 @@ public class PlayerDatabase : IPlayerDatabase
 
         if (!_tokenSigner.VerifyData(encodedBytes, signatureBytes, HashAlgorithmName.SHA256,
                     RSASignaturePadding.Pkcs1)) return null;
-        
+
         var player = JsonSerializer.Deserialize<PlayerToken>(encodedBytes);
         return player?.Timestamp.AddMinutes(10) < DateTimeOffset.UtcNow ? null : player?.PlayerId;
     }
 
     public string GetPlayerName(uint playerId) => _players.GetValueOrDefault(playerId)?.Nickname ?? string.Empty;
-    
+
     public async Task<PlayerData> GetPlayerData(uint playerId)
     {
         var tcs = new TaskCompletionSource<PlayerData>();
-        
+
         _playerTasks.TryAdd(playerId, tcs);
         if (!_players.TryGetValue(playerId, out var playerData)) return await tcs.Task;
-        
+
         _playerTasks.Remove(playerId, out _);
         return playerData;
     }
@@ -248,7 +248,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return null;
         }
-        
+
         var globalLogic = CatalogueHelper.GlobalLogic;
         var rewardsLogic = CatalogueHelper.RewardsLogic;
         var friends = GetFriends(playerId).Result;
@@ -277,7 +277,7 @@ public class PlayerDatabase : IPlayerDatabase
             TutorialCompleted = true,
             Challenges = [null, null, null],
             ChallengeRefusesLeft = 1,
-            ChallengeDayEndTime = (ulong) new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds(),
+            ChallengeDayEndTime = (ulong)new DateTimeOffset(DateTime.Today.AddDays(1)).ToUnixTimeMilliseconds(),
             ChallengesCompleted = 3,
             Currency = _testCurrencies,
             Inventory = GetInventory(playerId),
@@ -298,7 +298,7 @@ public class PlayerDatabase : IPlayerDatabase
             SquadFinderPlayers = [],
             DeviceLevels = GetDeviceLevels(playerId),
             Rubbles = GetRubbles(),
-            NextLootCrateTime = (int) DateTimeOffset.Now.AddHours(4).ToUnixTimeSeconds(),
+            NextLootCrateTime = (int)DateTimeOffset.Now.AddHours(4).ToUnixTimeSeconds(),
             LootCrates = GetLootCrates(),
             LastPlayedHero = GetLastPlayedHero(playerId),
             NewItems = [],
@@ -312,7 +312,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return Databases.MasterServerDatabase.GetProfileData(playerId).Result;
         }
-        
+
         return new ProfileData
         {
             Nickname = player.Nickname,
@@ -411,20 +411,20 @@ public class PlayerDatabase : IPlayerDatabase
     }
 
     public Dictionary<CurrencyType, float> GetCurrency(uint playerId) => _testCurrencies;
-    
+
     public Task<List<string>?> GetRegions() => Task.FromResult<List<string>?>(
         Databases.MasterServerDatabase.GetRegionServers().Select(region => region.Id ?? string.Empty).ToList());
 
     public async Task<List<SearchResult>?> GetSearchResults(string pattern) =>
         await Databases.MasterServerDatabase.GetSearchResults(pattern);
-    
+
     public async Task<List<FriendInfo>> GetFriends(uint playerId)
     {
         if (!_players.TryGetValue(playerId, out var player))
         {
             return [];
         }
-        
+
         var friends = new List<FriendInfo>();
         var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.Friends);
         foreach (var friend in friendInfo)
@@ -442,7 +442,7 @@ public class PlayerDatabase : IPlayerDatabase
         }
 
         if (!_steamFriends.TryGetValue(playerId, out var steamFriends)) return friends;
-        
+
         var steamInfo = await Databases.MasterServerDatabase.GetSearchResults(steamFriends);
         foreach (var friend in steamInfo)
         {
@@ -470,26 +470,26 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return [];
         }
-        
+
         var friendsRequests = new List<FriendRequest>();
         var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.RequestsFromFriends);
         friendsRequests.AddRange(friendInfo.Select(friend => new FriendRequest
-            { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
+        { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
 
         return friendsRequests;
     }
-    
+
     public async Task<List<FriendRequest>> GetFriendRequestsFrom(uint playerId)
     {
         if (!_players.TryGetValue(playerId, out var player))
         {
             return [];
         }
-        
+
         var friendsRequests = new List<FriendRequest>();
         var friendInfo = await Databases.MasterServerDatabase.GetSearchResults(player.RequestsFromMe);
         friendsRequests.AddRange(friendInfo.Select(friend => new FriendRequest
-            { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
+        { PlayerId = friend.PlayerId, SteamId = friend.SteamId, Nickname = friend.Nickname }));
 
         return friendsRequests;
     }
@@ -507,7 +507,7 @@ public class PlayerDatabase : IPlayerDatabase
             return player.MatchmakerBanEnd is not null &&
                    DateTimeOffset.FromUnixTimeMilliseconds((long)player.MatchmakerBanEnd.Value) > DateTimeOffset.Now;
         }
-        
+
         return false;
     }
 
@@ -518,7 +518,7 @@ public class PlayerDatabase : IPlayerDatabase
             player.Nickname = name;
             Databases.RegionServerDatabase.UpdateChatName(playerId, name);
         }
-        
+
         PersistAndReload(Databases.MasterServerDatabase.SetUsernameForPlayer(playerId, name), playerId);
         ControlPanelEvents.Publish(ControlPanelEvent.Players);
     }
@@ -601,7 +601,7 @@ public class PlayerDatabase : IPlayerDatabase
         {
             return;
         }
-        
+
         if (update.Progression != null)
         {
             player.Progression = update.Progression;
@@ -685,13 +685,13 @@ public class PlayerDatabase : IPlayerDatabase
     public void UpdateLoadout(uint playerId, Key hero, LobbyLoadout loadout) =>
         PersistAndReload(Databases.MasterServerDatabase.SetLoadoutForPlayer(playerId, hero, loadout), playerId);
 
-    public void UpdateLookingForFriends(uint playerId, bool lookingForFriends) => 
+    public void UpdateLookingForFriends(uint playerId, bool lookingForFriends) =>
         PersistAndReload(Databases.MasterServerDatabase.SetLookingForFriendsForPlayer(playerId, lookingForFriends), playerId);
 
-    public void UpdateLastPlayedHero(uint playerId, Key heroKey) => 
+    public void UpdateLastPlayedHero(uint playerId, Key heroKey) =>
         PersistAndReload(Databases.MasterServerDatabase.SetLastPlayedForPlayer(playerId, heroKey), playerId);
 
-    public void UpdateBadges(uint playerId, Dictionary<BadgeType, List<Key>> badges) => 
+    public void UpdateBadges(uint playerId, Dictionary<BadgeType, List<Key>> badges) =>
         PersistAndReload(Databases.MasterServerDatabase.SetBadgesForPlayer(playerId, badges), playerId);
 
     public void UpdateCurrency(uint playerId, Dictionary<CurrencyType, float> currencies)

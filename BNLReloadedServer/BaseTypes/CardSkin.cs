@@ -33,63 +33,63 @@ public class CardSkin : Card, IPrefab, IFpsPrefab, ILootCrateItem
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(Id != null, true, Prefab != null, FpsPrefab != null, IconPortrait != null,
-        IconPortraitProfile != null, Bundle != null, FpsBundle != null, Name != null, true, LearningMusic != null,
-        LockinMusic != null, DeathMusicSting != null).Write(writer);
-      if (Id != null)
-        writer.Write(Id);
-      writer.WriteByteEnum(Scope);
-      if (Prefab != null)
-        writer.Write(Prefab);
-      if (FpsPrefab != null)
-        writer.Write(FpsPrefab);
-      if (IconPortrait != null)
-        writer.Write(IconPortrait);
-      if (IconPortraitProfile != null)
-        writer.Write(IconPortraitProfile);
-      if (Bundle != null)
-        writer.Write(Bundle);
-      if (FpsBundle != null)
-        writer.Write(FpsBundle);
-      if (Name != null)
-        LocalizedString.WriteRecord(writer, Name);
-      Key.WriteRecord(writer, HeroKey);
-      if (LearningMusic != null)
-        SoundReference.WriteRecord(writer, LearningMusic);
-      if (LockinMusic != null)
-        SoundReference.WriteRecord(writer, LockinMusic);
-      if (DeathMusicSting == null)
-        return;
-      SoundReference.WriteRecord(writer, DeathMusicSting);
+        new BitField(Id != null, true, Prefab != null, FpsPrefab != null, IconPortrait != null,
+          IconPortraitProfile != null, Bundle != null, FpsBundle != null, Name != null, true, LearningMusic != null,
+          LockinMusic != null, DeathMusicSting != null).Write(writer);
+        if (Id != null)
+            writer.Write(Id);
+        writer.WriteByteEnum(Scope);
+        if (Prefab != null)
+            writer.Write(Prefab);
+        if (FpsPrefab != null)
+            writer.Write(FpsPrefab);
+        if (IconPortrait != null)
+            writer.Write(IconPortrait);
+        if (IconPortraitProfile != null)
+            writer.Write(IconPortraitProfile);
+        if (Bundle != null)
+            writer.Write(Bundle);
+        if (FpsBundle != null)
+            writer.Write(FpsBundle);
+        if (Name != null)
+            LocalizedString.WriteRecord(writer, Name);
+        Key.WriteRecord(writer, HeroKey);
+        if (LearningMusic != null)
+            SoundReference.WriteRecord(writer, LearningMusic);
+        if (LockinMusic != null)
+            SoundReference.WriteRecord(writer, LockinMusic);
+        if (DeathMusicSting == null)
+            return;
+        SoundReference.WriteRecord(writer, DeathMusicSting);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(13);
-      bitField.Read(reader);
-      Id = bitField[0] ? reader.ReadString() : null;
-      if (bitField[1])
-        Scope = reader.ReadByteEnum<ScopeType>();
-      Prefab = bitField[2] ? reader.ReadString() : null;
-      FpsPrefab = bitField[3] ? reader.ReadString() : null;
-      IconPortrait = bitField[4] ? reader.ReadString() : null;
-      IconPortraitProfile = bitField[5] ? reader.ReadString() : null;
-      Bundle = bitField[6] ? reader.ReadString() : null;
-      FpsBundle = bitField[7] ? reader.ReadString() : null;
-      Name = bitField[8] ? LocalizedString.ReadRecord(reader) : null;
-      if (bitField[9])
-        HeroKey = Key.ReadRecord(reader);
-      LearningMusic = bitField[10] ? SoundReference.ReadRecord(reader) : null;
-      LockinMusic = bitField[11] ? SoundReference.ReadRecord(reader) : null;
-      DeathMusicSting = bitField[12] ? SoundReference.ReadRecord(reader) : null;
+        var bitField = new BitField(13);
+        bitField.Read(reader);
+        Id = bitField[0] ? reader.ReadString() : null;
+        if (bitField[1])
+            Scope = reader.ReadByteEnum<ScopeType>();
+        Prefab = bitField[2] ? reader.ReadString() : null;
+        FpsPrefab = bitField[3] ? reader.ReadString() : null;
+        IconPortrait = bitField[4] ? reader.ReadString() : null;
+        IconPortraitProfile = bitField[5] ? reader.ReadString() : null;
+        Bundle = bitField[6] ? reader.ReadString() : null;
+        FpsBundle = bitField[7] ? reader.ReadString() : null;
+        Name = bitField[8] ? LocalizedString.ReadRecord(reader) : null;
+        if (bitField[9])
+            HeroKey = Key.ReadRecord(reader);
+        LearningMusic = bitField[10] ? SoundReference.ReadRecord(reader) : null;
+        LockinMusic = bitField[11] ? SoundReference.ReadRecord(reader) : null;
+        DeathMusicSting = bitField[12] ? SoundReference.ReadRecord(reader) : null;
     }
 
     public static void WriteRecord(BinaryWriter writer, CardSkin value) => value.Write(writer);
 
     public static CardSkin ReadRecord(BinaryReader reader)
     {
-      var cardSkin = new CardSkin();
-      cardSkin.Read(reader);
-      return cardSkin;
+        var cardSkin = new CardSkin();
+        cardSkin.Read(reader);
+        return cardSkin;
     }
 }

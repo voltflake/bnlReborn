@@ -9,7 +9,7 @@ public class ServiceMediator(ISender sender) : IServiceMediator
     {
         MessageEnableDisconnect = 0
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -24,7 +24,7 @@ public class ServiceMediator(ISender sender) : IServiceMediator
         writer.Write((byte)ServiceMediatorId.MessageEnableDisconnect);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceMediatorId = reader.ReadByte();

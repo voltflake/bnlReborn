@@ -176,12 +176,12 @@ public class PlayerData
         {
             TimeTrial = TimeTrialData.ReadRecord(reader);
         }
-        
+
         MatchmakerBanEnd = bitField[20] ? reader.ReadUInt64() : null;
         GraveyardPermanent = bitField[21] ? reader.ReadBoolean() : null;
         GraveyardLeaveTime = bitField[22] ? reader.ReadUInt64() : null;
     }
-    
+
     public static void WriteRecord(BinaryWriter writer, PlayerData value) => value.Write(writer);
 
     public static PlayerData ReadRecord(BinaryReader reader)
@@ -190,7 +190,7 @@ public class PlayerData
         playerData.Read(reader);
         return playerData;
     }
-    
+
     public static byte[] WriteBadgeByteRecord(Dictionary<BadgeType, List<Key>> badges)
     {
         var memStream = new MemoryStream();
@@ -206,7 +206,7 @@ public class PlayerData
         return reader.ReadMap<BadgeType, List<Key>, Dictionary<BadgeType, List<Key>>>(
             reader.ReadByteEnum<BadgeType>, () => reader.ReadList<Key, List<Key>>(Key.ReadRecord));
     }
-    
+
     public static byte[] WriteLoadoutByteRecord(Dictionary<Key, LobbyLoadout> loadouts)
     {
         var memStream = new MemoryStream();
@@ -221,7 +221,7 @@ public class PlayerData
         using var reader = new BinaryReader(memStream);
         return reader.ReadMap<Key, LobbyLoadout, Dictionary<Key, LobbyLoadout>>(Key.ReadRecord, LobbyLoadout.ReadRecord);
     }
-    
+
     public static byte[] WriteStatByteRecord(List<HeroStats> stats)
     {
         var memStream = new MemoryStream();
@@ -236,7 +236,7 @@ public class PlayerData
         using var reader = new BinaryReader(memStream);
         return reader.ReadList<HeroStats, List<HeroStats>>(BaseTypes.HeroStats.ReadRecord);
     }
-    
+
     public static byte[] WriteMatchByteRecord(List<MatchHistoryRecord> matchHistory)
     {
         var memStream = new MemoryStream();

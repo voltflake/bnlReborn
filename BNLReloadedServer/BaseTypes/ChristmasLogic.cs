@@ -14,37 +14,37 @@ public class ChristmasLogic
 
     public void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true, true).Write(writer);
-      writer.Write(MatchCountUnlockReward);
-      Key.WriteRecord(writer, RewardKey);
-      writer.WriteDateTime(EventBegin);
-      writer.WriteDateTime(EventEnd);
+        new BitField(true, true, true, true).Write(writer);
+        writer.Write(MatchCountUnlockReward);
+        Key.WriteRecord(writer, RewardKey);
+        writer.WriteDateTime(EventBegin);
+        writer.WriteDateTime(EventEnd);
     }
 
     public void Read(BinaryReader reader)
     {
-      var bitField = new BitField(4);
-      bitField.Read(reader);
-      if (bitField[0])
-        MatchCountUnlockReward = reader.ReadInt32();
-      if (bitField[1])
-        RewardKey = Key.ReadRecord(reader);
-      if (bitField[2])
-        EventBegin = reader.ReadDateTime();
-      if (!bitField[3])
-        return;
-      EventEnd = reader.ReadDateTime();
+        var bitField = new BitField(4);
+        bitField.Read(reader);
+        if (bitField[0])
+            MatchCountUnlockReward = reader.ReadInt32();
+        if (bitField[1])
+            RewardKey = Key.ReadRecord(reader);
+        if (bitField[2])
+            EventBegin = reader.ReadDateTime();
+        if (!bitField[3])
+            return;
+        EventEnd = reader.ReadDateTime();
     }
 
     public static void WriteRecord(BinaryWriter writer, ChristmasLogic value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static ChristmasLogic ReadRecord(BinaryReader reader)
     {
-      var christmasLogic = new ChristmasLogic();
-      christmasLogic.Read(reader);
-      return christmasLogic;
+        var christmasLogic = new ChristmasLogic();
+        christmasLogic.Read(reader);
+        return christmasLogic;
     }
 }

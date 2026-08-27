@@ -53,7 +53,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
     // A copy of the roster. The caller owns it; the lobby never mutates it again.
     public List<CustomGamePlayer> PlayersSnapshot()
     {
-        lock (_lock) return [.._players];
+        lock (_lock) return [.. _players];
     }
 
     private TeamType GetBalancedTeam()
@@ -88,7 +88,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
             });
             GameInfo.Players = _players.Count;
 
-            Send(BuildUpdate(players: [.._players]));
+            Send(BuildUpdate(players: [.. _players]));
         }
         return CustomGameJoinResult.Accepted;
     }
@@ -134,7 +134,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
                 // A queued request can name someone who has since left, in which case the
                 // swap is a no-op — the departure still has to reach everyone.
                 Send((waiting is { Count: > 0 } ? SwapTeamLocked(waiting.Dequeue().Id) : null)
-                     ?? BuildUpdate(players: [.._players]));
+                     ?? BuildUpdate(players: [.. _players]));
             }
         }
 
@@ -221,7 +221,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
                 }
             }
         }
-        return BuildUpdate(players: [.._players]);
+        return BuildUpdate(players: [.. _players]);
     }
 
     public void UpdateSettings(uint playerId, CustomGameSettings settings)
@@ -375,7 +375,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
                 GameName = GameInfo.GameName,
                 Password = Password,
                 Settings = settings,
-                Players = [.._players],
+                Players = [.. _players],
                 Status = GameInfo.Status
             };
         }

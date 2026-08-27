@@ -75,7 +75,7 @@ public static class BinaryWriterHelper
 
         public void WriteShortCoord(float coord)
         {
-            writer.Write((short) (coord * 100.0));
+            writer.Write((short)(coord * 100.0));
         }
 
         public void WriteVectorShort(Vector2 vector)
@@ -93,7 +93,7 @@ public static class BinaryWriterHelper
 
         public void WriteAngle(float angle)
         {
-            writer.Write((ushort) (angle * 100.0));
+            writer.Write((ushort)(angle * 100.0));
         }
 
         public void WriteList<T>(ICollection<T> list, Action<T> writeAction)
@@ -134,7 +134,7 @@ public static class BinaryWriterHelper
 
         public void WriteBinary(byte[] bytes)
         {
-            writer.Write7BitEncodedInt(bytes.Length);     
+            writer.Write7BitEncodedInt(bytes.Length);
             writer.Write(bytes);
         }
 

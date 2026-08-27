@@ -16,7 +16,7 @@ public record ConstEffectInfo(Key Key, ulong? TimestampEnd)
         (ulong?)DateTimeOffset.Now.AddSeconds(duration).ToUnixTimeMilliseconds())
     {
     }
-    
+
     public CardEffect Card => Databases.Catalogue.GetCard<CardEffect>(Key);
 
     public bool HasDuration => Card.Duration.HasValue && ExpirationTime.HasValue;
@@ -28,7 +28,7 @@ public record ConstEffectInfo(Key Key, ulong? TimestampEnd)
             (float)(1.0 - (double)(ExpirationTime.Value - (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds()) /
                 Card.Duration.Value), 0, 1)
         : 0.0f;
-    
+
     public bool IsExpired => Card.Duration.HasValue && ExpirationTime.HasValue &&
                              ExpirationTime.Value < (ulong)DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
@@ -39,7 +39,7 @@ public record ConstEffectInfo(Key Key, ulong? TimestampEnd)
 
         ExpirationTime = (ulong)DateTimeOffset.Now.AddSeconds(dur.Value).ToUnixTimeMilliseconds();
     }
-    
+
     public void UpdateDuration(ulong timeStampEnd) => ExpirationTime = timeStampEnd;
 
     public static ImmutableList<ConstEffectInfo> Convert(IDictionary<Key, ulong?> effects)

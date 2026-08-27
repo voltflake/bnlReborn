@@ -267,8 +267,8 @@ public static class Crc32
 
     public static uint GetHash(string str)
     {
-      var bytes = Encoding.UTF8.GetBytes(str);
-      return End(Hash(Begin(), bytes, 0, bytes.Length));
+        var bytes = Encoding.UTF8.GetBytes(str);
+        return End(Hash(Begin(), bytes, 0, bytes.Length));
     }
 
     public static uint GetHash(byte[] buffer) => End(Hash(Begin(), buffer, 0, buffer.Length));
@@ -277,9 +277,9 @@ public static class Crc32
 
     private static uint Hash(uint crcValue, byte[] buffer, int start, int length)
     {
-      while (--length >= 0)
-        crcValue = CrcTable[(IntPtr) (uint) (((int) crcValue ^ buffer[start++]) & byte.MaxValue)] ^ crcValue >> 8;
-      return crcValue;
+        while (--length >= 0)
+            crcValue = CrcTable[(IntPtr)(uint)(((int)crcValue ^ buffer[start++]) & byte.MaxValue)] ^ crcValue >> 8;
+        return crcValue;
     }
 
     private static uint End(uint crcValue) => ~crcValue;

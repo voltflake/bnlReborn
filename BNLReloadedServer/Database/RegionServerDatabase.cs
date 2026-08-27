@@ -23,7 +23,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     private class ConnectionInfo(Guid guid, ChatPlayer chatInfo, bool isAdmin)
     {
         public Guid Guid { get; set; } = guid;
-        
+
         public Guid? MatchGuid { get; set; }
         public UiId UiId { get; set; } = UiId.Home;
         public float UiDuration { get; set; }
@@ -44,10 +44,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         // session thread and read by whichever thread finds the invite has become void.
         public ConcurrentDictionary<uint, byte> SentSquadInvites { get; } = new();
     }
-    
+
     private readonly ConcurrentDictionary<uint, ConnectionInfo> _connectedUsers = new();
     private readonly ConcurrentDictionary<uint, ConcurrentQueue<string>> _scheduledNotifications = new();
-    
+
     // Session teardown removes from these on arbitrary threads while request threads read them,
     // so the outer map is concurrent. The inner one stays a plain Dictionary: it is filled by the
     // session's service dispatcher constructor and never written again, only read.
@@ -61,7 +61,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     // Guards the dictionary operation only. CustomGamePlayerGroup holds its own lock and calls
     // back out while doing so, so this must never be held across a call into that class.
     private readonly Lock _customGamesLock = new();
-    
+
     private readonly ConcurrentDictionary<string, IGameInstance> _gameInstances = new();
     private readonly ConcurrentDictionary<string, MatchmakerInitiator> _matchmakerGames = new();
 
@@ -73,7 +73,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     private long _nextSpectatableMatchId = long.MinValue;
 
     private readonly ChatRoom _globalChatRoom = new(new RoomIdGlobal(), new SessionSender(server));
-    
+
     private readonly IPlayerDatabase _playerDatabase = Databases.PlayerDatabase;
 
     private readonly Matchmaker _matchmaker = new(server);
@@ -81,7 +81,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     public bool MatchmakingEnabled => _matchmakingEnabled;
 
     private readonly ConcurrentDictionary<ulong, SquadData> _squads = new();
-    
+
     private static ulong _nextSquadId;
 
     public bool UserConnected(uint userId) => _connectedUsers.ContainsKey(userId);
@@ -102,12 +102,12 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         lock (_customGamesLock) return _customGamePlayerLists.Remove(gameId);
     }
 
-    private bool GetService<TService>(Guid guid, ServiceId id, [MaybeNullWhen(false)] out TService serviceCaller) where TService: IService
+    private bool GetService<TService>(Guid guid, ServiceId id, [MaybeNullWhen(false)] out TService serviceCaller) where TService : IService
     {
         serviceCaller = default;
         if (!_services.TryGetValue(guid, out var service) ||
             !service.TryGetValue(id, out var serviceInstance)) return false;
-        
+
         var res = serviceInstance is TService instance;
         if (res)
         {
@@ -118,7 +118,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool LinkMatchSessionGuidToUser(uint userId, Guid sessionId)
     {
-        if(!UserConnected(userId, out var player)) return false;
+        if (!UserConnected(userId, out var player)) return false;
         if (player.GameInstanceId == null) return false;
         _gameInstances.TryGetValue(player.GameInstanceId, out var gameInstance);
         if (gameInstance == null) return false;
@@ -126,7 +126,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (matchServices == null) return false;
         var scene = player.ActiveScene;
         if (scene == null || scene.Type == SceneType.MainMenu) return false;
-        
+
         player.MatchGuid = sessionId;
         gameInstance.RegisterServices(sessionId, matchServices);
         // The match services are already claimed above, so a region session that tore down in the
@@ -245,7 +245,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             };
 
             var data = _playerDatabase.GetPlayerDataNoWait(userId);
-            
+
             result = _connectedUsers.TryAdd(userId, new ConnectionInfo(sessionId, chatPlayer, data is { Role: PlayerRole.Admin or PlayerRole.Core }));
         }
         else
@@ -374,7 +374,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool UpdateScene(uint userId, Scene scene, IServiceScene sceneService, bool enterInstance)
     {
-        if(!UserConnected(userId, out var info)) return false;
+        if (!UserConnected(userId, out var info)) return false;
         info.ActiveScene = scene;
         LiveStateChanged();
         sceneService.SendChangeScene(scene);
@@ -401,7 +401,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     // does not change from the menu, but the client still has to reconnect to the new instance.
     public bool UpdateScene(uint userId, Scene scene, bool forceEnterInstance = false)
     {
-        if(!UserConnected(userId, out var playerInfo)) return false;
+        if (!UserConnected(userId, out var playerInfo)) return false;
         var guid = playerInfo.Guid;
         var oldScene = playerInfo.ActiveScene;
         playerInfo.ActiveScene = scene;
@@ -531,7 +531,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             custom = null;
         }
-        
+
         return custom != null;
     }
 
@@ -548,10 +548,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             CustomGameId = newCustom.Id
         };
-        
+
         var playerGroup = new CustomGamePlayerGroup(matchService)
         {
-            Password = password, 
+            Password = password,
             GameInfo = newCustom,
             ChatRoom = new ChatRoom(customRoom, new SessionSender(server))
         };
@@ -561,7 +561,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             playerGroup.ChatRoom.AddToRoom(playerGuid, chatService);
         }
-        
+
         AddCustomGameEntry(newCustom.Id, (playerGroup, sender));
         LiveStateChanged();
         return newCustom.Id;
@@ -569,10 +569,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool RemoveCustomGame(ulong gameId)
     {
-        if(!TryGetCustomGame(gameId, out var list)) return false;
+        if (!TryGetCustomGame(gameId, out var list)) return false;
         foreach (var playerId in list.custom.PlayersSnapshot().Select(player => player.Id))
         {
-            if(UserConnected(playerId, out _))
+            if (UserConnected(playerId, out _))
                 RemoveFromCustomGame(playerId);
         }
         return RemoveCustomGameEntry(gameId);
@@ -615,7 +615,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (!TryGetCustomGame(gameId, out var customGame)) return false;
         var playerGuid = playerInfo.Guid;
         playerInfo.GameInstanceId = customGame.custom.GameInstanceId;
-        
+
         if (!GetService<IServiceScene>(playerGuid, ServiceId.ServiceScene, out var sceneService)) return false;
         var scene = new SceneLobby
         {
@@ -641,7 +641,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
         if (!UserConnected(playerId, out var playerInfo) || !TryGetCustomGame(gameId, out var customGame))
             return CustomGameSpectateResult.NoSuchGame;
-        
+
         if (password != customGame.custom.Password && !playerInfo.IsAdmin) return CustomGameSpectateResult.WrongPassword;
         if (customGame.custom.IsMaxSpectators()) return CustomGameSpectateResult.TooManySpectators;
         return customGame.custom.GameInfo.Status switch
@@ -671,7 +671,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (!UserConnected(playerId, out var playerInfo) || !TryGetCustomGame(gameId, out var customGame) ||
             customGame.custom.GameInstanceId is null ||
             !_gameInstances.TryGetValue(customGame.custom.GameInstanceId, out var instance)) return false;
-        
+
         if (!customGame.custom.AddSpectator(playerId)) return false;
         playerInfo.CustomGameId = gameId;
         playerInfo.GameInstanceId = customGame.custom.GameInstanceId;
@@ -691,11 +691,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         {
             customGame.custom.ChatRoom.RemoveFromRoom(playerGuid, chatService);
         }
-        
+
         customGame.custom.RemoveSpectator(playerId);
         customGame.custom.RemovePlayer(playerId);
         customGame.customSender.Unsubscribe(playerGuid);
-        
+
         playerInfo.CustomGameId = null;
         GetService<IServiceMatchmaker>(playerGuid, ServiceId.ServiceMatchmaker, out var matchService);
         matchService?.SendExitCustomGame();
@@ -762,35 +762,35 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (!customId.HasValue) return false;
         var gameId = customId.Value;
         if (!TryGetCustomGame(gameId, out var customGame)) return false;
-        
+
         MapData? map = null;
         if (signedMap != null)
         {
             var handler = new JsonWebTokenHandler();
             var jsonWebToken = handler.ReadJsonWebToken(signedMap);
-            
+
             var rawPayload = jsonWebToken.EncodedPayload;
             var mapJson = Base64UrlEncoder.Decode(rawPayload);
-            
+
             map = JsonSerializer.Deserialize<MapData>(mapJson, JsonHelper.DefaultSerializerSettings);
         }
         else if (customGame.custom.GameInfo.MapInfo is MapInfoCard mapCard)
         {
             map = Databases.MapDatabase.LoadMapData(mapCard.MapKey);
         }
-        
+
         if (map == null || customGame.custom.GameInfo.MapInfo == null) return false;
         if (!customGame.custom.StartIntoLobby(playerId)) return false;
 
         var gameInstance = new GameInstance(matchServer, server, Guid.NewGuid().ToString(), customGame.custom);
         customGame.custom.GameInstanceId = gameInstance.GameInstanceId;
-        
+
         gameInstance.SetMap(customGame.custom.GameInfo.MapInfo, map);
         gameInstance.CreateLobby(CatalogueHelper.ModeCustom.Key, customGame.custom.GameInfo.MapInfo);
         if (!_gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance)) return false;
         foreach (var player in customGame.custom.PlayersSnapshot())
         {
-            if (!UserConnected(player.Id, out var playerInfo)) continue; 
+            if (!UserConnected(player.Id, out var playerInfo)) continue;
             playerInfo.GameInstanceId = gameInstance.GameInstanceId;
             var guid = playerInfo.Guid;
             if (!GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService)) continue;
@@ -875,10 +875,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         gameInstance.CreateLobby(gameMode.Key, null);
         if (!_matchmakerGames.TryAdd(gameInstance.GameInstanceId, matchInitiator) ||
             !_gameInstances.TryAdd(gameInstance.GameInstanceId, gameInstance)) return false;
-        
+
         foreach (var player in team1)
         {
-            if (!UserConnected(player.PlayerId, out var playerInfo)) continue; 
+            if (!UserConnected(player.PlayerId, out var playerInfo)) continue;
             playerInfo.GameInstanceId = gameInstance.GameInstanceId;
             var guid = playerInfo.Guid;
             if (!GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService)) continue;
@@ -892,7 +892,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
         foreach (var player in team2)
         {
-            if (!UserConnected(player.PlayerId, out var playerInfo)) continue; 
+            if (!UserConnected(player.PlayerId, out var playerInfo)) continue;
             playerInfo.GameInstanceId = gameInstance.GameInstanceId;
             var guid = playerInfo.Guid;
             if (!GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService)) continue;
@@ -903,7 +903,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             };
             UpdateScene(player.PlayerId, scene, sceneService, true);
         }
-        
+
         return true;
     }
 
@@ -911,23 +911,23 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if (!UserConnected(player.PlayerId, out var playerInfo) || !_matchmakerGames.TryGetValue(gameInstanceId, out var initiator) ||
             !_gameInstances.TryGetValue(gameInstanceId, out var gameInstance) || gameInstance.IsOver()) return false;
-        if(!initiator.AddPlayer(player, team)) return false;
-        
+        if (!initiator.AddPlayer(player, team)) return false;
+
         playerInfo.GameInstanceId = gameInstanceId;
         var guid = playerInfo.Guid;
-        
+
         if (!GetService<IServiceScene>(guid, ServiceId.ServiceScene, out var sceneService))
         {
             initiator.RemovePlayer(player.PlayerId);
             return false;
         }
-        
+
         var scene = new SceneLobby
         {
             MyTeam = team,
             GameMode = initiator.GetGameMode()
         };
-        
+
         UpdateScene(player.PlayerId, scene, sceneService, true);
         return true;
     }
@@ -938,15 +938,15 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         return roomId.Type switch
         {
             RoomIdType.Team => GetGameInstance(playerId)?.GetChatRoom(roomId),
-            RoomIdType.Squad => GetSquad(playerId, out var squad) 
+            RoomIdType.Squad => GetSquad(playerId, out var squad)
                 ? squad.ChatRoom.RoomId.Equals(roomId)
                     ? squad.ChatRoom
                     : null
                 : null,
-            RoomIdType.CustomGame => GetCustomGame(playerId, out var custom) 
+            RoomIdType.CustomGame => GetCustomGame(playerId, out var custom)
                 ? custom.ChatRoom.RoomId.Equals(roomId)
-                    ? custom.ChatRoom 
-                    : null 
+                    ? custom.ChatRoom
+                    : null
                 : null,
             RoomIdType.Global => _globalChatRoom,
             _ => null
@@ -1002,10 +1002,10 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (them.Ignored.ContainsKey(playerId)) return PrivateMessageFailReason.Ignor;
         var chatPlayerMe = me.ChatInfo;
         var chatPlayerThem = them.ChatInfo;
-        if (!GetService<IServiceChat>(me.Guid, ServiceId.ServiceChat, out var myChatService) || 
-            !GetService<IServiceChat>(them.Guid, ServiceId.ServiceChat, out var theirChatService)) 
+        if (!GetService<IServiceChat>(me.Guid, ServiceId.ServiceChat, out var myChatService) ||
+            !GetService<IServiceChat>(them.Guid, ServiceId.ServiceChat, out var theirChatService))
             return PrivateMessageFailReason.Offline;
-        
+
         myChatService.SendPrivateMessage(chatPlayerMe, chatPlayerThem, message);
         theirChatService.SendPrivateMessage(chatPlayerMe, chatPlayerThem, message);
         return null;
@@ -1016,16 +1016,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         if (playerId == null || !UserConnected(playerId.Value, out var playerInfo)) return null;
         var playerGameInstance = playerInfo.GameInstanceId;
         if (playerGameInstance == null)
-            return null; 
+            return null;
         _gameInstances.TryGetValue(playerGameInstance, out var instance);
         return instance;
     }
 
-    /// <summary>
-    /// Returns the panel-facing location for a connected player, or null when they are offline.
-    /// Queueing happens from the menu. A custom room exists before its game instance, so its
-    /// membership is checked separately.
-    /// </summary>
     public string? GetOnlinePlayerLocation(uint playerId)
     {
         if (!UserConnected(playerId, out var playerInfo) || !playerInfo.Online) return null;
@@ -1060,7 +1055,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     public bool RemoveFromGameInstance(uint playerId, string gameInstanceId)
     {
-        if(!UserConnected(playerId, out var playerInfo)) return false;
+        if (!UserConnected(playerId, out var playerInfo)) return false;
         if (playerInfo.GameInstanceId != gameInstanceId) return false;
         playerInfo.GameInstanceId = null;
         if (playerInfo.Ignored.Count > 0)
@@ -1079,7 +1074,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         var gameInstances = _gameInstances
             .Where(g => g.Value.GetGameMode() == gameModeKey && !g.Value.IsOver() && g.Value.NeedsBackfill()).ToList();
         if (gameInstances.Count == 0) yield break;
-        
+
         foreach (var (instanceId, instance) in gameInstances)
         {
             var (team1, team2) = instance.GetTeamRatings();
@@ -1094,17 +1089,6 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     private static void LiveStateChanged() => ControlPanelEvents.Publish(
         ControlPanelEvent.Status | ControlPanelEvent.Activity | ControlPanelEvent.Players);
 
-    /// <summary>
-    /// Splits every connected user into the game mode they are in, spectating, or the
-    /// menu. Both dictionaries it walks are concurrent, so unlike the queues this needs
-    /// no guard.
-    /// </summary>
-    /// <remarks>
-    /// A game instance or custom-game lobby is the only thing that takes a player out of
-    /// the menu. Queueing does not: you queue from the menu and stay there until the
-    /// match starts, so a queued player is still counted in the menu — /api/queues is
-    /// what says how many of them are waiting for what.
-    /// </remarks>
     public PlayerActivity GetPlayerActivity()
     {
         var byMode = new Dictionary<string, (string? Name, int Players)>();
@@ -1199,7 +1183,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
                 if (!UserConnected(pId, out var pInfo) ||
                     !GetService<IServiceMatchmaker>(pInfo.Guid, ServiceId.ServiceMatchmaker, out var matchmaker))
                     continue;
-                
+
                 matchServices.Add(matchmaker);
             }
             _matchmaker.RemoveSquad(playerInfo.SquadId.Value, matchServices);
@@ -1219,7 +1203,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     {
         if (!UserConnected(playerId, out _) ||
             _playerDatabase.GetPlayerDataNoWait(playerId)?.Role is not (PlayerRole.Admin or PlayerRole.Core)) return;
-        
+
         _matchmaker.ForceStartGame(playerId);
     }
 
@@ -1228,7 +1212,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         squad = null;
         if (!UserConnected(playerId, out var playerInfo)) return false;
         var squadId = playerInfo.SquadId;
-        
+
         return squadId.HasValue && _squads.TryGetValue(squadId.Value, out squad);
     }
 
@@ -1292,7 +1276,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
 
     private void RemoveSquadFromQueue(ulong squadId)
     {
-        if(!_squads.TryGetValue(squadId, out var squad)) return;
+        if (!_squads.TryGetValue(squadId, out var squad)) return;
         var matchmakersServices = new List<IServiceMatchmaker>();
         foreach (var playerId in squad.GetPlayers())
         {
@@ -1302,7 +1286,7 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
                 matchmakersServices.Add(serviceMatchmaker);
             }
         }
-        
+
         _matchmaker.RemoveSquad(squadId, matchmakersServices);
     }
 
@@ -1481,11 +1465,11 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
     }
 
     public void CloseSquad(ulong squadId) => _squads.Remove(squadId, out _);
-    
+
     public ulong? GetSquadId(uint playerId) => UserConnected(playerId, out var playerInfo) ? playerInfo.SquadId : null;
 
     public bool IsSquadLeader(uint playerId) => GetSquad(playerId, out var squad) && squad.IsOwner(playerId);
-    
+
     public void SendAfkWarning(uint playerId, string gameInstanceId)
     {
         if (_gameInstances.TryGetValue(gameInstanceId, out var gameInstance))

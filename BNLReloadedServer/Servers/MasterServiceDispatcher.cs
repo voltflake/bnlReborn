@@ -4,6 +4,7 @@ using BNLReloadedServer.Service;
 using BNLReloadedServer.Logging;
 
 namespace BNLReloadedServer.Servers;
+
 public class MasterServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddress?> peerAddress) : IServiceDispatcher
 {
     private readonly ServiceLogin _serviceLogin = new(sender, sessionId, peerAddress);
@@ -13,7 +14,7 @@ public class MasterServiceDispatcher(ISender sender, Guid sessionId, Func<IPAddr
         Log.Warn(LogCat.Net, $"Master session received unsupported serviceId: {Log.EnumName(serviceEnum, raw)}");
         return false;
     }
-    
+
     public bool Dispatch(BinaryReader reader)
     {
         var serviceId = reader.ReadByte();

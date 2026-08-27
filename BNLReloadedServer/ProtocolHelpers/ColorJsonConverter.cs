@@ -8,13 +8,13 @@ public class ColorJsonConverter : JsonConverter<Color>
 {
     public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Null) 
+        if (reader.TokenType == JsonTokenType.Null)
             return default;
-        
+
         using var jsonDocument = JsonDocument.ParseValue(ref reader);
         var json = jsonDocument.RootElement;
         return Color.FromArgb(
-            json.GetProperty("a").Deserialize<byte>(), 
+            json.GetProperty("a").Deserialize<byte>(),
             json.GetProperty("r").Deserialize<byte>(),
             json.GetProperty("g").Deserialize<byte>(),
             json.GetProperty("b").Deserialize<byte>());

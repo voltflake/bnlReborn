@@ -24,7 +24,7 @@ public class BlockArrayMap3D : BlockMap3D
     protected override Block Get(int x, int y, int z) => storage[x][y][z];
 
     protected override void Set(int x, int y, int z, Block block) => storage[x][y][z] = block;
-    
+
     public override IEnumerator<Block> GetEnumerator()
     {
         for (var x = 0; x < SizeX; ++x)

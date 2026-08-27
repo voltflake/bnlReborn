@@ -101,13 +101,20 @@ public sealed class CompletedMatchRecord
     {
         var result = new CompletedMatchRecord
         {
-            MatchId = reader.ReadString(), MapKey = Key.ReadRecord(reader), GameModeKey = Key.ReadRecord(reader),
-            StartedAt = reader.ReadUInt64(), EndedAt = reader.ReadUInt64(), Winner = reader.ReadByteEnum<TeamType>()
+            MatchId = reader.ReadString(),
+            MapKey = Key.ReadRecord(reader),
+            GameModeKey = Key.ReadRecord(reader),
+            StartedAt = reader.ReadUInt64(),
+            EndedAt = reader.ReadUInt64(),
+            Winner = reader.ReadByteEnum<TeamType>()
         };
         result.Teams = reader.ReadList<CompletedMatchTeam, List<CompletedMatchTeam>>(() => new CompletedMatchTeam
         {
-            Team = reader.ReadByteEnum<TeamType>(), IsWinner = reader.ReadBoolean(),
-            CubesAtStart = reader.ReadInt32(), CubesRemaining = reader.ReadInt32(), BaseDestroyed = reader.ReadBoolean()
+            Team = reader.ReadByteEnum<TeamType>(),
+            IsWinner = reader.ReadBoolean(),
+            CubesAtStart = reader.ReadInt32(),
+            CubesRemaining = reader.ReadInt32(),
+            BaseDestroyed = reader.ReadBoolean()
         });
         result.Players = reader.ReadList<CompletedMatchPlayer, List<CompletedMatchPlayer>>(() =>
         {

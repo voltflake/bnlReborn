@@ -3,7 +3,7 @@
 public abstract record EffectSource
 {
     public ImpactData? Impact { get; protected init; }
-    
+
     public virtual TeamType Team { get; }
 }
 

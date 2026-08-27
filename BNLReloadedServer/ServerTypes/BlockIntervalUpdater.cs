@@ -12,7 +12,7 @@ public class BlockIntervalUpdater(BlockSpecialInsideEffect effect, BlockSource s
     public bool AddUnit(Unit unit)
     {
         if (_intervals.ContainsKey(unit)) return false;
-        
+
         _intervals.Add(unit, Effect.Interval.HasValue ? DateTimeOffset.Now : null);
         return true;
     }
@@ -23,7 +23,7 @@ public class BlockIntervalUpdater(BlockSpecialInsideEffect effect, BlockSource s
         {
             unit.RemoveEffects(effects.Select(eff => new ConstEffectInfo(eff, null)), source.Team, source);
         }
-        
+
         return _intervals.Remove(unit);
     }
 
@@ -39,7 +39,7 @@ public class BlockIntervalUpdater(BlockSpecialInsideEffect effect, BlockSource s
     {
         var result = _intervals.Where(i => i.Value.HasValue && i.Value < DateTimeOffset.Now).Select(i => i.Key)
             .ToArray();
-        
+
         foreach (var (unit, time) in _intervals)
         {
             if (Effect.Interval.HasValue && time is not null && time < DateTimeOffset.Now)
@@ -47,7 +47,7 @@ public class BlockIntervalUpdater(BlockSpecialInsideEffect effect, BlockSource s
                 _intervals[unit] = time.Value.AddSeconds(Effect.Interval.Value);
             }
         }
-        
+
         return result;
     }
 }

@@ -63,7 +63,7 @@ public partial class GameZone
                 }
             }
         }
-        
+
         if (unitInit.Transform is not null && _gameLoop != null)
         {
             RunBlockCheckForUnit(unit);
@@ -86,7 +86,7 @@ public partial class GameZone
     private void UnitMoved(Unit unit, ulong time, ZoneTransform transform, Vector3 oldPosition)
     {
         if ((unit.UnitCard?.AllowUnderwater is not false || !(oldPosition.Y >= _zoneData.PlanePosition &&
-                                                             transform.Position.Y < _zoneData.PlanePosition)) && 
+                                                             transform.Position.Y < _zoneData.PlanePosition)) &&
             (_zoneData.MapData.Properties?.KillPosition is null ||
              !(oldPosition.Y >= _zoneData.MapData.Properties.KillPosition &&
                transform.Position.Y < _zoneData.MapData.Properties.KillPosition)))
@@ -118,7 +118,7 @@ public partial class GameZone
         if (effectInfo.Card.Effect is not ConstEffectTeam constEffect) return;
         var effects = constEffect.ConstantEffects?.Select(e => new ConstEffectInfo(e)).ToList();
         if (effects is null or { Count: <= 0 }) return;
-        
+
         switch (constEffect.Targeting)
         {
             case { AffectedTeam: RelativeTeamType.Friendly }:
@@ -130,7 +130,7 @@ public partial class GameZone
                 {
                     _teamEffects[(int)element].Add(effectInfo);
                 }
-                teamUnits = _units.Values.Where(u => u.Team != unit.Team);    
+                teamUnits = _units.Values.Where(u => u.Team != unit.Team);
                 break;
             default:
                 foreach (var element in _teamEffects)
@@ -146,7 +146,7 @@ public partial class GameZone
         {
             teamUnits = teamUnits.Except([unit]);
         }
-        
+
         foreach (var element in teamUnits)
         {
             element.AddEffects(effects, unit.Team, unit.GetSelfSource());
@@ -159,7 +159,7 @@ public partial class GameZone
         if (effectInfo.Card.Effect is not ConstEffectTeam constEffect) return;
         var effects = constEffect.ConstantEffects?.Select(e => new ConstEffectInfo(e, null)).ToList();
         if (effects is null or { Count: <= 0 }) return;
-        
+
         switch (constEffect.Targeting)
         {
             case { AffectedTeam: RelativeTeamType.Friendly }:
@@ -171,7 +171,7 @@ public partial class GameZone
                 {
                     _teamEffects[(int)element].Remove(effectInfo);
                 }
-                teamUnits = _units.Values.Where(u => u.Team != unit.Team);    
+                teamUnits = _units.Values.Where(u => u.Team != unit.Team);
                 break;
             default:
                 foreach (var element in _teamEffects)
@@ -196,9 +196,9 @@ public partial class GameZone
 
     private const float ImpactImprecision = 0.05f;
     private const float ImpactImprecisionInv = 1 - ImpactImprecision;
-    
+
     private bool ApplyInstEffect(EffectSource source, IEnumerable<Unit> affectedUnits, InstEffect effect,
-        ImpactData impactData, BlockShift? shift = null, Direction2D? sourceDirection = null, ResourceType? resourceType = null, 
+        ImpactData impactData, BlockShift? shift = null, Direction2D? sourceDirection = null, ResourceType? resourceType = null,
         bool damageBlock = true)
     {
         var unitSource = source switch
@@ -207,7 +207,7 @@ public partial class GameZone
             UnitSource unitSrc => unitSrc.Unit,
             _ => null,
         };
-        
+
         var impactPoint = impactData.InsidePoint;
         if (impactData.Normal != Vector3s.Zero)
         {
@@ -219,36 +219,36 @@ public partial class GameZone
             InstEffectAllUnitsBunch allUnitsBunch => allUnitsBunch.Range is not null
                 ? _unitOctree.GetColliding(new BoundingSphere(impactPoint, allUnitsBunch.Range.Value))
                 : _units.Values.ToList(),
-            
+
             InstEffectChargeTesla => affectedUnits.Where(u => u is
             {
                 TeslaUnitData: not null, TeslaCharge: not TeslaChargeType.FullSelfCharge
             }),
-            
+
             InstEffectDamageBlocks { Damage.PlayerDamage: > 0 } instEffectDamageBlocks => _unitOctree.GetColliding(
                 new BoundingSphere(impactPoint, instEffectDamageBlocks.Range)),
-            
+
             InstEffectFireMortars instEffectFireMortars when (instEffectFireMortars.OwnedMortarsOnly
                     ? _units.Values.Where(u => u.UnitCard?.Data is UnitDataMortar && unitSource is not null &&
                                                u.OwnerPlayerId == unitSource.OwnerPlayerId)
                     : _units.Values.Where(u => u.UnitCard?.Data is UnitDataMortar && u.Team == source.Team))
-                is { } applicableMortars => 
+                is { } applicableMortars =>
                 instEffectFireMortars.MaxMortars is not null
                     ? applicableMortars.OrderBy(m => Vector3.DistanceSquared(m.Transform.Position, impactPoint))
                         .Take(instEffectFireMortars.MaxMortars.Value)
                     : applicableMortars,
-            
+
             InstEffectKnockback instEffectKnockback => _unitOctree
                 .GetColliding(new BoundingSphere(impactPoint, instEffectKnockback.EffectRange))
                 .Where(u => u.PlayerId != null && !u.IsBuff(BuffType.KnockbackIgnore) && !u.IsBuff(BuffType.Root)),
-            
+
             InstEffectResourceAll => _playerUnits.Values.ToList(),
-            
+
             InstEffectSplashDamage instEffectSplashDamage => _unitOctree.GetColliding(
                 new BoundingSphere(impactPoint, instEffectSplashDamage.Radius)),
-            
+
             InstEffectZoneEffect => _playerUnits.Values.ToList(),
-            
+
             _ => affectedUnits
         };
 
@@ -278,8 +278,8 @@ public partial class GameZone
         if (effect.Targeting?.AffectedUnits is { Count: > 0 } inclUnits)
         {
             actualUnits = actualUnits.Where(u => u.UnitCard?.Data?.Type is { } uType && inclUnits.Contains(uType));
-        } 
-        
+        }
+
         var actualUnitList = actualUnits.ToList();
 
         if (effect.Interrupt?.Recall is true)
@@ -312,14 +312,14 @@ public partial class GameZone
                         _serviceZone.SendDoCancelRecall(unit.Id);
                     }
                     break;
-                
+
                 case InstEffectCasterBunch when unitSource?.IsRecall is true:
                     unitSource.EndRecall();
                     _serviceZone.SendDoCancelRecall(unitSource.Id);
                     break;
             }
         }
-        
+
         var hasImpact = false;
         if (effect.Impact is { } imp && Databases.Catalogue.GetCard<CardImpact>(imp) is { } impact)
         {
@@ -343,12 +343,12 @@ public partial class GameZone
                 case InstEffectTeleport:
                 case InstEffectTeleportTo:
                 case InstEffectChargeTesla:
-                case InstEffectFireMortars:   
+                case InstEffectFireMortars:
                 case InstEffectZoneEffect:
                     impactData.HitUnits = actualUnitList.Select(u => u.Id).ToList();
                     ImpactOccur(impactData);
                     break;
-                
+
                 case InstEffectBlocksSpawn:
                 case InstEffectDamageBlocks:
                 case InstEffectHealBlocks:
@@ -357,12 +357,12 @@ public partial class GameZone
                     impactData.HitUnits = [];
                     ImpactOccur(impactData);
                     break;
-                
+
                 case InstEffectAllUnitsBunch:
-                case InstEffectBunch:    
+                case InstEffectBunch:
                     impactData.HitUnits = actualUnitList.Select(u => u.Id).ToList();
                     break;
-                
+
                 case InstEffectCasterBunch when unitSource is not null:
                     impactData.HitUnits = [unitSource.Id];
                     break;
@@ -374,11 +374,11 @@ public partial class GameZone
             case InstEffectAddAmmo instEffectAddAmmo:
                 actualUnitList.ForEach(u => u.AddAmmo(instEffectAddAmmo.Amount));
                 return true;
-            
+
             case InstEffectAddAmmoPercent instEffectAddAmmoPercent:
                 actualUnitList.ForEach(u => u.AddAmmoPercent(instEffectAddAmmoPercent.Fraction));
                 return true;
-            
+
             case InstEffectAddResource instEffectAddResource when unitSource is not null:
                 ResourceType resType;
                 if (resourceType.HasValue)
@@ -409,9 +409,9 @@ public partial class GameZone
                 {
                     unitSource.AddResource(amount, resType);
                 }
-                
+
                 return true;
-            
+
             case InstEffectAllPlayersPersistent instEffectAllPlayersPersistent:
                 var playerEnumer = instEffectAllPlayersPersistent switch
                 {
@@ -440,22 +440,22 @@ public partial class GameZone
                     players.ForEach(plyer => plyer.AddEffects(constEffects, source.Team, source));
                 }
                 return true;
-            
+
             case InstEffectAllUnitsBunch instEffectAllUnitsBunch:
                 if (instEffectAllUnitsBunch.Constant is { Count: > 0 } constant)
                 {
-                   var ownTeamConstant = ConstEffectsForOwnTeam(constant, effect);
-                   foreach (var unit in actualUnitList)
-                   {
-                       var applicable = unit.Team == source.Team ? ownTeamConstant : constant;
-                       if (applicable.Count == 0) continue;
-                       unit.AddEffects(applicable.Select(c => new ConstEffectInfo(c)), source.Team, source);
-                   }
+                    var ownTeamConstant = ConstEffectsForOwnTeam(constant, effect);
+                    foreach (var unit in actualUnitList)
+                    {
+                        var applicable = unit.Team == source.Team ? ownTeamConstant : constant;
+                        if (applicable.Count == 0) continue;
+                        unit.AddEffects(applicable.Select(c => new ConstEffectInfo(c)), source.Team, source);
+                    }
                 }
 
                 var successAll = true;
                 var beforeAll = impactData.Clone();
-                
+
                 if (instEffectAllUnitsBunch.Instant is { Count: > 0 } instant)
                 {
                     successAll = !instant.Any(ins =>
@@ -475,10 +475,10 @@ public partial class GameZone
                     _zoneData.BlocksData.AddBlocks(instEffectBlocksSpawn.Pattern, impactPoint, shift, unitSource);
                 if (addUpdates.Count > 0)
                 {
-                    DoBlockUpdate(addUpdates); 
+                    DoBlockUpdate(addUpdates);
                 }
                 return true;
-            
+
             case InstEffectBuildDevice instEffectBuildDevice when unitSource is not null:
                 var blockLoc = (Vector3s)(impactData.InsidePoint + shift switch
                 {
@@ -491,7 +491,7 @@ public partial class GameZone
                     _ => Vector3.Zero
                 });
                 if (!_zoneData.BlocksData.ContainsBlock(blockLoc)) return false;
-                
+
                 var devCard = Databases.Catalogue.GetCard<CardDevice>(instEffectBuildDevice.DeviceKey);
                 var itemCard = devCard?.DeviceKeyAtLevel((byte)instEffectBuildDevice.Level);
                 if (devCard is null || itemCard is null) return false;
@@ -512,7 +512,7 @@ public partial class GameZone
                         }
 
                         AddRequestedBuildPositionCorrection(updates, unitSource, blockLoc);
-                        
+
                         DoBlockUpdate(updates);
                         unitSource.RemoveResources(instEffectBuildDevice.TotalCost);
 
@@ -533,7 +533,7 @@ public partial class GameZone
                             _serviceZone.SendDeviceBuilt(unitSource.PlayerId.Value, devCard.Key, blockLoc.ToVector3() + new Vector3(0.5f));
                         }
                         return true;
-                    
+
                     case CardUnit unitCard:
                         if (unitSource.Resource < instEffectBuildDevice.TotalCost) return false;
                         if (unitCard.CountLimit is not null)
@@ -541,19 +541,19 @@ public partial class GameZone
                             var existingUnitCount = unitCard.CountLimit.Scope switch
                             {
                                 UnitLimitScope.World => _units.Values.Count(u => u.Key == unitCard.Key),
-                
+
                                 UnitLimitScope.Team => _units.Values.Count(u =>
                                     u.Key == unitCard.Key && u.Team == source.Team),
-                
+
                                 UnitLimitScope.Owner => _units.Values
                                     .Count(u => u.Key == unitCard.Key && u.OwnerPlayerId == unitSource.OwnerPlayerId),
-                
+
                                 _ => 0
                             };
 
                             if (existingUnitCount > unitCard.CountLimit.Limit) return false;
                         }
-                        
+
                         var placePos = blockLoc.ToVector3() + new Vector3(0.5f);
                         var placeDirection = devCard.InverseDirection ? (sourceDirection ?? Direction2D.Left).Inverse() : sourceDirection ?? Direction2D.Left;
                         var rotation = BuildHelper.GetBuildRotation(devCard, blockLoc, (Vector3s)impactData.InsidePoint,
@@ -561,37 +561,37 @@ public partial class GameZone
                         var transform = ZoneTransformHelper.ToZoneTransform(placePos, rotation);
                         transform.LocalVelocity = Vector3s.Zero;
                         var collision = false;
-                        
+
                         var checkPosition = BuildHelper.GetAttachmentType(blockLoc,
                                 (Vector3s)impactData.InsidePoint) switch
-                            {
-                                BuildHelper.BluidAttachmentType.Floor when devCard.AttachFloor =>
-                                    blockLoc with { y = (short)(blockLoc.y - 1) },
+                        {
+                            BuildHelper.BluidAttachmentType.Floor when devCard.AttachFloor =>
+                                blockLoc with { y = (short)(blockLoc.y - 1) },
 
-                                BuildHelper.BluidAttachmentType.Floor when devCard.AttachCeiling =>
-                                    blockLoc with { y = (short)(blockLoc.y + 1) },
+                            BuildHelper.BluidAttachmentType.Floor when devCard.AttachCeiling =>
+                                blockLoc with { y = (short)(blockLoc.y + 1) },
 
-                                BuildHelper.BluidAttachmentType.Floor =>
-                                    blockLoc with { y = (short)(blockLoc.y - 1) },
+                            BuildHelper.BluidAttachmentType.Floor =>
+                                blockLoc with { y = (short)(blockLoc.y - 1) },
 
-                                BuildHelper.BluidAttachmentType.Ceiling when devCard.AttachCeiling =>
-                                    blockLoc with { y = (short)(blockLoc.y + 1) },
+                            BuildHelper.BluidAttachmentType.Ceiling when devCard.AttachCeiling =>
+                                blockLoc with { y = (short)(blockLoc.y + 1) },
 
-                                BuildHelper.BluidAttachmentType.Ceiling =>
-                                    blockLoc with { y = (short)(blockLoc.y - 1) },
+                            BuildHelper.BluidAttachmentType.Ceiling =>
+                                blockLoc with { y = (short)(blockLoc.y - 1) },
 
-                                BuildHelper.BluidAttachmentType.Walls when devCard.AttachWalls =>
-                                    (Vector3s)impactData.InsidePoint,
+                            BuildHelper.BluidAttachmentType.Walls when devCard.AttachWalls =>
+                                (Vector3s)impactData.InsidePoint,
 
-                                BuildHelper.BluidAttachmentType.Walls when devCard.AttachFloor =>
-                                    blockLoc with { y = (short)(blockLoc.y - 1) },
+                            BuildHelper.BluidAttachmentType.Walls when devCard.AttachFloor =>
+                                blockLoc with { y = (short)(blockLoc.y - 1) },
 
-                                BuildHelper.BluidAttachmentType.Walls when devCard.AttachCeiling =>
-                                    blockLoc with { y = (short)(blockLoc.y + 1) },
+                            BuildHelper.BluidAttachmentType.Walls when devCard.AttachCeiling =>
+                                blockLoc with { y = (short)(blockLoc.y + 1) },
 
-                                _ => (Vector3s)impactData.InsidePoint
-                            };
-                        
+                            _ => (Vector3s)impactData.InsidePoint
+                        };
+
                         if (unitCard.Size is not null && unitCard.Size != Vector3s.Zero)
                         {
                             if (MapBinary.ContainsBlock(checkPosition) && MapBinary[checkPosition].Card.IsVisualSlope &&
@@ -600,9 +600,9 @@ public partial class GameZone
                                     new BoundingBoxEx(
                                         checkPosition.ToVector3() + unitCard.Size.Value.ToVector3() * 0.5f,
                                         unitCard.Size.Value.ToVector3() - UnitSizeHelper.ImprecisionVector))
-                                    .Where(u => u.PlayerId != null).Except([unitSource]).Any()) 
+                                    .Where(u => u.PlayerId != null).Except([unitSource]).Any())
                                 return false;
-                            
+
                             collision = UnitSizeHelper.IsInsideUnit(blockLoc, unitSource) || _unitOctree.GetColliding(
                                 new BoundingBoxEx(
                                 blockLoc.ToVector3() + unitCard.Size.Value.ToVector3() * 0.5f,
@@ -612,68 +612,68 @@ public partial class GameZone
                         var isAttached = !unitCard.GroundOnly ||
                                          BuildHelper.GetAttachmentType(blockLoc,
                                                  (Vector3s)impactData.InsidePoint) switch
-                                             {
-                                                 BuildHelper.BluidAttachmentType.Floor when devCard.AttachFloor =>
-                                                     blockLoc.y > 0 && _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y - 1)
-                                                         }, true).Contains(blockLoc),
+                                         {
+                                             BuildHelper.BluidAttachmentType.Floor when devCard.AttachFloor =>
+                                                 blockLoc.y > 0 && _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y - 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Floor when devCard.AttachCeiling =>
-                                                     blockLoc.y < _zoneData.BlocksData.SizeY &&
-                                                     _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y + 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Floor when devCard.AttachCeiling =>
+                                                 blockLoc.y < _zoneData.BlocksData.SizeY &&
+                                                 _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y + 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Floor =>
-                                                     blockLoc.y > 0 && _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y - 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Floor =>
+                                                 blockLoc.y > 0 && _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y - 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Ceiling when devCard.AttachCeiling =>
-                                                     blockLoc.y < _zoneData.BlocksData.SizeY &&
-                                                     _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y + 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Ceiling when devCard.AttachCeiling =>
+                                                 blockLoc.y < _zoneData.BlocksData.SizeY &&
+                                                 _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y + 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Ceiling =>
-                                                     blockLoc.y > 0 && _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y - 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Ceiling =>
+                                                 blockLoc.y > 0 && _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y - 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Walls when devCard.AttachWalls =>
-                                                     _zoneData.BlocksData.ContainsBlock(
-                                                         (Vector3s)impactData.InsidePoint) &&
-                                                     _zoneData
-                                                         .BlocksData.GetValidFaces((Vector3s)impactData.InsidePoint, true)
-                                                         .Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Walls when devCard.AttachWalls =>
+                                                 _zoneData.BlocksData.ContainsBlock(
+                                                     (Vector3s)impactData.InsidePoint) &&
+                                                 _zoneData
+                                                     .BlocksData.GetValidFaces((Vector3s)impactData.InsidePoint, true)
+                                                     .Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Walls when devCard.AttachFloor =>
-                                                     blockLoc.y > 0 && _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y - 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Walls when devCard.AttachFloor =>
+                                                 blockLoc.y > 0 && _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y - 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 BuildHelper.BluidAttachmentType.Walls when devCard.AttachCeiling =>
-                                                     blockLoc.y < _zoneData.BlocksData.SizeY &&
-                                                     _zoneData
-                                                         .BlocksData.GetValidFaces(blockLoc with
-                                                         {
-                                                             y = (short)(blockLoc.y + 1)
-                                                         }, true).Contains(blockLoc),
+                                             BuildHelper.BluidAttachmentType.Walls when devCard.AttachCeiling =>
+                                                 blockLoc.y < _zoneData.BlocksData.SizeY &&
+                                                 _zoneData
+                                                     .BlocksData.GetValidFaces(blockLoc with
+                                                     {
+                                                         y = (short)(blockLoc.y + 1)
+                                                     }, true).Contains(blockLoc),
 
-                                                 _ => true
-                                             };
+                                             _ => true
+                                         };
 
                         if (!_zoneData.BlocksData[blockLoc].IsReplaceable || !isAttached ||
                             (!unitCard.AllowUnderwater && blockLoc.y <= _zoneData.PlanePosition) || collision)
@@ -681,7 +681,7 @@ public partial class GameZone
                         var isAttachedToBlock = isAttached && unitCard.BlockBinding is UnitBlockBindingType.Destroy
                                                     or UnitBlockBindingType.Detach;
 
-                        
+
                         var newUnit = CreateUnit(unitCard, transform, unitSource, unitSource.ZoneService, isAttachedToBlock);
                         if (newUnit is null)
                         {
@@ -703,17 +703,17 @@ public partial class GameZone
                             {
                                 if (unitSource.Devices.Values.FirstOrDefault(d => d.DeviceKey == devCard.Key) is
                                     not { CostInc: > 0 } dData) return;
-                                
+
                                 dData.TotalCost -= costInc;
                                 dData.CostInc -= costInc;
-                                
+
                                 unitSource.UpdateData(new UnitUpdate
                                 {
                                     Devices = unitSource.Devices
                                 });
                             };
                         }
-                        
+
                         var blkUpdates = _zoneData.BlocksData.RemoveBlock(blockLoc);
                         var blkUpdates2 =
                             _zoneData.BlocksData.MakeSlopeSolid(blockLoc, checkPosition);
@@ -726,7 +726,7 @@ public partial class GameZone
                         {
                             DoBlockUpdate(blkUpdates);
                         }
-                        
+
                         if (isAttachedToBlock)
                         {
                             if (!MapBinary.AttachToBlock(newUnit, checkPosition,
@@ -741,12 +741,12 @@ public partial class GameZone
                             unitSource.BuiltBlock(unitCard.DeviceType, instEffectBuildDevice.TotalCost);
                             _serviceZone.SendDeviceBuilt(unitSource.PlayerId.Value, devCard.Key, placePos);
                         }
-                            
+
                         return true;
                     default:
                         return false;
                 }
-                
+
             case InstEffectBunch instEffectBunch:
                 if (instEffectBunch.Constant is { Count: > 0 } con)
                 {
@@ -758,10 +758,10 @@ public partial class GameZone
                         unit.AddEffects(applicable.Select(c => new ConstEffectInfo(c)), source.Team, source);
                     }
                 }
-                
+
                 var before = impactData.Clone();
                 var success = true;
-                
+
                 if (instEffectBunch.Instant is { Count: > 0 } inst)
                 {
                     success = !inst.Any(ins =>
@@ -775,30 +775,30 @@ public partial class GameZone
                 }
 
                 return success;
-            
+
             case InstEffectCasterBunch instEffectCasterBunch when unitSource is not null:
                 if (instEffectCasterBunch.Constant is { Count: > 0 } cons)
                 {
                     unitSource.AddEffects(cons.Select(c => new ConstEffectInfo(c)), source.Team, source);
                 }
-                
+
                 var beforeCast = impactData.Clone();
                 var successCast = true;
-                
+
                 if (instEffectCasterBunch.Instant is { Count: > 0 } insta)
                 {
                     successCast = !insta.Any(ins =>
                         !ApplyInstEffect(source, [unitSource], ins, impactData, shift, sourceDirection, resourceType) &&
                         instEffectCasterBunch.BreakOnEffectFail);
                 }
-                
+
                 if (successCast && hasImpact)
                 {
                     ImpactOccur(beforeCast);
                 }
 
                 return successCast;
-            
+
             case InstEffectChargeTesla instEffectChargeTesla:
                 foreach (var tesla in actualUnitList)
                 {
@@ -810,7 +810,7 @@ public partial class GameZone
                     }
                 }
                 return true;
-            
+
             case InstEffectDamage { Damage: not null } instEffectDamage:
                 var dData = ConvertToDamageData(instEffectDamage.Damage, impactPoint, impactData.ShotPos,
                     unitSource, false, impactData.Crit, instEffectDamage.CritModifier, instEffectDamage.Falloff);
@@ -819,7 +819,7 @@ public partial class GameZone
                 {
                     dData = dData with { SelfDamage = dData.EnemyDamage, FriendDamage = dData.EnemyDamage };
                 }
-                
+
                 foreach (var unit in actualUnitList)
                 {
                     unit.TakeDamage(dData, impactData, false, unitSource, source.Team);
@@ -830,9 +830,9 @@ public partial class GameZone
                 {
                     DoBlockUpdate(MapBinary.DamageBlock(impPoint, dData, unitSource));
                 }
-                
+
                 return true;
-            
+
             case InstEffectDamageBlocks { Damage: not null } instEffectDamageBlocks:
                 var bDData = ConvertToDamageData(instEffectDamageBlocks.Damage, impactPoint,
                     impactData.ShotPos, unitSource);
@@ -860,21 +860,21 @@ public partial class GameZone
                     DoBlockUpdate(blUpdates);
                 }
                 return true;
-            
+
             case InstEffectDrainAmmo instEffectDrainAmmo:
                 foreach (var unit in actualUnitList.Where(u => u.PlayerId != null))
                 {
                     unit.TakeAmmo(instEffectDrainAmmo.Amount, false);
                 }
                 return true;
-            
+
             case InstEffectDrainMagazineAmmo instEffectDrainMagazineAmmo:
                 foreach (var unit in actualUnitList.Where(u => u.PlayerId != null))
                 {
                     unit.TakeAmmo(instEffectDrainMagazineAmmo.Amount, true);
                 }
                 return true;
-            
+
             case InstEffectFireMortars instEffectFireMortars:
                 var rand = new Random();
                 foreach (var (mortar, index) in actualUnitList.Select((item, index) => (item, index)))
@@ -890,10 +890,10 @@ public partial class GameZone
                     var totalSpread = normalSpread + distSpread;
                     var r = totalSpread * MathF.Sqrt(rand.NextSingle());
                     var theta = rand.NextSingle() * 2 * MathF.PI;
-        
+
                     var newShotX = float.FusedMultiplyAdd(r, MathF.Cos(theta), impactPoint.X);
                     var newShotZ = float.FusedMultiplyAdd(r, MathF.Sin(theta), impactPoint.Z);
-                    
+
                     var newShotPos = impactPoint with { X = newShotX, Z = newShotZ };
 
                     var delay = rand.NextSingle() * instEffectFireMortars.FireDelayModifier +
@@ -915,7 +915,7 @@ public partial class GameZone
                     });
                 }
                 return true;
-            
+
             case InstEffectHeal instEffectHeal:
                 foreach (var unit in actualUnitList)
                 {
@@ -945,21 +945,21 @@ public partial class GameZone
                     }
                 }
                 return true;
-            
+
             case InstEffectHealBlocks instEffectHealBlocks:
                 var boUpdates = new Dictionary<Vector3s, BlockUpdate>();
                 foreach (var block in MapBinary.EnumerateBlocks(new BoundingSphere(impactPoint,
                              instEffectHealBlocks.Range), null))
                 {
-                    var playerSource = impactData.CasterPlayerId.HasValue 
+                    var playerSource = impactData.CasterPlayerId.HasValue
                         ? GetPlayerFromPlayerId(impactData.CasterPlayerId.Value)
                         : null;
-                    
+
                     foreach (var update in MapBinary.HealBlock(block, instEffectHealBlocks.HealAmount,
                                  out var healAmount))
                     {
                         boUpdates[update.Key] = update.Value;
-                        
+
                         if (healAmount > 0)
                         {
                             playerSource?.RepairedBlock(healAmount, source);
@@ -972,24 +972,24 @@ public partial class GameZone
                     DoBlockUpdate(boUpdates);
                 }
                 return true;
-            
+
             case InstEffectInstReload instEffectInstReload:
                 foreach (var unit in actualUnitList)
                 {
                     unit.ReloadAmmo(instEffectInstReload.AllWeapons, instEffectInstReload.ClipPart);
                 }
                 return true;
-            
+
             case InstEffectKill:
                 foreach (var unit in actualUnitList.Where(u => u is { IsHealth: true, IsDead: false }))
                 {
                     unit.Killed(impactData);
                 }
                 return true;
-            
+
             case InstEffectKnockback instEffectKnockback:
                 actualUnitList = actualUnitList.Where(u => u.PlayerId != null).ToList();
-                
+
                 if (!instEffectKnockback.AffectCaster && unitSource is not null)
                 {
                     actualUnitList.RemoveAll(u => u.PlayerId == unitSource.OwnerPlayerId);
@@ -1024,24 +1024,24 @@ public partial class GameZone
                         Force = force,
                         MidairForce = midairForce
                     };
-                    
+
                     _serviceZone.SendUnitManeuver(unit.Id, knockback);
                 }
                 return true;
-            
+
             case InstEffectPurge instEffectPurge:
                 actualUnitList.ForEach(u => u.PurgeEffects(instEffectPurge.Positive, instEffectPurge.Negative));
                 return true;
-            
+
             case InstEffectReplaceBlocks instEffectReplaceBlocks:
                 var repUpdates = _zoneData.BlocksData.ReplaceBlocks(instEffectReplaceBlocks.ReplaceWith,
                     instEffectReplaceBlocks.Range, impactPoint, unitSource);
                 if (repUpdates.Count > 0)
                 {
-                    DoBlockUpdate(repUpdates); 
+                    DoBlockUpdate(repUpdates);
                 }
                 return true;
-            
+
             case InstEffectResourceAll instEffectResourceAll:
                 ResourceType resAllType;
                 var srcCard = unitSource?.UnitCard;
@@ -1065,7 +1065,7 @@ public partial class GameZone
                 {
                     resAllType = ResourceType.General;
                 }
-                
+
                 if (instEffectResourceAll.IgnoreCasterPlayer && unitSource is not null)
                 {
                     actualUnitList.RemoveAll(u => u.PlayerId == unitSource.OwnerPlayerId);
@@ -1088,7 +1088,7 @@ public partial class GameZone
                     impactData.HitUnits = actualUnitList.Select(u => u.Id).ToList();
                     ImpactOccur(impactData);
                 }
-                
+
                 var amountAll = instEffectResourceAll.Resource;
                 if (MathF.Abs(amountAll) < 1 && unitSource is not null)
                 {
@@ -1098,15 +1098,15 @@ public partial class GameZone
                 if (amountAll < 0)
                 {
                     amountAll = MathF.Abs(amountAll);
-                    actualUnitList.ForEach(u => u.RemoveResources(amountAll));    
+                    actualUnitList.ForEach(u => u.RemoveResources(amountAll));
                 }
                 else
                 {
                     actualUnitList.ForEach(u => u.AddResource(amountAll, resAllType));
                 }
-                
+
                 return true;
-            
+
             case InstEffectSlip instEffectSlip:
                 actualUnitList = actualUnitList.Where(u => u.PlayerId != null).ToList();
                 var maneuver = new ManeuverSlip
@@ -1118,12 +1118,12 @@ public partial class GameZone
                 };
                 actualUnitList.ForEach(u => _serviceZone.SendUnitManeuver(u.Id, maneuver));
                 return true;
-            
+
             case InstEffectSplashDamage instEffectSplashDamage:
                 var dmgData = instEffectSplashDamage.Damage is not null
                     ? ConvertToDamageData(instEffectSplashDamage.Damage, impactPoint,
                     impactData.ShotPos, unitSource, true) : DamageData.ZeroDamage;
-                
+
                 Vector3[] locs = shift switch
                 {
                     BlockShift.Left when impactPoint.X - float.Truncate(impactPoint.X) < ImpactImprecision
@@ -1189,7 +1189,7 @@ public partial class GameZone
 
                 affUnits = affUnits.Where(u => u is { IsDead: false, IsActive: true }).ToList();
                 if (affUnits.Count <= 0) return true;
-            
+
                 if (instEffectSplashDamage.UnitInstEffects is { Count: > 0 })
                 {
                     instEffectSplashDamage.UnitInstEffects.ForEach(ef =>
@@ -1208,14 +1208,14 @@ public partial class GameZone
                     });
                 }
                 return true;
-            
+
             case InstEffectSupply instEffectSupply:
                 foreach (var unit in actualUnitList)
                 {
                     unit.AddSupplies(instEffectSupply.Amount);
                 }
                 return true;
-            
+
             case InstEffectTeleport instEffectTeleport:
                 var validAnchors = instEffectTeleport.OwnedAnchorOnly
                     ? _units.Values.Where(u => unitSource is not null &&
@@ -1224,7 +1224,7 @@ public partial class GameZone
                     : _units.Values.Where(u =>
                         u.Team == source.Team &&
                         u.UnitCard?.Labels?.Contains(instEffectTeleport.Anchor) is true);
-                
+
                 if (instEffectTeleport.RangeLimit is { } limit)
                 {
                     var limitSqrd = limit * limit;
@@ -1260,9 +1260,9 @@ public partial class GameZone
                 {
                     anchor.Killed(anchor.CreateBlankImpactData());
                 }
-                
+
                 return successfulTele;
-            
+
             case InstEffectTeleportTo when unitSource is not null:
                 var midpoint = unitSource.GetMidpoint();
                 var dist = Vector3.Distance(impactPoint, midpoint);
@@ -1277,7 +1277,7 @@ public partial class GameZone
                         telePos.Y = _zoneData.PlanePosition + UnitSizeHelper.ImprecisionVector.Y;
                         doYCheck = false;
                     }
-                    
+
                     if (CanFit(telePos))
                     {
                         var teleToManeuver = new ManeuverTeleport
@@ -1305,7 +1305,7 @@ public partial class GameZone
                     {
                         continue;
                     }
-                    
+
                     if (CanFit(newPos.Value))
                     {
                         var teleToManeuver = new ManeuverTeleport
@@ -1362,8 +1362,8 @@ public partial class GameZone
                     {
                         placePoint = placePoint with { Y = impactPoint.Y + 1.5f };
                     }
-                } 
-                
+                }
+
                 var trnsform = new ZoneTransform
                 {
                     Position = placePoint,
@@ -1372,7 +1372,7 @@ public partial class GameZone
                 };
                 CreateUnit(uCard, trnsform, unitSource, zoneService);
                 return true;
-            
+
             case InstEffectZoneEffect instEffectZoneEffect:
                 if (instEffectZoneEffect.Effects is not { Count: > 0 } eff) return true;
                 var persistantSource = unitSource is not null ? new PersistOnDeathSource(unitSource, impactData) : source;
@@ -1385,14 +1385,14 @@ public partial class GameZone
                         source.Team, persistantSource);
                 }
                 return true;
-            
+
             default:
                 return true;
         }
-        
+
         bool CanFit(Vector3 pos) => MapBinary.GetCanFit(unitSource, pos) && CollidingWithUnit(unitSource, pos).All(u =>
             (u.UnitCard?.Size ?? Vector3s.Zero) == Vector3s.Zero);
-                
+
         bool CanFitPoint(Vector3 pos) => (!MapBinary.ContainsBlock((Vector3s)pos) ||
                                           MapBinary[(Vector3s)pos].Card.Passable == BlockPassableType.Any) &&
                                          _unitOctree.GetColliding(new BoundingBoxEx(pos, new Vector3(0.01f)))
@@ -1434,13 +1434,13 @@ public partial class GameZone
                     },
                 _ => pos
             };
-        
+
         Vector3? GetAdjustedPos(Vector3 pos)
         {
             var uSize = unitSource.UnitCard?.Size ?? Vector3s.Zero;
             var vecX = unitSource.PlayerId != null ? 0.25f : uSize.x * 0.5f;
-            var vecY = unitSource.PlayerId != null 
-                ? unitSource.Transform.IsCrouch ? 0.45f : 0.95f 
+            var vecY = unitSource.PlayerId != null
+                ? unitSource.Transform.IsCrouch ? 0.45f : 0.95f
                 : uSize.y * 0.5f;
             var vecZ = unitSource.PlayerId != null ? vecX : uSize.z * 0.5f;
 
@@ -1449,7 +1449,7 @@ public partial class GameZone
             {
                 X = pos.X + vecX - UnitSizeHelper.HalfImprecisionVector.X
             });
-            
+
             var fitXNeg = CanFitPoint(pos with
             {
                 X = pos.X - vecX + UnitSizeHelper.HalfImprecisionVector.X
@@ -1467,17 +1467,17 @@ public partial class GameZone
             {
                 pos.X = float.Ceiling(pos.X - vecX) + vecX;
             }
-            
+
             var fitYPos = CanFitPoint(pos with
             {
                 Y = pos.Y + vecY - UnitSizeHelper.HalfImprecisionVector.Y
             });
-            
+
             var fitYNeg = CanFitPoint(pos with
             {
                 Y = pos.Y - vecY + UnitSizeHelper.HalfImprecisionVector.Y
             });
-            
+
             if (!fitYPos && !fitYNeg)
             {
                 return null;
@@ -1490,17 +1490,17 @@ public partial class GameZone
             {
                 pos.Y = float.Ceiling(pos.Y - vecY) + vecY;
             }
-            
+
             var fitZPos = CanFitPoint(pos with
             {
                 Z = pos.Z + vecZ - UnitSizeHelper.HalfImprecisionVector.Z
             });
-            
+
             var fitZNeg = CanFitPoint(pos with
             {
                 Z = pos.Z - vecZ + UnitSizeHelper.HalfImprecisionVector.Z
             });
-            
+
             if (!fitZPos && !fitZNeg)
             {
                 return null;
@@ -1518,12 +1518,12 @@ public partial class GameZone
         }
     }
 
-    private HashSet<ConstEffectInfo> GetTeamEffects(TeamType team) => _teamEffects[(int) team];
+    private HashSet<ConstEffectInfo> GetTeamEffects(TeamType team) => _teamEffects[(int)team];
 
     private bool DoesObjBuffApply(TeamType team, IEnumerable<UnitLabel> labels) =>
         _zoneData.MatchCard.Data?.Type == MatchType.TimeTrial || !labels.Contains(
             _objectiveConquest[(int)team].Count > 0 ? _objectiveConquest[(int)team].Peek() : UnitLabel.Objective);
-    
+
     private void ImpactOccur(ImpactData impactData)
     {
         _serviceZone.SendImpact(impactData);
@@ -1550,7 +1550,7 @@ public partial class GameZone
             return card?.Labels is not { } labels || !labels.Intersect(HostileEffectLabels).Any();
         }).ToList();
     }
-    
+
     private void ImpactOccur(Vector3 insidePoint, Vector3 shotPos, bool crit = false, Unit? sourceUnit = null,
         Key? source = null, CardImpact? card = null, IEnumerable<uint>? affectedUnits = null, Vector3s? normal = null)
     {
@@ -1585,7 +1585,7 @@ public partial class GameZone
         {
             _zoneData.PlayerStats[player.PlayerId.Value].Assists += assists.Value;
         }
-        
+
         ZoneUpdated(new ZoneUpdate
         {
             Statistics = new MatchStats
@@ -1602,7 +1602,7 @@ public partial class GameZone
         var attackerPlayer = impact.CasterPlayerId is null
             ? null
             : _playerUnits.GetValueOrDefault(_playerIdToUnitId.GetValueOrDefault(impact.CasterPlayerId.Value));
-        
+
         if (target.ProjectileUnitData is null)
         {
             _serviceZone.SendDamage(new DamageInfo
@@ -1616,11 +1616,11 @@ public partial class GameZone
                 Crit = impact.Crit
             });
         }
-        
+
         var attacker = impact.CasterUnitId is null ? null : _units.GetValueOrDefault(impact.CasterUnitId.Value);
-        
+
         var targetTeam = target.Team;
-        
+
         target.DamageStatsUpdate(targetTeam, damage, impact.Crit, impact.SourceKey == CatalogueHelper.FallImpact, attacker, attackerPlayer);
 
         if (target.UnitCard?.IsBase is true && target.HealthPercentage <= _zoneData.GameModeCard.Backfilling?.ObjectivesHealthThreshold)
@@ -1635,10 +1635,10 @@ public partial class GameZone
             ? target.RecentDamagers.Where(a => a.Value > DateTimeOffset.Now && a.Key.Team != target.Team)
                 .Select(k => k.Key.PlayerId)
             .Where(a => a is not null && a != impact.CasterPlayerId).OfType<uint>().ToList() : [];
-        
+
         var targetUnitCard = target.UnitCard;
         var isObjective = targetUnitCard?.IsObjective is true;
-        
+
         if (target.PlayerId != null || (isObjective && impact.CasterPlayerId.HasValue))
         {
             _serviceZone.SendKill(new KillInfo
@@ -1651,14 +1651,14 @@ public partial class GameZone
                 Crit = impact.Crit
             });
         }
-        
+
         _unitsToDrop.Add(target);
-        
+
         var killer = impact.CasterUnitId is null ? null : _units.GetValueOrDefault(impact.CasterUnitId.Value);
         var killerPlayer = impact.CasterPlayerId is null
             ? null
             : _playerUnits.GetValueOrDefault(_playerIdToUnitId.GetValueOrDefault(impact.CasterPlayerId.Value));
-        
+
         var targetTeam = target.Team;
 
         if (target.IsRecall)
@@ -1675,7 +1675,7 @@ public partial class GameZone
                 units.RemoveUnit(target);
             }
         }
-        
+
         if (target.AttachedTo is not null)
         {
             MapBinary.DetachFromBlock(target, target.AttachedTo.Value);
@@ -1693,29 +1693,29 @@ public partial class GameZone
             var assisters = assists
                 .Where(i => _playerIdToUnitId.ContainsKey(i) && _playerUnits.ContainsKey(_playerIdToUnitId[i]))
                 .Select(i => _playerUnits[_playerIdToUnitId[i]]);
-            
+
             target.KillStatsUpdate(targetTeam, impact.Crit, killer, killerPlayer, assisters);
             if (target is { PlayerId: not null })
             {
                 UpdateRespawnTime(target);
             }
         }
-        
+
         killer ??= killerPlayer;
         var killerTeam = killer?.Team;
-        
+
         switch (targetUnitCard?.Data)
         {
             case UnitDataBomb { TriggerEffect: not null } unitDataBomb when target.IsFuseExpired:
                 var tImpact1 = target.CreateImpactData();
                 ApplyInstEffect(target.GetSelfSource(tImpact1), [], unitDataBomb.TriggerEffect, tImpact1, BlockShift.Top);
                 break;
-            
+
             case UnitDataDrill { DeathEffect: not null } unitDataDrill:
                 var tImpact2 = target.CreateImpactData();
                 ApplyInstEffect(target.GetSelfSource(tImpact2), [], unitDataDrill.DeathEffect, tImpact2);
                 break;
-            
+
             case UnitDataLandmine { TriggerEffect: not null, HitOnTimeout: true } unitDataLandmine:
                 var tImpact3 = target.CreateImpactData();
                 ApplyInstEffect(target.GetSelfSource(tImpact3),
@@ -1723,31 +1723,31 @@ public partial class GameZone
                         unitDataLandmine.TriggerRadius)), unitDataLandmine.TriggerEffect,
                     tImpact3);
                 break;
-            
+
             case UnitDataLandmine { TriggerEffect: not null } unitDataLandmine when !target.IsExpired:
                 var tImpact4 = target.CreateImpactData();
                 ApplyInstEffect(target.GetSelfSource(tImpact4), _unitOctree.GetColliding(new BoundingSphere(target.GetMidpoint(),
                     unitDataLandmine.TriggerRadius)), unitDataLandmine.TriggerEffect, tImpact4);
                 break;
-            
+
             case UnitDataPickup { TakeEffect: not null } unitDataPickup when killer is not null:
                 target.Team = killer.Team;
                 var tImpact5 = target.CreateImpactData();
                 killerPlayer?.StatsFromPickup(target);
                 ApplyInstEffect(target.GetSelfSource(tImpact5), [killer], unitDataPickup.TakeEffect, tImpact5);
                 break;
-            
+
             case UnitDataPiggyBank unitDataPiggyBank when killerPlayer is not null:
                 var resourceCount = (float)(target.TimeSinceCreated.TotalSeconds *
                                             unitDataPiggyBank.ResourcePerInterval /
                                             (unitDataPiggyBank.GenerationInterval * 5));
-            
-                foreach(var player in _playerUnits.Values.Where(p => p.Team == killerPlayer.Team && !p.IsDead))
+
+                foreach (var player in _playerUnits.Values.Where(p => p.Team == killerPlayer.Team && !p.IsDead))
                 {
                     player.AddResource(resourceCount, ResourceType.General);
                 }
                 break;
-            
+
             case UnitDataPlayer when killerPlayer is not null && killerPlayer.Team != target.Team:
                 var selfImpact = killerPlayer.CreateImpactData();
                 foreach (var effect in killerPlayer.ActiveEffects.GetEffectsOfType<ConstEffectOnKill>().Select(kil => kil.Effect).OfType<InstEffect>())
@@ -1755,7 +1755,7 @@ public partial class GameZone
                     ApplyInstEffect(killerPlayer.GetSelfSource(selfImpact), [killerPlayer], effect, selfImpact);
                 }
                 break;
-            
+
             case UnitDataPortal when target.PortalLinked.LinkedPortalUnitId is not null:
                 var otherPortal = _units.GetValueOrDefault(target.PortalLinked.LinkedPortalUnitId.Value);
                 otherPortal?.UpdateData(new UnitUpdate
@@ -1766,18 +1766,18 @@ public partial class GameZone
                     }
                 });
                 break;
-            
+
             case UnitDataProjectile { DeathEffect: not null } unitDataProjectile:
                 var tImpact6 = target.CreateImpactData();
                 ApplyInstEffect(target.GetSelfSource(tImpact6), [], unitDataProjectile.DeathEffect, tImpact6);
                 break;
         }
-        
-        if (targetUnitCard?.Health?.KillReward is {} reward && killerPlayer is not null && (!reward.Mining || mining))
+
+        if (targetUnitCard?.Health?.KillReward is { } reward && killerPlayer is not null && (!reward.Mining || mining))
         {
             if (reward.TeamReward is not null && (target.PlayerId == null || killerPlayer.Team != targetTeam))
             {
-                foreach(var player in _playerUnits.Values.Where(p => p.Team == killerPlayer.Team && p != killerPlayer))
+                foreach (var player in _playerUnits.Values.Where(p => p.Team == killerPlayer.Team && p != killerPlayer))
                 {
                     player.AddResource(reward.TeamReward.Value,
                         target.PlayerId != null ? ResourceType.TeamKill :
@@ -1802,7 +1802,7 @@ public partial class GameZone
                     target.PlayerId != null ? ResourceType.Kill :
                     isObjective ? ResourceType.Objective :
                     mining ? ResourceType.Mining : ResourceType.General);
-                
+
                 if (targetUnitCard.Health.Health?.HealthType is HealthType.World)
                 {
                     killerPlayer.DestroyedBlock(targetUnitCard.DeviceType, reward.PlayerReward.Value);
@@ -1824,7 +1824,7 @@ public partial class GameZone
                         obj.ActiveEffects = obj.ActiveEffects.RemoveAll(e => CatalogueHelper.ObjectiveShieldKeys.Contains(e.Key));
                     }
                 }
-            
+
                 foreach (var mapSpawnPoint in
                          _mapSpawnPoints.Where(s => s.Value.Label is SpawnPointLabel.Objective1))
                 {
@@ -1833,17 +1833,17 @@ public partial class GameZone
             }
 
             if (_endMatchTask is null && CheckIfMatchOver(targetTeam, killerPlayer))
-            { 
+            {
                 _endMatchTask = _zoneData.MatchCard.Data?.Type switch
                 {
                     MatchType.ShieldRush2 or
                         MatchType.ShieldCapture => BeginEndOfGame(targetTeam switch
-                                                   {
-                                                       TeamType.Neutral => TeamType.Team1,
-                                                       TeamType.Team1 => TeamType.Team2,
-                                                       TeamType.Team2 => TeamType.Team1,
-                                                       _ => TeamType.Neutral
-                                                   }, MatchEndReason.ObjectivesDestroyed),
+                        {
+                            TeamType.Neutral => TeamType.Team1,
+                            TeamType.Team1 => TeamType.Team2,
+                            TeamType.Team2 => TeamType.Team1,
+                            _ => TeamType.Neutral
+                        }, MatchEndReason.ObjectivesDestroyed),
                     MatchType.Tutorial or
                         MatchType.TimeTrial => BeginEndOfGame(killerPlayer?.Team ?? TeamType.Neutral,
                             MatchEndReason.ObjectivesCompleted, false),
@@ -1861,14 +1861,14 @@ public partial class GameZone
                     MatchEndReason.ObjectivesCompleted, false);
             }
         }
-        
+
         if (targetUnitCard?.Loot is not { LootItem: not null } loot) return;
         if (killer is null)
         {
-            if (!loot.SpawnOnUndefinedKill) 
+            if (!loot.SpawnOnUndefinedKill)
                 return;
         }
-        else if ((killerTeam == targetTeam && !loot.SpawnOnFriendlyKill) || (killerTeam != targetTeam && !loot.SpawnOnEnemyKill)) 
+        else if ((killerTeam == targetTeam && !loot.SpawnOnFriendlyKill) || (killerTeam != targetTeam && !loot.SpawnOnEnemyKill))
             return;
 
         var lootPos = ZoneTransformHelper.ToZoneTransform(target.Transform.Position, Quaternion.Identity);
@@ -1881,17 +1881,17 @@ public partial class GameZone
                     : lootItemCommon.OpponentItem ?? lootItemCommon.Item;
 
                 if (lootItem is null) return;
-                
+
                 CreateLootUnit(lootItem, lootPos, killer);
                 break;
-            
+
             case LootItemCondition lootItemCondition:
                 var lootItems = killerTeam == targetTeam
                     ? lootItemCondition.ItemsByCondition
                     : lootItemCondition.OpponentItemsByCondition ?? lootItemCondition.ItemsByCondition;
 
                 if (lootItems is null) return;
-                
+
                 if (killer is null)
                 {
                     if (lootItems.TryGetValue(LootConditionType.Always, out var alwaysItem))
@@ -1925,14 +1925,14 @@ public partial class GameZone
                     }
                 }
                 break;
-            
+
             case LootItemRandom lootItemRandom:
                 var lootItemsRand = killerTeam == targetTeam
                     ? lootItemRandom.ItemsByWeight
                     : lootItemRandom.OpponentItemsByWeight ?? lootItemRandom.ItemsByWeight;
-                
+
                 if (lootItemsRand is null) return;
-                
+
                 var randSelector = new Random();
                 var randVal = randSelector.NextSingle();
                 var accumulatedWeight = 0.0f;
@@ -1947,7 +1947,7 @@ public partial class GameZone
                     }
                 }
                 break;
-            
+
             default:
                 return;
         }
@@ -1960,7 +1960,7 @@ public partial class GameZone
             RemoveUnit(unit.Id,
                 $"unit-dropped: dead={unit.IsDead}, expired={unit.IsExpired}, active={unit.IsActive}");
         }
-        
+
         _unbufferedZone.SendUnitDrop(unit.Id);
         unit.IsDropped = true;
     }
@@ -1985,7 +1985,7 @@ public partial class GameZone
             _playerUnits.Add(newId, unit);
         }
         _units.Add(newId, unit);
-        
+
         return newId;
     }
 
@@ -2033,7 +2033,7 @@ public partial class GameZone
                 u.UnitCard?.Data is UnitDataPortal && u.Key == unit.Key && u.Id != unit.Id &&
                 u.PortalLinked.LinkedPortalUnitId is null && u.OwnerPlayerId == unit.OwnerPlayerId &&
                 !u.IsBuff(BuffType.Disabled));
-        
+
             if (portalCandidate is null)
             {
                 var sameKeyPortals = _units.Values
@@ -2048,7 +2048,7 @@ public partial class GameZone
                     $"sameKey=[{string.Join(";", sameKeyPortals)}]");
                 return;
             }
-        
+
             unit.UpdateData(new UnitUpdate
             {
                 PortalLink = new PortalLink
@@ -2074,7 +2074,7 @@ public partial class GameZone
     private void OnDisarmed(Unit unit)
     {
         if (unit is not { CurrentBuildInfo: not null, PlayerId: not null }) return;
-        
+
         ReceivedCancelBuildRequest(unit.PlayerId.Value);
     }
 
@@ -2088,12 +2088,12 @@ public partial class GameZone
     {
         var r = shower.Radius * MathF.Sqrt(rand.NextSingle());
         var theta = rand.NextSingle() * 2 * MathF.PI;
-        
+
         var xVal = (int)float.FusedMultiplyAdd(r, MathF.Cos(theta), unit.Transform.Position.X);
         var zVal = (int)float.FusedMultiplyAdd(r, MathF.Sin(theta), unit.Transform.Position.Z);
-        
+
         if (xVal == (int)unit.Transform.Position.X && zVal == (int)unit.Transform.Position.Z) return;
-        
+
         var blockPos = MapBinary.GetGroundBlockFromSky(xVal, zVal);
         if (blockPos is null || shower.HitEffect is null) return;
 
@@ -2101,11 +2101,11 @@ public partial class GameZone
         var placeImpact = unit.CreateImpactData(insidePoint: blockBottom with { Y = blockBottom.Y + 0.99f });
         ApplyInstEffect(unit.GetSelfSource(placeImpact), [], shower.HitEffect, placeImpact, BlockShift.Top);
     }
-    
+
     private void UpdateSpawnPoint(Unit unit)
     {
         if (unit.SpawnId is null) return;
-        
+
         _zoneData.UpdateSpawn(unit.SpawnId.Value, CheckSpawn(unit, unit.Transform.Position), unit.OwnerPlayerId, true,
             unit.Transform.Position, unit.Team);
     }
@@ -2141,10 +2141,10 @@ public partial class GameZone
         {
             return null;
         }
-        
+
         return player;
     }
-    
+
     private OnUnitInit GetUnitInitAction(IServiceZone? creatorService = null) =>
         (unit, init) => UnitCreated(unit, init, creatorService);
 
@@ -2156,14 +2156,14 @@ public partial class GameZone
         var affectedPlayers = matchCard.FallingBlocksLogic?.ApplyRewardToWholeTeam ?? true
             ? _playerUnits.Values.Where(p => p.Team == attacker.Team).ToList()
             : [attacker];
-        
+
         totalRes *= MathF.Pow(matchCard.FallingBlocksLogic?.ResourceCoeff ?? 1.0f, 2);
 
         if (matchCard.FallingBlocksLogic?.ResourceCap is { } cap)
         {
             totalRes = MathF.Min(totalRes, cap);
         }
-        
+
         affectedPlayers.ForEach(p => p.AddResource(totalRes, ResourceType.Mining));
     }
 
@@ -2185,13 +2185,13 @@ public partial class GameZone
             MovementActive(unit);
         }
     }
-    
+
     private (List<uint>? teslas, uint? target, uint tesla) PropagateTesla(Unit tesla, List<Unit> propPath, HashSet<Unit> checkedTeslas)
     {
-        if (tesla.TeslaUnitData is not {} data) return (null, null, tesla.Id);
+        if (tesla.TeslaUnitData is not { } data) return (null, null, tesla.Id);
         var unitsNearby = _unitOctree.GetColliding(new BoundingSphere(tesla.GetMidpoint(), data.AttackRange));
-        var nearbyEnemies = MapBinary.CheckVisibility(tesla.GetMidpoint(), 
-                unitsNearby.Where(u => data.AttackTargeting is null || u.DoesEffectApply(data.AttackTargeting, tesla.Team)), 
+        var nearbyEnemies = MapBinary.CheckVisibility(tesla.GetMidpoint(),
+                unitsNearby.Where(u => data.AttackTargeting is null || u.DoesEffectApply(data.AttackTargeting, tesla.Team)),
                 unitsNearby.Where(u => u != tesla && !checkedTeslas.Contains(u) && u.PlayerId is null).ToList())
             .Select(u => u?.Id);
 
@@ -2204,14 +2204,14 @@ public partial class GameZone
         var propNearby = _unitOctree.GetColliding(new BoundingSphere(tesla.GetMidpoint(), data.PropagationRange))
             .Where(u => u != tesla && !checkedTeslas.Contains(u) && u.PlayerId is null).ToList();
 
-        var nearbyTeslas = MapBinary.CheckVisibility(tesla.GetMidpoint(), 
-                propNearby.Where(u => u.TeslaUnitData is not null && u.OwnerPlayerId == tesla.OwnerPlayerId), 
+        var nearbyTeslas = MapBinary.CheckVisibility(tesla.GetMidpoint(),
+                propNearby.Where(u => u.TeslaUnitData is not null && u.OwnerPlayerId == tesla.OwnerPlayerId),
                 propNearby);
-        
+
         var newProp = propPath.ToList();
         newProp.Add(tesla);
         checkedTeslas.Add(tesla);
-        
+
         var solutions = nearbyTeslas.Select(t => PropagateTesla(t, newProp, checkedTeslas)).ToList();
         return solutions.Any(t => t.teslas is not null) ? solutions.MinBy(t => t.teslas?.Count) : (null, null, tesla.Id);
     }
@@ -2253,7 +2253,7 @@ public partial class GameZone
 
         updates[position] = MapBinary[position].ToUpdate();
     }
-    
+
     private void ZoneUpdated(ZoneUpdate update)
     {
         if (_sessionsSender.SenderCount == 0) return;

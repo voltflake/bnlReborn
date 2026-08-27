@@ -32,7 +32,7 @@ public partial class GameZone
             nullable = player.AbilityCharges;
         return nullable;
     }
-    
+
     public static bool Match(EffectTargeting t, Unit caster, Unit target) =>
         ValidateAffectedTeam(t, caster, target) && ValidateOwnedOnly(t, caster, target) &&
         ValidateAffectedUnits(t, target) && ValidateAffectedLabels(t, target) &&

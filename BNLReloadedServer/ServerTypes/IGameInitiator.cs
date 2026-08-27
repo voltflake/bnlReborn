@@ -6,7 +6,7 @@ namespace BNLReloadedServer.ServerTypes;
 public interface IGameInitiator
 {
     public string? GameInstanceId { get; }
-    
+
     public void StartIntoMatch();
     public void ClearInstance(string? instanceId);
     public TeamType GetTeamForPlayer(uint playerId);

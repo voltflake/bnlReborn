@@ -10,7 +10,7 @@ public class SessionSender : ISender
 
     // For senders that apply to only one session, this will house the playerId
     public uint? AssociatedPlayerId { get; set; }
-    
+
     public int SenderCount => _sessions.Count;
 
     private readonly IDictionary<Guid, AsyncSenderTask> _sessions;
@@ -49,7 +49,7 @@ public class SessionSender : ISender
         foreach (var session in _sessions.Values.Where(e => !excluded.Contains(e.Id)))
             session.SendPacket(message);
     }
-    
+
     public void Subscribe(Guid sessionId)
     {
         var session = _server.FindAsyncSenderTask(sessionId);

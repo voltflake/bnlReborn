@@ -104,7 +104,7 @@ public abstract class Updater
             _currentAction = null;
         }
     }
-    
+
     private static string DescribeAction(Action action)
     {
         return DescribeMethod(action.Method);

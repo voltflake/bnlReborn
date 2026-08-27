@@ -11,7 +11,7 @@ public static class BuildHelper
         Ceiling,
         Walls,
     }
-    
+
     public static BluidAttachmentType GetAttachmentType(
         Vector3s inBlockPos,
         Vector3s onBlockPos)
@@ -26,25 +26,25 @@ public static class BuildHelper
         GetAttachmentType(blockPos, blockPosOn) switch
         {
             BluidAttachmentType.Floor when deviceCard.AttachFloor => Direction2dHelper.Rotation(direction),
-            
+
             BluidAttachmentType.Floor when deviceCard.AttachCeiling => Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI),
-            
+
             BluidAttachmentType.Floor => Direction2dHelper.Rotation(direction),
-            
+
             BluidAttachmentType.Ceiling when deviceCard.AttachCeiling => Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI),
-            
+
             BluidAttachmentType.Ceiling => Direction2dHelper.Rotation(direction),
-            
+
             BluidAttachmentType.Walls when deviceCard.AttachWalls => Direction2dHelper.RotationForWall(
                                                                          Direction2dHelper.FromVector3s(blockPosOn -
-                                                                             blockPos) ?? direction) * 
+                                                                             blockPos) ?? direction) *
                                                                      PrefabBuilder.FaceToRotation(
                                                                          CoordsHelper.VectorToFace(blockPosOn - blockPos)),
-            
+
             BluidAttachmentType.Walls when deviceCard.AttachFloor => Direction2dHelper.Rotation(direction),
-            
+
             BluidAttachmentType.Walls when deviceCard.AttachCeiling => Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI),
-            
+
             _ => Quaternion.Identity
         };
 }

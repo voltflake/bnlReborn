@@ -13,7 +13,7 @@ public class ServiceCatalogue(ISender sender) : IServiceCatalogue
         MessageUpdateCard = 1,
         MessageRemoveCard = 2
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -21,7 +21,7 @@ public class ServiceCatalogue(ISender sender) : IServiceCatalogue
         writer.Write((byte)ServiceId.ServiceCatalogue);
         return writer;
     }
-    
+
     public void SendReplicate(ICollection<Card> cards)
     {
         using var writer = CreateWriter();
@@ -45,7 +45,7 @@ public class ServiceCatalogue(ISender sender) : IServiceCatalogue
         writer.Write(cardId);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceCatalogueId = reader.ReadByte();

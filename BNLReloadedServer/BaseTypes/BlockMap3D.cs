@@ -56,7 +56,7 @@ public abstract class BlockMap3D(int sizeX, int sizeY, int sizeZ) : IEnumerable<
     {
         return 0 <= pos.x && pos.x < SizeX && 0 <= pos.y && pos.y < SizeY && 0 <= pos.z && pos.z < SizeZ;
     }
-    
+
     public delegate void DelegateChange(ref Block value, ref Vector3s pos);
 
     public abstract IEnumerator<Block> GetEnumerator();

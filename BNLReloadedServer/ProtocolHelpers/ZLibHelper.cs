@@ -19,7 +19,7 @@ public static class ZLibHelper
         public MemoryStream Zip(int level)
         {
             var compressedStream = new MemoryStream();
-            var compressor = new ZLibStream(compressedStream, (CompressionLevel) level, true);
+            var compressor = new ZLibStream(compressedStream, (CompressionLevel)level, true);
             compressor.Write(buffer, 0, buffer.Length);
             compressor.Close();
             compressedStream.Seek(0L, SeekOrigin.Begin);

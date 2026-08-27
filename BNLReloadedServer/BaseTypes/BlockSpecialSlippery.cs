@@ -14,34 +14,34 @@ public class BlockSpecialSlippery : BlockSpecial
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true).Write(writer); 
-      writer.Write(AccelerationMod);
-      writer.Write(FrictionMod);
-      writer.WriteByteEnum(AffectTeam);
+        new BitField(true, true, true).Write(writer);
+        writer.Write(AccelerationMod);
+        writer.Write(FrictionMod);
+        writer.WriteByteEnum(AffectTeam);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(3);
-      bitField.Read(reader);
-      if (bitField[0])
-        AccelerationMod = reader.ReadSingle();
-      if (bitField[1])
-        FrictionMod = reader.ReadSingle();
-      if (!bitField[2])
-        return;
-      AffectTeam = reader.ReadByteEnum<RelativeTeamType>();
+        var bitField = new BitField(3);
+        bitField.Read(reader);
+        if (bitField[0])
+            AccelerationMod = reader.ReadSingle();
+        if (bitField[1])
+            FrictionMod = reader.ReadSingle();
+        if (!bitField[2])
+            return;
+        AffectTeam = reader.ReadByteEnum<RelativeTeamType>();
     }
 
     public static void WriteRecord(BinaryWriter writer, BlockSpecialSlippery value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static BlockSpecialSlippery ReadRecord(BinaryReader reader)
     {
-      var blockSpecialSlippery = new BlockSpecialSlippery();
-      blockSpecialSlippery.Read(reader);
-      return blockSpecialSlippery;
+        var blockSpecialSlippery = new BlockSpecialSlippery();
+        blockSpecialSlippery.Read(reader);
+        return blockSpecialSlippery;
     }
 }

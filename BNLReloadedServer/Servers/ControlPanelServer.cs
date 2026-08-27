@@ -455,8 +455,10 @@ public sealed class ControlPanelServer : IDisposable
                     devices = detail.Devices.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
                         .Select(row => new
                         {
-                            slot = row.Slot, device = DescribeArchiveKey(row.DeviceKey),
-                            icon = DescribeArchiveDeviceIcon(row.DeviceKey), level = row.DeviceLevel
+                            slot = row.Slot,
+                            device = DescribeArchiveKey(row.DeviceKey),
+                            icon = DescribeArchiveDeviceIcon(row.DeviceKey),
+                            level = row.DeviceLevel
                         }),
                     perks = detail.Perks.Where(row => row.PresenceId == presence.Id).OrderBy(row => row.Slot)
                         .Select(row => new { slot = row.Slot, perk = DescribeArchiveKey(row.PerkKey), icon = DescribeArchivePerkIcon(row.PerkKey) })
@@ -781,13 +783,6 @@ public sealed class ControlPanelServer : IDisposable
 
     private async Task ServeStatus(HttpListenerContext ctx) => await WriteJson(ctx, GetStatus());
 
-    /// <remarks>
-    /// Deliberately its own route rather than a field on /api/status: the matchmaker is
-    /// live state that a reader can find mid-mutation, and a queue that has to report
-    /// itself unavailable must not be able to take the status figures with it.
-    /// This is <em>this process's</em> region only, while /api/status sums player_count
-    /// across every region registered on the master.
-    /// </remarks>
     private static async Task ServeQueues(HttpListenerContext ctx)
     {
         // RunServer sets the region database before the panel starts, so in the normal
@@ -805,12 +800,6 @@ public sealed class ControlPanelServer : IDisposable
         queues = Databases.RegionServerDatabase?.GetQueueSnapshot() ?? []
     };
 
-    /// <remarks>
-    /// Region-scoped like /api/queues, and for the same reason kept off /api/status,
-    /// whose player_count is summed across every region on the master. The whole
-    /// breakdown is counted in one pass server-side so the buckets cannot contradict
-    /// each other the way two separately-polled numbers can.
-    /// </remarks>
     private static async Task ServeActivity(HttpListenerContext ctx)
     {
         await WriteJson(ctx, GetActivity());
@@ -1042,16 +1031,6 @@ public sealed class ControlPanelServer : IDisposable
         });
     }
 
-    /// <summary>
-    /// Records newer than the caller's cursor. The panel used to be sent the whole 10 000-line
-    /// buffer every second and had to find the delta by matching a window of its own tail against
-    /// the snapshot; a sequence number makes that guesswork unnecessary.
-    ///
-    /// Sequence numbers restart with the process, so the boot id goes out with every response —
-    /// a caller whose boot id changed knows to drop its cursor and take the buffer from the top.
-    /// Levels are never filtered here: the config decides what gets recorded, and the panel
-    /// decides what gets shown, so raising the level cannot retroactively empty the history.
-    /// </summary>
     private static async Task ServeLogs(HttpListenerContext ctx, string? since)
     {
         var cursor = long.TryParse(since, out var parsed) ? parsed : 0;
@@ -1092,17 +1071,8 @@ public sealed class ControlPanelServer : IDisposable
         };
     }
 
-    /// <summary>
-    /// One authenticated connection replaces the panel's status, queue, player, and log polling.
-    /// The connection sleeps until a mutation publisher signals one or more affected snapshots.
-    /// </summary>
     private Task ServeEvents(HttpListenerContext ctx) => ServeEvents(ctx, requiresAuthentication: true);
 
-    /// <summary>
-    /// Public counterpart to the authenticated event stream. It deliberately shares only the
-    /// snapshots already exposed by public REST routes; logs and all admin-only state stay on
-    /// <c>/api/events</c>.
-    /// </summary>
     private Task ServePublicEvents(HttpListenerContext ctx) => ServeEvents(ctx, requiresAuthentication: false);
 
     private async Task ServeEvents(HttpListenerContext ctx, bool requiresAuthentication)

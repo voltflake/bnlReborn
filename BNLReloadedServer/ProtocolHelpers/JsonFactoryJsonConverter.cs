@@ -6,11 +6,11 @@ namespace BNLReloadedServer.ProtocolHelpers;
 public class JsonFactoryJsonConverter<T> : JsonConverter<T> where T : IJsonFactory<T>
 {
     public override bool CanConvert(Type objectType) => typeof(T).IsAssignableFrom(objectType);
-    
+
     public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.Null) 
-           return default;
+        if (reader.TokenType == JsonTokenType.Null)
+            return default;
 
         options = JsonHelper.DefaultSerializerSettings;
         var readerAtStart = reader;

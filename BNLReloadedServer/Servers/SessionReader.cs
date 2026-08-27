@@ -26,7 +26,7 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
                 WipeBuffer();
                 return;
             }
-           
+
             var bufferPos = _buffer.Position;
             _buffer.Seek(_buffer.Length - _buffer.Position, SeekOrigin.Current);
             _buffer.Write(buffer, (int)offset, (int)size);
@@ -37,7 +37,7 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
         {
             memStream = new MemoryStream(buffer, (int)offset, (int)size);
         }
-        
+
         using var reader = new BinaryReader(memStream);
         try
         {
@@ -46,7 +46,7 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
                 // The first part of every packet is an 7 bit encoded int of its length.
                 var startPosition = reader.BaseStream.Position;
                 var startLength = reader.BaseStream.Length;
-                
+
                 var packetLength = reader.Read7BitEncodedInt();
                 if (reader.BaseStream.Position + packetLength > reader.BaseStream.Length)
                 {
@@ -58,10 +58,10 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
                         memStream.CopyTo(_buffer);
                         _buffer.Position = 0;
                     }
-                    
+
                     break;
                 }
-                
+
                 var currentPosition = reader.BaseStream.Position;
 
                 Log.Debug(LogCat.Net, $"Packet length: {packetLength}");
@@ -83,7 +83,7 @@ public class SessionReader(IServiceDispatcher dispatcher, string onError)
                     reader.ReadBytes((int)(currentPosition + packetLength - reader.BaseStream.Position));
                 }
 
-                if (_packetInBuffer) 
+                if (_packetInBuffer)
                     WipeBuffer();
             }
         }

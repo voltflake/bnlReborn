@@ -9,19 +9,19 @@ public static class BinaryReaderHelper
 {
     extension(BinaryReader reader)
     {
-        public Vector2 ReadVector2() => 
+        public Vector2 ReadVector2() =>
             new(reader.ReadSingle(), reader.ReadSingle());
 
-        public Vector2s ReadVector2s() => 
+        public Vector2s ReadVector2s() =>
             new(reader.ReadInt16(), reader.ReadInt16());
 
-        public Vector3 ReadVector3() => 
+        public Vector3 ReadVector3() =>
             new(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 
-        public Vector3s ReadVector3s() => 
+        public Vector3s ReadVector3s() =>
             new(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
-        public Quaternion ReadQuaternion() => 
+        public Quaternion ReadQuaternion() =>
             new(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 
         public Color ReadColor()
@@ -33,18 +33,18 @@ public static class BinaryReaderHelper
             return Color.FromArgb(a, r, g, b);
         }
 
-        public ColorFloat ReadColorFloat() => 
+        public ColorFloat ReadColorFloat() =>
             new(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 
-        public Glicko ReadGlicko() => 
+        public Glicko ReadGlicko() =>
             new(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-        
+
         public Rating ReadRating() =>
             new(reader.ReadDouble(), reader.ReadDouble());
 
         public float ReadShortCoord() => reader.ReadInt16() / 100f;
 
-        public Vector2 ReadVector2Short() => 
+        public Vector2 ReadVector2Short() =>
             new(reader.ReadShortCoord(), reader.ReadShortCoord());
 
         public Vector3 ReadVector3Short() =>
@@ -182,7 +182,7 @@ public static class BinaryReaderHelper
             return !hasValue ? null : readFunc(reader);
         }
 
-        public T ReadByteEnum<T>() where T : Enum => (T) Enum.ToObject(typeof (T), reader.ReadByte());
+        public T ReadByteEnum<T>() where T : Enum => (T)Enum.ToObject(typeof(T), reader.ReadByte());
         public DateTime ReadDateTime() => new DateTime(1970, 1, 1).AddSeconds(reader.ReadUInt32());
     }
 }

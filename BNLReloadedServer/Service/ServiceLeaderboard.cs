@@ -13,7 +13,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
         MessageGetTimeTrialLeaderboard = 0,
         MessageGetLeagueLeaderboard = 1
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
         var memStream = new MemoryStream();
@@ -30,7 +30,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
         writer.Write(rpcId);
         if (data != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteMap(data, Key.WriteRecord, item => writer.WriteList(item, TtLeaderboardRecord.WriteRecord));
         }
         else if (eLeaderboardUpdateCooldown != null)
@@ -76,7 +76,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
         writer.Write(rpcId);
         if (data != null)
         {
-            writer.Write((byte) 0);
+            writer.Write((byte)0);
             writer.WriteList(data, LeagueLeaderboardRecord.WriteRecord);
         }
         else if (eLeaderboardUpdateCooldown != null)
@@ -106,7 +106,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
             SendGetLeagueLeaderboard(rpcId, null, new ELeaderboardUpdateCooldown());
         }
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceLeaderboardId = reader.ReadByte();
@@ -130,7 +130,7 @@ public class ServiceLeaderboard(ISender sender) : IServiceLeaderboard
                 Log.Warn(LogCat.Net, $"Unknown service leaderboard id {Log.EnumName(leaderboardEnum, serviceLeaderboardId)}");
                 return false;
         }
-        
+
         return true;
     }
 }

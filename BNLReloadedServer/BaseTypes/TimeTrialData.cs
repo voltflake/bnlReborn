@@ -39,7 +39,7 @@ public class TimeTrialData
         timeTrialData.Read(reader);
         return timeTrialData;
     }
-    
+
     public static byte[] WriteByteRecord(TimeTrialData timeTrialData)
     {
         var memStream = new MemoryStream();

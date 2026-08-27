@@ -16,34 +16,34 @@ public class MatchDataShieldCapture : MatchData
 
     public override void Write(BinaryWriter writer)
     {
-      new BitField(true, true, true).Write(writer);
-      writer.Write(UseMapBuildTime);
-      writer.Write(Build1Time);
-      writer.Write(EndMatchDelay);
+        new BitField(true, true, true).Write(writer);
+        writer.Write(UseMapBuildTime);
+        writer.Write(Build1Time);
+        writer.Write(EndMatchDelay);
     }
 
     public override void Read(BinaryReader reader)
     {
-      var bitField = new BitField(3);
-      bitField.Read(reader);
-      if (bitField[0])
-        UseMapBuildTime = reader.ReadBoolean();
-      if (bitField[1])
-        Build1Time = reader.ReadInt32();
-      if (!bitField[2])
-        return;
-      EndMatchDelay = reader.ReadSingle();
+        var bitField = new BitField(3);
+        bitField.Read(reader);
+        if (bitField[0])
+            UseMapBuildTime = reader.ReadBoolean();
+        if (bitField[1])
+            Build1Time = reader.ReadInt32();
+        if (!bitField[2])
+            return;
+        EndMatchDelay = reader.ReadSingle();
     }
 
     public static void WriteRecord(BinaryWriter writer, MatchDataShieldCapture value)
     {
-      value.Write(writer);
+        value.Write(writer);
     }
 
     public static MatchDataShieldCapture ReadRecord(BinaryReader reader)
     {
-      var dataShieldCapture = new MatchDataShieldCapture();
-      dataShieldCapture.Read(reader);
-      return dataShieldCapture;
+        var dataShieldCapture = new MatchDataShieldCapture();
+        dataShieldCapture.Read(reader);
+        return dataShieldCapture;
     }
 }

@@ -49,6 +49,6 @@ public class AsyncSenderTask
             Log.Error(LogCat.Net, "Send queue failed", e);
         }
     }
-    
+
     public void Stop() => _packetBuffer.Writer.TryComplete();
 }

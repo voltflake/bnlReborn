@@ -14,10 +14,10 @@ public class ServiceScene(ISender sender) : IServiceScene
         MessageEnterInstance = 2,
         MessageServerUpdate = 3
     }
-    
+
     private static BinaryWriter CreateWriter()
     {
-        var memStream =  new MemoryStream();
+        var memStream = new MemoryStream();
         var writer = new BinaryWriter(memStream);
         writer.Write((byte)ServiceId.ServiceScene);
         return writer;
@@ -42,7 +42,7 @@ public class ServiceScene(ISender sender) : IServiceScene
     public void SendEnterInstance(string host, int port, string auth)
     {
         using var writer = CreateWriter();
-        writer.Write((byte) ServiceSceneId.MessageEnterInstance);
+        writer.Write((byte)ServiceSceneId.MessageEnterInstance);
         writer.Write(host);
         writer.Write(port);
         writer.Write(auth);
@@ -56,7 +56,7 @@ public class ServiceScene(ISender sender) : IServiceScene
         ServerUpdate.WriteRecord(writer, update);
         sender.Send(writer);
     }
-    
+
     public bool Receive(BinaryReader reader)
     {
         var serviceSceneId = reader.ReadByte();
@@ -77,7 +77,7 @@ public class ServiceScene(ISender sender) : IServiceScene
                 Log.Warn(LogCat.Net, $"Scene service received unsupported serviceId: {Log.EnumName(sceneEnum, serviceSceneId)}");
                 return false;
         }
-        
+
         return true;
     }
 }
