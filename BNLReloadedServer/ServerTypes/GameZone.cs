@@ -345,13 +345,14 @@ public partial class GameZone : Updater
         }
     }
 
-    private Unit? CreateUnit(CardUnit unit, ZoneTransform transform, Unit? builder = null, IServiceZone? creatorService = null, bool isAttached = false)
+    private Unit? CreateUnit(CardUnit unit, ZoneTransform transform, Unit? builder = null,
+        IServiceZone? creatorService = null, bool isAttached = false, bool builtDevice = false)
     {
         var updater = creatorService != null
             ? _defaultUnitUpdater with { OnUnitInit = GetUnitInitAction(creatorService) }
             : _defaultUnitUpdater;
         var newUnit = CatalogueFactory.CreateUnit(NewUnitId(), unit.Key, transform, builder?.Team ?? TeamType.Neutral,
-            builder, updater, isAttached: isAttached);
+            builder, updater, isAttached: isAttached, builtDevice: builtDevice);
         if (newUnit == null) return newUnit;
 
         if (unit.CountLimit is { Limit: > 0 })

@@ -18,7 +18,8 @@ public partial class Unit
             CasterPlayerId = casterPlayerId ?? OwnerPlayerId,
             SourceKey = sourceKey ?? (UnitCard?.KillscoreIcon?.Length is > 0 ? Key : CatalogueHelper.DefaultSource),
             ShotPos = shotPos ?? GetExactPosition(),
-            Crit = crit
+            Crit = crit,
+            DamageCredit = DamageCredit
         };
 
     public ImpactData CreateImpactData(Vector3? insidePoint = null, Vector3? shotPos = null, Vector3s? normal = null,
@@ -31,7 +32,8 @@ public partial class Unit
             CasterPlayerId = casterPlayerId ?? OwnerPlayerId,
             SourceKey = sourceKey ?? (UnitCard?.KillscoreIcon?.Length is > 0 ? Key : CatalogueHelper.DefaultSource),
             ShotPos = shotPos ?? GetMidpoint(),
-            Crit = crit
+            Crit = crit,
+            DamageCredit = DamageCredit
         };
 
     public ImpactData CreateBlankImpactData() =>
@@ -386,6 +388,7 @@ public partial class Unit
         var currHealth = update.Health ?? _health;
         var newHealth = Math.Max(0.0f, currHealth - amount);
         update.Health = newHealth;
+        var actualDamage = DamageAccounting.Removed(currHealth, newHealth);
         var impact = source?.Impact ?? new ImpactData
         {
             InsidePoint = GetMidpoint(),
@@ -399,7 +402,10 @@ public partial class Unit
             Crit = false
         };
 
-        _updater.OnUnitDamaged(this, amount, impact);
+        if (actualDamage > 0)
+        {
+            _updater.OnUnitDamaged(this, actualDamage, impact);
+        }
 
         if ((update.Health ?? _health) <= 0.0f)
         {
@@ -567,13 +573,20 @@ public partial class Unit
                 var currShield = status.Shield;
                 var newShield = Math.Max(0.0f, currShield - dmg);
                 update.Shield = newShield;
+                var actualShieldDamage = DamageAccounting.Removed(currShield, newShield);
+                var actualHealthDamage = 0f;
                 if (newShield <= 0)
                 {
                     var curr2Health = status.Health;
                     var new2Health = Math.Max(0.0f, curr2Health - (dmg - (currShield - newShield)));
                     update.Health = new2Health;
+                    actualHealthDamage = DamageAccounting.Removed(curr2Health, new2Health);
                 }
-                _updater.OnUnitDamaged(this, dmg, impact);
+                var actualShieldAndHealthDamage = actualShieldDamage + actualHealthDamage;
+                if (actualShieldAndHealthDamage > 0)
+                {
+                    _updater.OnUnitDamaged(this, actualShieldAndHealthDamage, impact);
+                }
 
                 if (_rechargeForcefieldTime is not null && UnitCard?.Health?.Forcefield is { } force)
                 {
@@ -585,7 +598,11 @@ public partial class Unit
                 var currHealth = status.Health;
                 var newHealth = Math.Max(0.0f, currHealth - dmg);
                 update.Health = newHealth;
-                _updater.OnUnitDamaged(this, dmg, impact);
+                var actualHealthOnlyDamage = DamageAccounting.Removed(currHealth, newHealth);
+                if (actualHealthOnlyDamage > 0)
+                {
+                    _updater.OnUnitDamaged(this, actualHealthOnlyDamage, impact);
+                }
 
                 if (_rechargeForcefieldTime is not null && UnitCard?.Health?.Forcefield is { } frc)
                 {

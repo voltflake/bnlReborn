@@ -136,7 +136,8 @@ public partial class Unit
             ? ScoreType.RepairByHero
             : ScoreType.RepairByBlock, amount);
 
-    public void DamageStatsUpdate(TeamType targetTeam, float damage, bool crit, bool isFall, Unit? attacker, Unit? attackerPlayer)
+    public void DamageStatsUpdate(TeamType targetTeam, float damage, bool crit, bool isFall, Unit? attacker,
+        Unit? attackerPlayer, DamageCreditType recordedCredit = DamageCreditType.None)
     {
         if (isFall)
         {
@@ -150,7 +151,8 @@ public partial class Unit
         switch (UnitCard?.Health?.Health?.HealthType)
         {
             case HealthType.Player when PlayerId is not null:
-                if (attackerPlayer is not null && targetTeam != attackerPlayer.Team)
+                if (attackerPlayer is not null &&
+                    DamageAccounting.IsEnemyPlayerDamage(targetTeam, attackerPlayer.Team))
                 {
                     RecentDamagers[attackerPlayer] = DateTimeOffset.Now.AddSeconds(AssistSeconds);
 
@@ -169,7 +171,10 @@ public partial class Unit
                     }
                 }
 
-                if (attackerPlayer is not null && attackerPlayer == attacker)
+                var damageCredit = DamageAccounting.ResolveImpactCredit(recordedCredit,
+                    attackerPlayer is not null && attackerPlayer == attacker, attacker?.UnitCard?.DeviceType);
+
+                if (attackerPlayer is not null && damageCredit == DamageCreditType.Hero)
                 {
                     UpdateStat(ScoreType.DamagedByHero, damage);
                     if (crit)
@@ -177,7 +182,7 @@ public partial class Unit
                         UpdateStat(ScoreType.DamagedCriticalByHero, damage);
                     }
 
-                    if (targetTeam != attackerPlayer.Team)
+                    if (DamageAccounting.IsEnemyPlayerDamage(targetTeam, attackerPlayer.Team))
                     {
                         attackerPlayer.UpdateStat(ScoreType.DamagePlayerByHero, damage);
                         if (crit)
@@ -186,10 +191,14 @@ public partial class Unit
                         }
                     }
                 }
-                else if (attacker?.UnitCard?.DeviceType is not DeviceType.None)
+                else if (damageCredit == DamageCreditType.Block)
                 {
                     UpdateStat(ScoreType.DamagedByBlock, damage);
-                    attackerPlayer?.UpdateStat(ScoreType.DamagePlayerByBlock, damage);
+                    if (attackerPlayer is not null &&
+                        DamageAccounting.IsEnemyPlayerDamage(targetTeam, attackerPlayer.Team))
+                    {
+                        attackerPlayer.UpdateStat(ScoreType.DamagePlayerByBlock, damage);
+                    }
                 }
                 else
                 {

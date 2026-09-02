@@ -109,7 +109,7 @@ public static class CatalogueFactory
     }
 
     public static Unit? CreateUnit(uint id, Key unitKey, ZoneTransform location, TeamType team, Unit? owner,
-        UnitUpdater updater, float speed = 0, bool isAttached = false)
+        UnitUpdater updater, float speed = 0, bool isAttached = false, bool builtDevice = false)
     {
         var unit = Databases.Catalogue.GetCard<CardUnit>(unitKey);
         if (unit == null) return null;
@@ -124,6 +124,8 @@ public static class CatalogueFactory
         };
 
         var newUnit = new Unit(id, unitInit, updater);
+        newUnit.SetDamageCredit(DamageAccounting.ResolveSpawnCredit(builtDevice, unit.DeviceType,
+            unit.TreatHitsAsOwnerHits, owner?.DamageCredit ?? DamageCreditType.None));
 
         var startingEffects = newUnit.InitialEffects.ToDictionary();
         foreach (var effect in updater.GetTeamEffects(team).Where(e => newUnit.DoesEffectApply(e, team)))

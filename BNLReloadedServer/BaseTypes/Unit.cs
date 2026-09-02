@@ -26,6 +26,7 @@ public partial class Unit
     private bool _isCommonMovementActive;
     public float Resource;
     public uint? PlayerId;
+    public DamageCreditType DamageCredit { get; private set; }
     public readonly Key SkinKey = Key.None;
     public Key? AbilityKey;
     public int AbilityCharges;
@@ -148,6 +149,8 @@ public partial class Unit
 
     public UnitSource GetSelfSource(ImpactData? impactData = null) =>
         impactData == null ? SelfSource : new UnitSource(this, impactData);
+
+    internal void SetDamageCredit(DamageCreditType damageCredit) => DamageCredit = damageCredit;
 
     public Vector3 GetMidpoint() => GetMidpoint(Transform.Position);
 
@@ -766,6 +769,11 @@ public partial class Unit
         Team = unitInit.Team;
         PermaTeam = unitInit.Team;
         PlayerId = unitInit.PlayerId;
+        DamageCredit = PlayerId is not null
+            ? DamageCreditType.Hero
+            : UnitCard is { DeviceType: not DeviceType.None }
+                ? DamageCreditType.Block
+                : DamageCreditType.None;
         if (unitInit.SkinKey.HasValue)
             SkinKey = unitInit.SkinKey.Value;
         if (unitInit.Gears != null)

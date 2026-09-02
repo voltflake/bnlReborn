@@ -208,6 +208,12 @@ public partial class GameZone
             _ => null,
         };
 
+        // ImpactData received from an unmodified client cannot contain the new
+        // server-only credit metadata. Stamp it from the authoritative source at
+        // the first effect boundary, then preserve it through clones and DoTs.
+        impactData.DamageCredit = DamageAccounting.ResolveSourceCredit(impactData.DamageCredit,
+            source is BlockSource, unitSource?.DamageCredit ?? DamageCreditType.None);
+
         var impactPoint = impactData.InsidePoint;
         if (impactData.Normal != Vector3s.Zero)
         {
@@ -682,7 +688,8 @@ public partial class GameZone
                                                     or UnitBlockBindingType.Detach;
 
 
-                        var newUnit = CreateUnit(unitCard, transform, unitSource, unitSource.ZoneService, isAttachedToBlock);
+                        var newUnit = CreateUnit(unitCard, transform, unitSource, unitSource.ZoneService,
+                            isAttachedToBlock, builtDevice: true);
                         if (newUnit is null)
                         {
                             return false;
@@ -1621,7 +1628,8 @@ public partial class GameZone
 
         var targetTeam = target.Team;
 
-        target.DamageStatsUpdate(targetTeam, damage, impact.Crit, impact.SourceKey == CatalogueHelper.FallImpact, attacker, attackerPlayer);
+        target.DamageStatsUpdate(targetTeam, damage, impact.Crit,
+            impact.SourceKey == CatalogueHelper.FallImpact, attacker, attackerPlayer, impact.DamageCredit);
 
         if (target.UnitCard?.IsBase is true && target.HealthPercentage <= _zoneData.GameModeCard.Backfilling?.ObjectivesHealthThreshold)
         {

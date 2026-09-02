@@ -23,6 +23,10 @@ public class ImpactData
 
     public bool Crit { get; set; }
 
+    // Server-only attribution metadata. This is deliberately omitted from the
+    // recovered wire format so unmodified clients remain protocol-compatible.
+    internal DamageCreditType DamageCredit { get; set; }
+
     public void Write(BinaryWriter writer)
     {
         new BitField(true, true, CasterUnitId.HasValue, CasterPlayerId.HasValue, Impact.HasValue, SourceKey.HasValue,
@@ -83,6 +87,7 @@ public class ImpactData
           SourceKey = SourceKey,
           HitUnits = HitUnits?.ToList(),
           ShotPos = ShotPos,
-          Crit = Crit
+          Crit = Crit,
+          DamageCredit = DamageCredit
       };
 }
