@@ -261,6 +261,10 @@ public class DummyPlayerDatabase : IPlayerDatabase
     public PlayerUpdate? GetFullPlayerUpdate(uint playerId)
     {
         var globalLogic = CatalogueHelper.GlobalLogic;
+        var meritLogic = globalLogic.MeritLogic
+            ?? throw new InvalidOperationException("The catalogue is missing merit logic");
+        var leaverRating = globalLogic.LeaverRating
+            ?? throw new InvalidOperationException("The catalogue is missing leaver-rating logic");
         return new PlayerUpdate
         {
             Nickname = TestUserName,
@@ -269,8 +273,8 @@ public class DummyPlayerDatabase : IPlayerDatabase
             Friends = [],
             RequestsFromFriends = [],
             RequestsFromMe = [],
-            Merits = globalLogic.MeritLogic.MeritInitial,
-            LeaverRating = globalLogic.LeaverRating.InitValue,
+            Merits = meritLogic.MeritInitial,
+            LeaverRating = leaverRating.InitValue,
             LeaverState = LeaverState.Normal,
             Notifications = new Dictionary<int, Notification>(),
             Influence = globalLogic.MeritLogic.InfluenceInitial,
@@ -391,8 +395,10 @@ public class DummyPlayerDatabase : IPlayerDatabase
         {
             if (useMaxDeviceLevel)
             {
-                var dCard = Databases.Catalogue.GetCard<CardDevice>(deviceCard.Devices[0]);
-                deviceLevels[deviceCard.Key] = dCard.DeviceLevels.Count;
+                var dCard = deviceCard.Devices is { Count: > 0 } devices
+                    ? Databases.Catalogue.GetCard<CardDevice>(devices[0])
+                    : null;
+                deviceLevels[deviceCard.Key] = Math.Max(dCard?.DeviceLevels?.Count ?? 1, 1);
             }
             else
             {

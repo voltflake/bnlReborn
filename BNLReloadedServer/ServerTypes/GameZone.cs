@@ -201,8 +201,10 @@ public partial class GameZone : Updater
                 LookingForFriends = player.LookingForFriends
             });
 
-        var match = CatalogueHelper.GetMatch(mapData.Match, gameInitiator.GetGameMode());
-        var startingPhase = match?.Data?.Type is MatchType.ShieldCapture or MatchType.ShieldRush2
+        var match = CatalogueHelper.GetMatch(mapData.Match, gameInitiator.GetGameMode())
+            ?? throw new InvalidOperationException(
+                $"No match card exists for map mode '{mapData.Match}' and game mode '{gameInitiator.GetGameMode()}'");
+        var startingPhase = match.Data?.Type is MatchType.ShieldCapture or MatchType.ShieldRush2
             ? ZonePhaseType.Waiting
             : ZonePhaseType.TutorialInit;
 
@@ -1982,6 +1984,7 @@ public partial class GameZone : Updater
 
                 foreach (var (aura, bounds) in unit.AuraEffects)
                 {
+                    var auraImpact = unitSource.Impact ?? unit.CreateImpactData();
                     var previousColliders = unit.UnitsInAuraSinceLastUpdate.GetValueOrDefault(aura, []);
                     var currentColliders = _unitOctree.GetColliding(bounds);
                     var exiting = previousColliders.Except(currentColliders).ToList();
@@ -1991,7 +1994,7 @@ public partial class GameZone : Updater
                     {
                         if (aura.LeaveEffect != null)
                         {
-                            ApplyInstEffect(unitSource, exiting, aura.LeaveEffect, unitSource.Impact);
+                            ApplyInstEffect(unitSource, exiting, aura.LeaveEffect, auraImpact);
                         }
 
                         if (aura.ConstantEffects != null)
@@ -2006,7 +2009,7 @@ public partial class GameZone : Updater
                     {
                         if (aura.EnterEffect != null)
                         {
-                            ApplyInstEffect(unitSource, entering, aura.EnterEffect, unitSource.Impact);
+                            ApplyInstEffect(unitSource, entering, aura.EnterEffect, auraImpact);
                         }
 
                         if (aura.ConstantEffects != null)
@@ -2101,11 +2104,12 @@ public partial class GameZone : Updater
                             });
                         }
 
-                        if (doDmgCaptureCheck)
+                        if (doDmgCaptureCheck &&
+                            unitDataDamageCapture.DamagePerCapturer is { } damagePerCapturer)
                         {
                             for (var i = nearbyBaddies.Length; i > 0; i--)
                             {
-                                if (!unitDataDamageCapture.DamagePerCapturer.TryGetValue(i, out var dmg)) continue;
+                                if (!damagePerCapturer.TryGetValue(i, out var dmg)) continue;
                                 var dData = new DamageData(0, 0, 0, 0, 0, 0, 0,
                                     dmg, false, false, false, true);
                                 foreach (var enemy in nearbyBaddies)

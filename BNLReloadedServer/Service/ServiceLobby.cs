@@ -255,10 +255,12 @@ public class ServiceLobby(ISender sender) : IServiceLobby
                 ReceiveExitToMenu(reader);
                 break;
             case ServiceLobbyId.MessageExitToCustomGame:
-                ReceiveExitToCustomGame(reader);
+                ReceiveExitToCustomGame(reader).ObserveFailure(LogCat.Net,
+                    "Failed to move match players back to their custom game");
                 break;
             case ServiceLobbyId.MessageExitToMenuAsSquad:
-                ReceiveExitToMenuAsSquad(reader);
+                ReceiveExitToMenuAsSquad(reader).ObserveFailure(LogCat.Net,
+                    "Failed to move a squad from the match to the menu");
                 break;
             default:
                 Log.Warn(LogCat.Net, $"Unknown service lobby id {Log.EnumName(lobbyEnum, serviceLobbyId)}");

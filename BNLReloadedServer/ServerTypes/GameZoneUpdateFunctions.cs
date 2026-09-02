@@ -1307,7 +1307,7 @@ public partial class GameZone
                         return true;
                     }
 
-                    var newPos = GetAdjustedPos(adjustedPosition);
+                    var newPos = GetAdjustedPos(adjustedPosition, unitSource);
                     if (newPos is null)
                     {
                         continue;
@@ -1352,7 +1352,7 @@ public partial class GameZone
 
                 if (uCard.Size is not null && uCard.Size != Vector3s.Zero && uCard.Labels?.Contains(UnitLabel.ShieldGeneratorDestroyed) is not true)
                 {
-                    var adjustedPos = GetAdjustedPos(GetShiftedPos(placePoint, true));
+                    var adjustedPos = GetAdjustedPos(GetShiftedPos(placePoint, true), null, uCard.Size);
                     if (adjustedPos is not null)
                     {
                         placePoint = adjustedPos.Value;
@@ -1400,11 +1400,12 @@ public partial class GameZone
         bool CanFit(Vector3 pos) => MapBinary.GetCanFit(unitSource, pos) && CollidingWithUnit(unitSource, pos).All(u =>
             (u.UnitCard?.Size ?? Vector3s.Zero) == Vector3s.Zero);
 
-        bool CanFitPoint(Vector3 pos) => (!MapBinary.ContainsBlock((Vector3s)pos) ||
-                                          MapBinary[(Vector3s)pos].Card.Passable == BlockPassableType.Any) &&
-                                         _unitOctree.GetColliding(new BoundingBoxEx(pos, new Vector3(0.01f)))
-                                             .Where(u => u.Id != unitSource.Id && u.Key != CatalogueHelper.SmokeBomb).All(u =>
-                                                 (u.UnitCard?.Size ?? Vector3s.Zero) == Vector3s.Zero);
+        bool CanFitPoint(Vector3 pos, uint? ignoredUnitId) =>
+            (!MapBinary.ContainsBlock((Vector3s)pos) ||
+             MapBinary[(Vector3s)pos].Card.Passable == BlockPassableType.Any) &&
+            _unitOctree.GetColliding(new BoundingBoxEx(pos, new Vector3(0.01f)))
+                .Where(u => u.Id != ignoredUnitId && u.Key != CatalogueHelper.SmokeBomb).All(u =>
+                    (u.UnitCard?.Size ?? Vector3s.Zero) == Vector3s.Zero);
 
         Vector3 GetShiftedPos(Vector3 pos, bool doYCheck) =>
             shift switch
@@ -1442,25 +1443,27 @@ public partial class GameZone
                 _ => pos
             };
 
-        Vector3? GetAdjustedPos(Vector3 pos)
+        Vector3? GetAdjustedPos(Vector3 pos, Unit? placementUnit, Vector3s? sizeOverride = null)
         {
-            var uSize = unitSource.UnitCard?.Size ?? Vector3s.Zero;
-            var vecX = unitSource.PlayerId != null ? 0.25f : uSize.x * 0.5f;
-            var vecY = unitSource.PlayerId != null
-                ? unitSource.Transform.IsCrouch ? 0.45f : 0.95f
+            var uSize = sizeOverride ?? placementUnit?.UnitCard?.Size ?? Vector3s.Zero;
+            var isPlayer = placementUnit?.PlayerId != null;
+            var vecX = isPlayer ? 0.25f : uSize.x * 0.5f;
+            var vecY = isPlayer
+                ? placementUnit!.Transform.IsCrouch ? 0.45f : 0.95f
                 : uSize.y * 0.5f;
-            var vecZ = unitSource.PlayerId != null ? vecX : uSize.z * 0.5f;
+            var vecZ = isPlayer ? vecX : uSize.z * 0.5f;
+            var ignoredUnitId = placementUnit?.Id;
 
 
             var fitXPos = CanFitPoint(pos with
             {
                 X = pos.X + vecX - UnitSizeHelper.HalfImprecisionVector.X
-            });
+            }, ignoredUnitId);
 
             var fitXNeg = CanFitPoint(pos with
             {
                 X = pos.X - vecX + UnitSizeHelper.HalfImprecisionVector.X
-            });
+            }, ignoredUnitId);
 
             if (!fitXPos && !fitXNeg)
             {
@@ -1478,12 +1481,12 @@ public partial class GameZone
             var fitYPos = CanFitPoint(pos with
             {
                 Y = pos.Y + vecY - UnitSizeHelper.HalfImprecisionVector.Y
-            });
+            }, ignoredUnitId);
 
             var fitYNeg = CanFitPoint(pos with
             {
                 Y = pos.Y - vecY + UnitSizeHelper.HalfImprecisionVector.Y
-            });
+            }, ignoredUnitId);
 
             if (!fitYPos && !fitYNeg)
             {
@@ -1501,12 +1504,12 @@ public partial class GameZone
             var fitZPos = CanFitPoint(pos with
             {
                 Z = pos.Z + vecZ - UnitSizeHelper.HalfImprecisionVector.Z
-            });
+            }, ignoredUnitId);
 
             var fitZNeg = CanFitPoint(pos with
             {
                 Z = pos.Z - vecZ + UnitSizeHelper.HalfImprecisionVector.Z
-            });
+            }, ignoredUnitId);
 
             if (!fitZPos && !fitZNeg)
             {

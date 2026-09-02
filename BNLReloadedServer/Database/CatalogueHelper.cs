@@ -158,14 +158,14 @@ public static class CatalogueHelper
     }
     extension(ShopData shop)
     {
-        public T GetCategory<T>() where T : ShopCategory
+        public T? GetCategory<T>() where T : ShopCategory
         {
-            return shop.Categories.Find((Predicate<ShopCategory>)(c => c is T)) as T;
+            return shop.Categories?.OfType<T>().FirstOrDefault();
         }
 
         public List<T> GetCategories<T>() where T : ShopCategory
         {
-            return shop.Categories.FindAll((Predicate<ShopCategory>)(c => c is T)).ConvertAll((Converter<ShopCategory, T>)(c => c as T));
+            return shop.Categories?.OfType<T>().ToList() ?? [];
         }
     }
 
@@ -175,13 +175,15 @@ public static class CatalogueHelper
         {
             var promotion = item.Promotion;
             if (promotion != null) return promotion;
-            foreach (var category in ShopLogic.Shop!.Categories)
+            if (ShopLogic.Shop?.Categories is not { } categories) return promotion;
+
+            foreach (var category in categories)
             {
                 if (promotion != null) continue;
                 var shopCategoryBundles = category as ShopCategoryBundles;
                 var shopItemPromotion = category is not ShopCategoryCommon shopCategoryCommon ? shopCategoryBundles?.Promotion : shopCategoryCommon.Promotion;
                 if (shopItemPromotion == null) continue;
-                if (category.Items!.Any(key => key == item.Key))
+                if (category.Items?.Contains(item.Key) is true)
                 {
                     promotion = shopItemPromotion;
                 }
@@ -216,11 +218,24 @@ public static class CatalogueHelper
 
     public static List<Key> GetSkinsInShop(Key hero)
     {
-        var data = hero.GetCard<CardUnit>()!.Data as UnitDataPlayer;
         var skinsInShop = new List<Key>();
-        foreach (var key2 in from category in ShopLogic.Shop!.Categories from key1 in category.Items from key2 in key1.GetCard<CardShopItem>()!.Items where key2.GetCard<CardSkin>() != null && data!.Skins.Contains(key2) && !skinsInShop.Contains(key2) select key2)
+        if (hero.GetCard<CardUnit>()?.Data is not UnitDataPlayer { Skins: not null } data ||
+            ShopLogic.Shop?.Categories is not { } categories)
         {
-            skinsInShop.Add(key2);
+            return skinsInShop;
+        }
+
+        foreach (var shopItemKey in categories.SelectMany(category => category.Items ?? []))
+        {
+            if (shopItemKey.GetCard<CardShopItem>()?.Items is not { } itemKeys) continue;
+            foreach (var skinKey in itemKeys)
+            {
+                if (skinKey.GetCard<CardSkin>() is not null && data.Skins.Contains(skinKey) &&
+                    !skinsInShop.Contains(skinKey))
+                {
+                    skinsInShop.Add(skinKey);
+                }
+            }
         }
         return skinsInShop;
     }
@@ -257,7 +272,8 @@ public static class CatalogueHelper
     {
         if (level <= 1)
             return 0.0f;
-        var playerXp = GlobalLogic.XpLogic?.PlayerXp;
+        var playerXp = GlobalLogic.XpLogic?.PlayerXp
+            ?? throw new InvalidOperationException("The catalogue is missing player XP progression logic");
         return (float)(playerXp.FlatCoeff + playerXp.MultCoeff * Math.Pow((float)(level - 1), playerXp.PowerCoeff));
     }
 
@@ -265,7 +281,8 @@ public static class CatalogueHelper
     {
         if (level <= 1)
             return 0.0f;
-        var heroXp = GlobalLogic.XpLogic?.HeroXp;
+        var heroXp = GlobalLogic.XpLogic?.HeroXp
+            ?? throw new InvalidOperationException("The catalogue is missing hero XP progression logic");
         return (float)(heroXp.FlatCoeff + heroXp.MultCoeff * Math.Pow((float)(level - 1), heroXp.PowerCoeff));
     }
 

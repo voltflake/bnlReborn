@@ -378,7 +378,8 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
         info.ActiveScene = scene;
         LiveStateChanged();
         sceneService.SendChangeScene(scene);
-        NotifyFriends(userId);
+        NotifyFriends(userId).ObserveFailure(LogCat.Player,
+            $"Failed to notify friends after scene update for player {userId}");
         switch (scene.Type)
         {
             case SceneType.Lobby:
@@ -1133,8 +1134,9 @@ public class RegionServerDatabase(AsyncTaskTcpServer server, AsyncTaskTcpServer 
             if (info.CustomGameId.HasValue)
             {
                 var custom = CatalogueHelper.ModeCustom;
-                var entry = byMode.GetValueOrDefault(custom.Id, (Name: custom.Name, Players: 0));
-                byMode[custom.Id] = (entry.Name, entry.Players + 1);
+                var customId = custom.Id ?? custom.Key.ToString();
+                var entry = byMode.GetValueOrDefault(customId, (Name: custom.Name, Players: 0));
+                byMode[customId] = (entry.Name, entry.Players + 1);
                 continue;
             }
 

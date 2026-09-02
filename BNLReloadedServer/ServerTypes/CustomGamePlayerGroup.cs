@@ -80,7 +80,7 @@ public class CustomGamePlayerGroup(IServiceMatchmaker matchService) : IGameIniti
                 Id = playerId,
                 SteamId = player.SteamId,
                 Nickname = player.Nickname,
-                PlayerLevel = player.Progression!.PlayerProgress.Level,
+                PlayerLevel = player.Progression?.PlayerProgress?.Level ?? 1,
                 SelectedBadges = player.SelectedBadges,
                 Owner = isOwner,
                 Team = GetBalancedTeam(),

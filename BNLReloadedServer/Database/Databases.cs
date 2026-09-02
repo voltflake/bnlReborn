@@ -27,10 +27,13 @@ public static class Databases
     public static IMapDatabase MapDatabase => LazyMapDatabase.Value;
     public static IConfigDatabase ConfigDatabase => LazyConfigDatabase.Value;
     public static IMasterServerDatabase MasterServerDatabase => LazyServer.Value;
-    public static IRegionServerDatabase RegionServerDatabase { get; private set; }
+    private static IRegionServerDatabase? _regionServerDatabase;
+
+    public static IRegionServerDatabase RegionServerDatabase => _regionServerDatabase
+        ?? throw new InvalidOperationException("The region server database has not been initialized");
     public static Catalogue Catalogue => LazyCatalogue.Value;
     public static GameInfo DefaultGameInfo { get; } = new(DefaultMean, DefaultSd, DefaultBeta, DefaultDynamicFactor, 0);
 
     public static void SetRegionDatabase(IRegionServerDatabase regionServerDatabase) =>
-        RegionServerDatabase = regionServerDatabase;
+        _regionServerDatabase = regionServerDatabase;
 }

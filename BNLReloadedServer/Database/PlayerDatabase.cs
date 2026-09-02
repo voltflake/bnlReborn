@@ -570,7 +570,8 @@ public class PlayerDatabase : IPlayerDatabase
         if (friends != null)
         {
             player.Friends = friends;
-            Databases.RegionServerDatabase.NotifyFriends(playerId);
+            Databases.RegionServerDatabase.NotifyFriends(playerId).ObserveFailure(LogCat.Player,
+                $"Failed to notify friends after updating player {playerId}'s friend list");
         }
 
         if (requestsFor != null)

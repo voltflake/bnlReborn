@@ -11,7 +11,7 @@ public class LobbyData
     public List<LobbyMapData> Maps = [];
     public bool IsStarted;
     public readonly Dictionary<uint, PlayerLobbyState> Players = new();
-    public LobbyTimer Timer;
+    public LobbyTimer Timer = new();
     public Key GameModeKey;
     public readonly Dictionary<TeamType, List<uint>> RequeuePlayers = new();
     public readonly Dictionary<TeamType, LobbyTimer> RequeueTimers = new();

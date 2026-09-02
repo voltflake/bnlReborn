@@ -79,12 +79,10 @@ public class GearData
 
     public float GetReloadTime()
     {
-        if (Card.Reload == null)
-            return 0.0f;
-        return Card.Reload.Type switch
+        return Card.Reload switch
         {
-            ReloadType.FullClip => (Card.Reload! as ReloadFullClip).ReloadTime,
-            ReloadType.Partial => (Card.Reload! as ReloadPartial).ReloadTime,
+            ReloadFullClip fullClip => fullClip.ReloadTime,
+            ReloadPartial partial => partial.ReloadTime,
             _ => 0.0f
         };
     }

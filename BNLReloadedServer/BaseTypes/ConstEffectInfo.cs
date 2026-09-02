@@ -17,7 +17,8 @@ public record ConstEffectInfo(Key Key, ulong? TimestampEnd)
     {
     }
 
-    public CardEffect Card => Databases.Catalogue.GetCard<CardEffect>(Key);
+    public CardEffect Card => Databases.Catalogue.GetCard<CardEffect>(Key)
+        ?? throw new InvalidOperationException($"Effect card '{Key}' is missing from the catalogue");
 
     public bool HasDuration => Card.Duration.HasValue && ExpirationTime.HasValue;
 

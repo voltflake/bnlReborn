@@ -36,7 +36,7 @@ public class ZoneData(ZoneUpdater updater)
     public TeamType SurrenderTeam;
     public bool CanSwitchHero;
     public bool ForceThirdPerson;
-    public SupplyInfo SupplyInfo;
+    public SupplyInfo SupplyInfo = new();
 
     public bool IsTimeTrial { get; private set; }
 

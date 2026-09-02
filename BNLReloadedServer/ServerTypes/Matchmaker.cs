@@ -56,7 +56,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
         public Timer? QueueTimer { get; set; }
         public ulong? ConfTime { get; set; }
 
-        public CardGameMode GameModeCard => Databases.Catalogue.GetCard<CardGameMode>(GameModeKey);
+        public CardGameMode GameModeCard => Databases.Catalogue.GetCard<CardGameMode>(GameModeKey)
+            ?? throw new InvalidOperationException($"Game mode card '{GameModeKey}' is missing from the catalogue");
 
         public bool EnoughForPop() => Players.Count >= GameModeCard.PlayersPerTeam * 2;
     }
@@ -368,12 +369,12 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         .Select(p =>
                         {
                             if (p is null)
-                                return (null, 0);
+                                return ((PlayerQueueData?)null, 0d);
                             var team1 = backfillInfo.Team1.ToDictionary(k => new Player<uint>(k.Key), v => v.Value);
                             team1.Add(new Player<uint>(player.PlayerId), player.Rating);
                             var team2 = backfillInfo.Team2.ToDictionary(k => new Player<uint>(k.Key), v => v.Value);
                             team2.Add(new Player<uint>(p.PlayerId), p.Rating);
-                            return (p,
+                            return ((PlayerQueueData?)p,
                                 TrueSkillCalculator.CalculateMatchQuality(Databases.DefaultGameInfo, [team1, team2]));
                         })
                         .MaxBy(r => r.Item2);
@@ -671,7 +672,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
 
                 ShowQueueMessage($"Backfilling for {queue.GameModeCard.Id}: {info.GameInstanceId}");
                 queue.ActiveBackfillInfo = info;
-                var confirmTime = CatalogueHelper.GlobalLogic.Matchmaker.ConfirmTime;
+                var confirmTime = CatalogueHelper.GlobalLogic.Matchmaker?.ConfirmTime
+                    ?? throw new InvalidOperationException("The catalogue is missing matchmaker confirmation timing");
                 queue.ConfTime = (ulong)DateTimeOffset.Now.AddSeconds(confirmTime).ToUnixTimeMilliseconds();
                 var matchUpdate = new MatchmakerUpdate
                 {
@@ -724,7 +726,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
         }
         queue.Team1 = balancedTeams[0];
         queue.Team2 = balancedTeams[1];
-        var confTime = CatalogueHelper.GlobalLogic.Matchmaker.ConfirmTime;
+        var confTime = CatalogueHelper.GlobalLogic.Matchmaker?.ConfirmTime
+            ?? throw new InvalidOperationException("The catalogue is missing matchmaker confirmation timing");
         queue.ConfTime = (ulong)DateTimeOffset.Now.AddSeconds(confTime).ToUnixTimeMilliseconds();
 
         ShowQueueMessage($"Creating pop for {queue.GameModeCard.Id}, {queue.MatchSender1.SenderCount} in the sender");
@@ -916,7 +919,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
                         (queue.Team1.Any(p => p.PlayerId == player.PlayerId) ||
                          queue.Team2.Any(p => p.PlayerId == player.PlayerId)))
                     {
-                        HandleQueueVote(queue, player, confirm, serviceMatchmaker);
+                        HandleQueueVote(queue, player, confirm, serviceMatchmaker).ObserveFailure(LogCat.Match,
+                            $"Failed to process queue vote for player {playerId}");
                     }
                     break;
 
@@ -924,7 +928,8 @@ public class Matchmaker(AsyncTaskTcpServer server)
                     if (queue.Team1?.Any(p => p.PlayerId == player.PlayerId) is true ||
                         queue.Team2?.Any(p => p.PlayerId == player.PlayerId) is true)
                     {
-                        HandleQueueVote(queue, player, confirm, serviceMatchmaker);
+                        HandleQueueVote(queue, player, confirm, serviceMatchmaker).ObserveFailure(LogCat.Match,
+                            $"Failed to process backfill vote for player {playerId}");
                     }
                     break;
 

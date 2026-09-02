@@ -21,7 +21,8 @@ public class GearAmmo
         Pool = !IsPool ? 0.0f : PoolSize;
     }
 
-    public CardGear GearCard => Databases.Catalogue.GetCard<CardGear>(GearKey);
+    public CardGear GearCard => Databases.Catalogue.GetCard<CardGear>(GearKey)
+        ?? throw new InvalidOperationException($"Gear card '{GearKey}' is missing from the catalogue");
 
     public bool IsPool => GearCard.Ammo?[AmmoIndex].Pool != null;
 

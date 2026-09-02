@@ -6,7 +6,8 @@ namespace BNLReloadedServer.ServerTypes;
 
 public class DummyGameInitiator(CardGameMode gameMode, MapData map, TeamType team, bool mapEditor) : Updater, IGameInitiator
 {
-    public CardMatch MatchCard { get; } = CatalogueHelper.GetMatch(map.Match, gameMode.Key);
+    public CardMatch MatchCard { get; } = CatalogueHelper.GetMatch(map.Match, gameMode.Key)
+        ?? throw new InvalidOperationException($"No match card exists for map mode '{map.Match}' and game mode '{gameMode.Key}'");
 
     public string? GameInstanceId { get; set; }
 

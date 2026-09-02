@@ -1,4 +1,6 @@
 using BNLReloadedServer.BaseTypes;
+using BNLReloadedServer.Database;
+using Moserware.Skills;
 
 static void Equal<T>(T expected, T actual, string scenario) where T : notnull
 {
@@ -67,4 +69,18 @@ Equal(false, DamageAccounting.IsEnemyPlayerDamage(TeamType.Team1, TeamType.Team1
 Equal(true, DamageAccounting.IsEnemyPlayerDamage(TeamType.Team2, TeamType.Team1),
     "enemy damage is positive credited damage");
 
-Console.WriteLine("Damage accounting fixture passed (17 assertions).");
+// Moserware.Skills only publishes a .NET Framework package, so exercise its
+// runtime path explicitly while retaining the legacy matchmaking algorithm.
+var team1 = new Dictionary<Player<uint>, Rating>
+{
+    [new Player<uint>(1)] = new Rating(Databases.DefaultMean, Databases.DefaultSd)
+};
+var team2 = new Dictionary<Player<uint>, Rating>
+{
+    [new Player<uint>(2)] = new Rating(Databases.DefaultMean, Databases.DefaultSd)
+};
+var matchQuality = TrueSkillCalculator.CalculateMatchQuality(Databases.DefaultGameInfo, [team1, team2]);
+Equal(true, double.IsFinite(matchQuality) && matchQuality is >= 0 and <= 1,
+    "legacy TrueSkill package executes on the current runtime");
+
+Console.WriteLine("Server accounting fixture passed (18 assertions).");

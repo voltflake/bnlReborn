@@ -25,6 +25,8 @@ public class KeyJsonConverter : JsonConverter<Key>
 
     public override void WriteAsPropertyName(Utf8JsonWriter writer, Key value, JsonSerializerOptions options)
     {
-        writer.WritePropertyName(Databases.Catalogue.GetCard<Card>(value)!.Id);
+        var id = Databases.Catalogue.GetCard<Card>(value)?.Id
+            ?? throw new JsonException($"Cannot serialize unknown catalogue key '{value}' as a property name");
+        writer.WritePropertyName(id);
     }
 }

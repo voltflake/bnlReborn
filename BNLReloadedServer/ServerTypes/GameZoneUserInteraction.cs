@@ -1006,15 +1006,16 @@ public partial class GameZone
                         break;
 
                     case ToolCharge toolCharge:
-                        if (shot.ChargeLength >= toolCharge.MaxChargeTime && toolCharge.MaxOptions.HitEffect is not null)
+                        if (shot.ChargeLength >= toolCharge.MaxChargeTime &&
+                            toolCharge.MaxOptions?.HitEffect is { } maxHitEffect)
                         {
                             ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
-                                toolCharge.MaxOptions.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
+                                maxHitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         }
-                        else if (toolCharge.MinOptions.HitEffect is not null)
+                        else if (toolCharge.MinOptions?.HitEffect is { } minHitEffect)
                         {
                             ApplyInstEffect(casterSource, hitTarget is not null ? [hitTarget] : [],
-                                toolCharge.MinOptions.HitEffect, impactData, hitData.OutsideShift, hitData.Direction);
+                                minHitEffect, impactData, hitData.OutsideShift, hitData.Direction);
                         }
                         break;
 
@@ -1408,9 +1409,10 @@ public partial class GameZone
         var yesCount = 0;
         var noCount = 0;
 
-        foreach (var play in _playerUnits.Values.Where(p => p.Team == player.Team && p.PlayerId.HasValue))
+        foreach (var play in _playerUnits.Values.Where(p => p.Team == player.Team))
         {
-            if (_zoneData.SurrenderVotes.TryGetValue(play.PlayerId.Value, out var vote))
+            if (play.PlayerId is { } voterId &&
+                _zoneData.SurrenderVotes.TryGetValue(voterId, out var vote))
             {
                 switch (vote)
                 {
