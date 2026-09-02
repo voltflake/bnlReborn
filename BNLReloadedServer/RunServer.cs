@@ -1,4 +1,5 @@
 ﻿using BNLReloadedServer;
+using BNLReloadedServer.Authentication;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.ControlPanel;
 using BNLReloadedServer.Database;
@@ -13,6 +14,14 @@ Log.Attach();
 
 var configs = Databases.ConfigDatabase;
 Log.MinLevel = configs.MinLogLevel();
+if (RebornGameTicketValidator.Shared.ConfigurationError is { } authConfigurationError)
+{
+    Log.Warn(LogCat.Server, authConfigurationError);
+}
+else
+{
+    Log.Info(LogCat.Server, "BNL Reborn signed game-ticket authentication is enabled.");
+}
 const int bufferSize = 2_000_000; // 2 MB
 
 var catalogueStore = new CouchCatalogueStore(

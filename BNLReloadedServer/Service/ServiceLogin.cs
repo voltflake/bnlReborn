@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using BNLReloadedServer.Authentication;
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
 using BNLReloadedServer.ProtocolHelpers;
@@ -260,6 +261,16 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         }
         sender.Send(writer);
 
+        if (!playerId.HasValue)
+        {
+            return;
+        }
+
+        SendInitialRegionState();
+    }
+
+    private void SendInitialRegionState()
+    {
         var regionServers = _masterServerDatabase.GetRegionServers().Select(region => new RegionInfo
         {
             Id = region.Id,
@@ -289,13 +300,9 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
     private void ReceiveLoginMasterSteam(BinaryReader reader)
     {
         var rpcId = reader.ReadUInt16();
-        var loginInfo = SteamLoginInfo.ReadRecord(reader);
-        var player = _masterServerDatabase.GetPlayer(loginInfo.SteamId).Result;
-        sender.AssociatedPlayerId = player?.PlayerId ??
-                                    _masterServerDatabase.AddPlayer(loginInfo.SteamId, string.Empty, "master").Result
-                                        .PlayerId;
-        RecordLoginAddress(sender.AssociatedPlayerId.Value);
-        SendLoginMasterSteam(rpcId, sender.AssociatedPlayerId);
+        _ = SteamLoginInfo.ReadRecord(reader);
+        SendLoginMasterSteam(rpcId, null, error:
+            "This server requires the BNL Reborn launcher and no longer accepts legacy Steam login.");
     }
 
     public void SendLoginMasterXxx(ushort rpcId, uint? id2, EAuthFailed? authFailed = null, string? error = null)
@@ -326,6 +333,21 @@ public class ServiceLogin(ISender sender, Guid sessionId, Func<IPAddress?> peerA
         var rpcId = reader.ReadUInt16();
         var id = reader.ReadString();
         var token = reader.ReadString();
+        var validator = RebornGameTicketValidator.Shared;
+        if (!validator.TryValidateAndConsume(id, token, out var identity, out var error) || identity is null)
+        {
+            Log.Warn(LogCat.Conn, $"Rejected Reborn login from {peerAddress()}: {error}");
+            SendLoginMasterXxx(rpcId, null, error: error);
+            return;
+        }
+
+        var player = _masterServerDatabase.GetPlayer(identity.SteamId).Result;
+        sender.AssociatedPlayerId = player?.PlayerId ??
+                                    _masterServerDatabase.AddPlayer(identity.SteamId, identity.DisplayName, "master")
+                                        .Result.PlayerId;
+        RecordLoginAddress(sender.AssociatedPlayerId.Value);
+        SendLoginMasterXxx(rpcId, sender.AssociatedPlayerId);
+        SendInitialRegionState();
     }
 
     public void SendLoginMasterPpp(ushort rpcId, uint? id2, EAuthFailed? authFailed = null, string? error = null)
