@@ -1,5 +1,7 @@
 using BNLReloadedServer.BaseTypes;
 using BNLReloadedServer.Database;
+using BNLReloadedServer.Servers;
+using BNLReloadedServer.Service;
 using Moserware.Skills;
 
 static void Equal<T>(T expected, T actual, string scenario) where T : notnull
@@ -83,4 +85,22 @@ var matchQuality = TrueSkillCalculator.CalculateMatchQuality(Databases.DefaultGa
 Equal(true, double.IsFinite(matchQuality) && matchQuality is >= 0 and <= 1,
     "legacy TrueSkill package executes on the current runtime");
 
-Console.WriteLine("Server accounting fixture passed (18 assertions).");
+// RegionServerDatabase creates the global chat room before it publishes itself
+// through Databases. ServiceChat must therefore defer that global lookup until
+// it handles a client request.
+Equal(true, new ServiceChat(new FixtureSender()) is not null,
+    "chat service construction does not require an initialized region database");
+
+Console.WriteLine("Server accounting fixture passed (19 assertions).");
+
+sealed class FixtureSender : ISender
+{
+    public uint? AssociatedPlayerId { get; set; }
+    public int SenderCount => 0;
+    public void Send(BinaryWriter writer) { }
+    public void Send(byte[] buffer) { }
+    public void SendExcept(BinaryWriter writer, List<Guid> excluded) { }
+    public void Subscribe(Guid sessionId) { }
+    public void Unsubscribe(Guid sessionId) { }
+    public void UnsubscribeAll() { }
+}

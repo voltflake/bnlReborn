@@ -22,7 +22,10 @@ public class ServiceChat(ISender sender) : IServiceChat
         MessageSendServiceMessage = 9
     }
 
-    private readonly IRegionServerDatabase _serverDatabase = Databases.RegionServerDatabase;
+    // The global chat service is constructed as part of RegionServerDatabase itself, before
+    // RunServer can publish that database through Databases. Resolve it only when a client
+    // request arrives, after server initialization has completed.
+    private static IRegionServerDatabase ServerDatabase => Databases.RegionServerDatabase;
 
     private static BinaryWriter CreateWriter()
     {
@@ -45,7 +48,7 @@ public class ServiceChat(ISender sender) : IServiceChat
         var playerId = reader.ReadUInt32();
         var ignore = reader.ReadBoolean();
         if (sender.AssociatedPlayerId == null) return;
-        _serverDatabase.SetIgnored(sender.AssociatedPlayerId.Value, playerId, ignore);
+        ServerDatabase.SetIgnored(sender.AssociatedPlayerId.Value, playerId, ignore);
     }
 
     public void SendRoomAdd(RoomId room)
@@ -79,7 +82,7 @@ public class ServiceChat(ISender sender) : IServiceChat
         var playerId = reader.ReadUInt32();
         var message = reader.ReadString();
         if (sender.AssociatedPlayerId == null) return;
-        var result = _serverDatabase.SendMessage(sender.AssociatedPlayerId.Value, playerId, message);
+        var result = ServerDatabase.SendMessage(sender.AssociatedPlayerId.Value, playerId, message);
         if (result != null)
         {
             SendPrivateMessageFailed(playerId, result.Value);
@@ -113,7 +116,7 @@ public class ServiceChat(ISender sender) : IServiceChat
         var roomId = RoomId.ReadVariant(reader);
         var message = reader.ReadString();
         if (sender.AssociatedPlayerId == null) return;
-        _serverDatabase.SendMessage(sender.AssociatedPlayerId.Value, roomId, message);
+        ServerDatabase.SendMessage(sender.AssociatedPlayerId.Value, roomId, message);
     }
 
     public void SendServiceMessage(RoomId? roomId, string message, bool isLocalized, Dictionary<string, string> arguments)
